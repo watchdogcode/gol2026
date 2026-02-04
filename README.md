@@ -88,7 +88,7 @@ PowerShell / Graph API (Opcional): Para la automatización y generación del arc
 
 ## ⚙️ Configuración y Uso
 
-Clonar el repositorio: git clone https://github.com/jamandujanoa/defender-daily-report.git
+Clonar el repositorio: git clone https://github.com/watchdogcode/gol2026
 
 
 
