@@ -1,0 +1,22 @@
+1. Licenciamiento Microsoft 365
+Es fundamental contar con licencias que incluyan los servicios de Microsoft Defender XDR (anteriormente Microsoft 365 Defender).
+
+Ejemplos: Microsoft 365 E5, o licencias independientes como Defender for Endpoint P2, Defender for Office 365 P2, Defender for Identity, etc.
+Por qué: Sin estas licencias, las tablas de datos (como EmailEvents o AlertInfo) estarán vacías y el reporte no mostrará información.
+2. Registro de Aplicación (App Registration) en Azure
+Para que el script se autentique y obtenga datos automáticamente (sin pedir contraseña cada vez), se requiere configurar una identidad en Microsoft Entra ID (Azure AD):
+
+Crear un App Registration.
+Asignar el permiso de API: AdvancedHunting.Read.All (Tipo: Application).
+Generar un Client Secret.
+Datos necesarios: Deberás tener a mano el Tenant ID, Client ID y el Client Secret para configurarlos en el script.
+3. Entorno de Ejecución (PowerShell)
+Versión: Se recomienda PowerShell 5.1 o superior (PowerShell 7+ es ideal).
+Módulos (Opcional): Si decides usar autenticación interactiva (loguearte con tu usuario en lugar de un secreto), necesitarás instalar módulos como Az.Accounts o Microsoft.Graph.Authentication. Para el modo automático estándar incluido en el script, no se requieren módulos adicionales.
+4. Conectividad de Red
+El equipo o servidor donde se ejecute el script debe tener acceso a internet, específicamente a:
+
+login.microsoftonline.com (Para autenticación).
+api.security.microsoft.com (Para ejecutar las consultas de seguridad).
+5. Permisos de Usuario (Solo si es ejecución manual)
+Si ejecutas el script con tu propia cuenta de usuario (modo interactivo), tu cuenta debe tener asignado un rol de seguridad en el portal de Microsoft Defender, como Security Reader (Lector de seguridad) o Security Administrator.
