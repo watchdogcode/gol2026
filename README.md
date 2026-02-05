@@ -1,4 +1,4 @@
-# Microsoft Defender XDR: Daily SecOps Report
+# Microsoft Defender XDR: SecOps Report
 
 📋 Descripción General
 
