@@ -2,7 +2,7 @@
 
 📋 Descripción General
 
-Este proyecto proporciona una plantilla de reporte diario automatizado diseñada para sintetizar datos críticos de Microsoft Defender XDR. El objetivo es cerrar la brecha de comunicación entre el equipo técnico y la alta gerencia (CISO), transformando telemetría compleja en información accionable.
+Este proyecto proporciona una plantilla de reporte diario y semanal automatizado diseñada para sintetizar datos críticos de Microsoft Defender XDR. El objetivo es cerrar la brecha de comunicación entre el equipo técnico y la alta gerencia (CISO), transformando telemetría compleja en información accionable.
 
 
 
