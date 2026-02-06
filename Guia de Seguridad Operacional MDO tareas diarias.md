@@ -27,7 +27,7 @@ Seleccione **Investigate** para iniciar una investigación automática o manual.
 
 # Monitoreo de Incidentes
 
-Ir al portal **Incidents - Microsoft Defender**
+Ir al portal **[Incidents - Microsoft Defender](https://nam06.safelinks.protection.outlook.com/?url=https%3A%2F%2Fsecurity.microsoft.com%2Fincidents%3Ftid%3D0d64d809-2796-406a-af58-54dcf35eca6d&data=05%7C02%7Cjomand%40microsoft.com%7C27aab460f2e148e8325808de64defca6%7C72f988bf86f141af91ab2d7cd011db47%7C1%7C0%7C639059106031937678%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=07QCGbVk5KYwc%2BTRpq2oNZoBOcMHi6ViShDXN4aZliA%3D&reserved=0)**
 En el panel de Incidentes configurar los siguientes filtros:
 * **Periodo:** 1 Dia
 * **Estado:** Nuevo y En curso
