@@ -1,126 +1,372 @@
-# 🛡️ Guía de Seguridad Operacional Diaria: Microsoft Defender for Office 365
+# Monitoreo de Alertas
 
-Esta guía detalla las tareas diarias recomendadas para el monitoreo, triaje y respuesta ante amenazas en el entorno de Microsoft Defender for Office 365 (MDO).
+## Revisar alertas activas 
+
+Ir al portal **Alerts - Microsoft Defender**
+Seleccione una alerta para abrir el panel de detalles, donde podrá revisar:
+* Severidad de la alerta
+* Origen de la detección
+* Usuarios o activos impactados
+* Acciones recomendadas
+ 
+Use la opción **Filter** para filtrar alertas por severidad, servicio o estado.
+ 
+## Investigar alertas 
+
+Desde los detalles de la alerta, seleccione **View full details**.
+Revise:
+* **Alert Storyline** (línea de tiempo de eventos relacionados)
+* Correo o archivo involucrado
+* Estado de la investigación automatizada (si está habilitada)
+ 
+Seleccione **Investigate** para iniciar una investigación automática o manual.
+ 
+> Las investigaciones automáticas forman parte del flujo de protección contra amenazas de Microsoft Defender (capacidad general del ecosistema Defender).
+ 
+---
+
+# Monitoreo de Incidentes
+
+Ir al portal **Incidents - Microsoft Defender**
+En el panel de Incidentes configurar los siguientes filtros:
+* **Periodo:** 1 Dia
+* **Estado:** Nuevo y En curso
+* **Severidad de alerta:** Ordenar descendente (Alta → Media → Baja)
+* **Prioridad de marcador:** 15-100
+* **Workspaces:** Any
+
+Guardar la vista personalizada para uso futuro
+
+Revisar columnas clave:
+* **Severity** (Gravedad)
+* **Status** (Estado)
+* **Assigned to** (Asignado a)
+* **Tags** (Etiquetas)
 
 ---
 
-## 1. 🚨 Monitoreo de Alertas e Incidentes
+# Triage de Mensajes de Teams Reportados por Usuarios
 
-### A. Monitoreo de Alertas
-**Objetivo:** Identificar y priorizar alertas activas de alta severidad.
+## Verificar que el reporte esté habilitado
 
-1.  **Navegar a:** `Incidents & alerts` > `Alerts`.
-2.  **Filtrar:** Usar el botón **Filter** para segregar por Severidad (High/Medium), Servicio o Estado.
-3.  **Analizar:** Seleccionar una alerta para ver el panel lateral:
-    *   Severidad y Categoría.
-    *   Activos impactados (Usuarios/Dispositivos).
-    *   Acciones recomendadas.
-4.  **Investigar:**
-    *   Clic en **View full details**.
-    *   Revisar el **Alert Storyline** (línea de tiempo).
-    *   Si está disponible, seleccionar **Investigate** para iniciar una investigación automática.
+1. Ir a **Messaging policies - Microsoft Teams admin center**
+2. Abrir la política **Global (Org‑wide default)**.
+3. Confirmar que **Report inappropriate content** y **Report a security concern** estén habilitados.
+4. Ir a **Email & collaboration - Microsoft Defender**
+5. Desplazarse a la sección **Microsoft Teams**.
+6. Verificar que **Monitor reported messages in Microsoft Teams** esté seleccionado.
 
-### B. Monitoreo de Incidentes
-**Objetivo:** Gestionar ataques correlacionados en lugar de alertas aisladas.
+> **Nota:** Estos ajustes deben estar activados tanto en Teams Admin Center como en el portal de Defender para que el proceso de triage funcione correctamente.
 
-1.  **Navegar a:** `Incidents & alerts` > `Incidents`.
-2.  **Configurar Filtros (Vista Diaria):**
-    *   **Time range:** Últimas 24 horas.
-    *   **Status:** `New` y `In progress`.
-    *   **Severity:** Ordenar descendente (High → Low).
-3.  **Revisión Rápida:**
-    *   Verificar columnas: `Severity`, `Status`, `Assigned to`, `Tags`.
-    *   Priorizar incidentes con múltiples alertas correlacionadas.
+## Ubicar mensajes de Teams reportados por usuarios
 
----
+### Opción A: Desde la página de Submissions
 
-## 2. 💬 Triage de Mensajes de Teams (User Reported)
+1. Ingresar a: [https://security.microsoft.com/reportsubmission?viewid=user](https://security.microsoft.com/reportsubmission?viewid=user)
+2. Seleccionar la pestaña **User reported**.
+3. Filtrar por **Teams messages** para ver el contenido reportado.
 
-### A. Prerrequisitos
-Asegurar que la función de reporte esté activa:
-*   **Teams Admin Center:** `Messaging policies` > `Global` > Activar "Report inappropriate content" y "Report a security concern".
-*   **Defender Portal:** `Settings` > `Email & collaboration` > `User reported settings` > Activar monitoreo para Teams.
+### Opción B: Desde la cola de incidentes de Defender XDR
 
-### B. Ubicación de Mensajes
-*   **Opción A (Submissions):** Ir a `Submissions` > `User reported` > Filtrar por **Teams messages**.
-*   **Opción B (Incidentes):** Buscar incidentes titulados *"Teams message reported by user as a security risk"*.
+1. Ir al portal **Incidents - Microsoft Defender**
+2. Buscar alertas con los nombres:
+    * `Teams message reported by user as a security risk`
+    * `Teams message reported by user as not a security risk`
+3. Abrir el incidente correspondiente para iniciar el triage.
 
-### C. Análisis y Acción
-1.  **Revisar:** Remitente, contenido, URLs y adjuntos. Consultar el panel de entidad para ver metadatos.
-2.  **Clasificar:** Determinar si es Phishing, Spam, Malware o No malicioso.
-3.  **Enviar a Microsoft:** Seleccionar **Submit to Microsoft for analysis** (requerido para el feedback loop).
-4.  **Remediar:**
-    *   Bloquear URLs/Dominios en la *Tenant Allow/Block List*.
-    *   Si el mensaje está en cuarentena (ZAP habilitado), decidir si liberar o mantener.
-5.  **Cerrar:** Documentar el veredicto en el incidente y notificar al usuario (si está configurado).
+## Revisar los detalles del mensaje reportado
 
----
+Dentro del incidente o submission, seleccionar **View submission**.
+Revisar:
+* Remitente
+* Contenido del mensaje
+* URLs
+* Archivos adjuntos
+* Indicadores de compromiso (IoCs)
+* Inteligencia de amenazas y veredictos de Defender
 
-## 3. 🤖 Investigación y Respuesta Automatizada (AIR)
+Consultar el panel de entidad del mensaje de Teams para ver metadatos adicionales.
 
-**Objetivo:** Validar y aprobar acciones de remediación pendientes.
+## Ejecutar acciones de Triage
 
-1.  **Navegar a:** `Actions & submissions` > `Action center` > Pestaña **Pending**.
-2.  **Revisar Acciones:**
-    *   *Soft/Hard delete email*
-    *   *Block URL / Sender*
-    *   *Turn off external mail forwarding*
-3.  **Evaluar Evidencia:**
-    *   Clic en la acción para ver **Investigation details** y **Evidence** (capturas, detonaciones).
-    *   Verificar **Affected items** (alcance del impacto).
-4.  **Decisión:**
-    *   ✅ **Approve:** Si la evidencia confirma la amenaza.
-    *   ❌ **Reject:** Si es un falso positivo.
-5.  **Historial:** Verificar la ejecución en la pestaña **History**.
+### Clasificar y notificar al usuario que reportó
 
----
+Los administradores pueden clasificar el mensaje como:
+* Phishing
+* Spam
+* Malware
+* No malicioso
 
-## 4. 📈 Tendencias de Detección de Correo
+Y enviar una notificación al usuario que lo reportó.
 
-### A. Mailflow Status Summary
-*   **Ubicación:** `Reports` > `Email & collaboration` > `Mailflow status summary`.
-*   **Qué buscar:** Volúmenes inusuales de Malware, Phishing o Spam comparado con "Good email".
+### Enviar el mensaje a Microsoft para análisis
 
-### B. Threat Protection Status Report
-*   **Ubicación:** `Reports` > `Email & collaboration` > `Threat protection status`.
-*   **Análisis:**
-    *   Revisar desglose por tecnología (Anti-malware, Safe Links, Impersonation).
-    *   Filtrar por **Inbound** / **Outbound**.
-    *   Identificar picos repentinos o caídas en la eficacia de detección.
+1. En la pestaña **User reported**, seleccionar el mensaje.
+2. Elegir **Submit to Microsoft for analysis**.
 
-> **Recomendación:** Programar este reporte semanalmente (`Create schedule`) para mantener visibilidad constante.
+> Esto es necesario porque los mensajes de Teams no pueden enviarse directamente desde la pestaña de Teams messages; solo los mensajes reportados por usuarios son elegibles.
+
+### Agregar bloqueos según sea necesario
+
+Desde la **Tenant Allow/Block List**, se pueden bloquear:
+* URLs sospechosas
+* Dominios maliciosos
+* Direcciones de remitentes peligrosas
+
+### Revisar y manejar mensajes en cuarentena
+
+Si ZAP para Teams está habilitado y el mensaje fue puesto en cuarentena:
+> Solo los administradores pueden gestionar estos mensajes.
+
+### Documentar y cerrar el triage
+
+1. Agregar notas al incidente en Defender XDR.
+2. Resolver el incidente con la clasificación correspondiente (por ejemplo: true positive, false positive).
+3. Confirmar la notificación al usuario (si está configurada).
 
 ---
 
-## 5. 🎣 Análisis de Campañas (Phishing & Malware)
+# Revisar y actuar sobre los AIRs (Investigación y Respuesta Automatizada)
 
-**Objetivo:** Identificar ataques coordinados que lograron entregar correos (`Delivered`).
-
-1.  **Filtrar (Threat Explorer):**
-    *   `Delivery action`: **Delivered**.
-    *   `Campaign Type`: **Phish** & **Malware**.
-2.  **Priorizar:** Campañas con alto número de usuarios impactados o alta severidad.
-3.  **Analizar:**
-    *   **Resumen:** Revisar línea de tiempo y totales.
-    *   **Usuarios:** Identificar si hay VIPs afectados en `Impacted assets`.
-    *   **Muestras:** Abrir un correo para ver encabezados, autenticación (SPF/DKIM) y ruta de entrega.
-4.  **Verificar ZAP:** ¿El sistema eliminó el correo post-entrega (ZAP)? Si no, ¿por qué?
-5.  **Identificar Brechas:** ¿Qué política falló? (Safe Links, Allow List, Override de usuario).
-6.  **Respuesta:**
-    *   Purgar correos (Hard delete).
-    *   Bloquear remitente/dominio/URL.
-    *   Enviar muestra a Microsoft.
+1. Ir a **Action center - Microsoft Defender**
+2. Revisar acciones en espera de aprobación:
+    * Soft delete email
+    * Hard delete email
+    * Block URL
+    * Block sender
+    * Turn off external mail forwarding
+3. Para cada acción pendiente:
+    * Click en la acción para ver detalles y revisar:
+        * **Investigation details:** Razón de la acción
+        * **Evidence:** Capturas, análisis de detonación, IOCs
+        * **Affected items:** Cantidad de mensajes/usuarios impactados
+4. Tomar decisión
+    * **Aprobar:** Si la evidencia es concluyente
+    * **Rechazar:** Si es falso positivo
+5. Verificar pestaña "History" para confirmar ejecución
+6. Documentar acciones aprobadas/rechazadas para auditoría
 
 ---
 
-## 6. 🎯 Usuarios Más Atacados (Top Targets)
+# Revisar las Tendencias de Detección de Correo en Microsoft Defender for Office 365
 
-**Objetivo:** Proteger a los usuarios que están siendo el foco de los ataques.
+## Mailflow Status Summary Report
 
-1.  **Navegar a:** `Explorer` > Pestaña **Phishing** o **All email**.
-2.  **Filtrar:** `Time range`: 24 horas.
-3.  **Visualizar:** Seleccionar **Top targeted users** en las estadísticas inferiores.
-4.  **Acciones:**
-    *   **VIPs:** Agregar a "Priority Accounts".
-    *   **Compromiso:** Si hay clics o comportamiento extraño, forzar cambio de contraseña y revisar logs de Azure AD.
-    *   **Reglas:** Verificar si se crearon reglas de reenvío sospechosas.
+Este reporte brinda visibilidad sobre:
+* Correo permitido (bueno)
+* Detecciones de malware
+* Detecciones de phishing
+* Detecciones de spam
+
+1. Ir a **Threat protection status - Microsoft Defender**
+2. Revisar tendencias generales por categoría:
+    * Malware
+    * Phishing
+    * Spam
+    * Good email
+3. Desplazarse hacia abajo para ver tablas detalladas con volúmenes y capas de filtrado (motor anti‑malware, Safe Attachments, Safe Links, anti‑spam, ZAP, etc.).
+
+## Abrir el Threat Protection Status Report
+
+Este reporte consolida las detecciones de Defender a través de todas las capas de protección.
+
+1. En **Reports**, seleccionar **Threat protection status report**
+2. Revisar indicadores como:
+    * Tipos de amenazas (malware, phishing, spam)
+    * Tecnología de detección (detonación, Safe Links, Safe Attachments, impersonation, filtrado DMARC/SPOOF)
+3. Seleccionar cualquier fila para abrir el panel detallado (flyout).
+4. Aplicar filtros como:
+    * Inbound
+    * Outbound
+    * Rango de fechas
+    * Dirección del correo
+
+Para análisis más específico.
+
+## Comparar Tendencias en el Tiempo
+
+El objetivo es identificar:
+* Incrementos en phishing o malware
+* Picos repentinos de spam
+* Disminución en la eficacia de detección
+* Cambios en patrones o técnicas de ataque
+
+> Estos reportes están diseñados para mostrar patrones de largo plazo, no solo eventos diarios.
+
+## Exportar o Programar Reportes (Recomendado)
+
+Esto optimiza la gobernanza y la visibilidad continua.
+
+Desde cualquiera de los reportes, usar las opciones:
+* **Create schedule** para generar entregas semanales automáticas
+* **Request report** para una exportación completa puntual
+* **Export** para descargar en CSV/Excel para análisis offline
+
+> Microsoft recomienda programar reportes TPS para mantener una supervisión consistente.
+
+## Profundizar en Amenazas Específicas (Opcional)
+
+Si observas anomalías o incrementos sospechosos:
+
+1. Abrir **Threat Explorer (Plan 2)**: https://security.microsoft.com/threatexplorerv3
+2. O usar **Real‑Time Detections (Plan 1)**: https://security.microsoft.com/realtimereportsv3
+3. Filtrar por categoría (Malware, Phish, Campaigns).
+4. Investigar remitentes, URLs, resultados de detonación y usuarios afectados.
+
+## Ajustar Políticas de Seguridad Según los Hallazgos
+
+Con los patrones identificados, es posible que debas modificar:
+* Políticas anti‑phishing
+* Políticas anti‑malware
+* Configuraciones de Safe Attachments / Safe Links
+* Tenant Allow/Block List
+* Reglas de transporte
+
+> La revisión semanal está diseñada para determinar si estos ajustes son necesarios.
+
+---
+
+# Revisar Campañas de Phishing y Malware que Resultaron en Correos Entregados
+
+## Paso 1: Filtrar por Correos Entregados
+
+1. Ir a **Explorer - Microsoft Defender**
+2. Aplicar los siguientes filtros:
+    * **Delivery action:** Delivered
+    * **Campaign Type:** Phish & Malware, o All Threat Types
+    * **Time range:** Seleccionar el periodo relevante (predeterminado: 7 días)
+3. Seleccionar **Refresh** para actualizar la vista.
+
+## Paso 2: Identificar Campañas de Alto Riesgo
+
+Ordenar las campañas por:
+* Número de usuarios impactados
+* Severidad del tipo de amenaza
+* Nivel de confianza de phishing
+* Familia de malware o indicadores asociados a actores de amenaza
+* Relación entre mensajes entregados y bloqueados
+
+Priorizar campañas con:
+* Alto número de correos entregados
+* Alta severidad de amenaza
+* Múltiples destinatarios que sean cuentas prioritarias
+* Múltiples URLs o dominios asociados
+
+## Paso 3: Abrir el Resumen de una Campaña
+
+1. Seleccionar una campaña de la lista.
+2. Revisar el panel de resumen de campaña:
+    * Tipo de amenaza (Phishing / Malware)
+    * Usuarios impactados
+    * Total de mensajes enviados y entregados
+    * Detecciones a través de filtros de MDO (ZAP, Safe Links, Safe Attachments)
+    * Línea de tiempo de la campaña
+
+> Esto ofrece una visión general del patrón del ataque.
+
+## Paso 4: Revisar “Usuarios Impactados”
+
+1. Ir a la sección **Impacted assets / mailboxes**.
+2. Identificar:
+    * Usuarios de alto riesgo que fueron objetivo repetidamente
+    * Cuentas prioritarias (ejecutivos, finanzas, administradores)
+    * Patrones de ataque lateral
+3. Puede exportarse con: **Export → CSV**
+
+## Paso 5: Analizar Muestras de Correo
+
+Dentro de la misma campaña:
+
+1. Abrir cualquier correo entregado y revisar:
+    * Información del encabezado
+    * Dominio del remitente y validación SPF/DKIM/DMARC
+    * Reputación de URLs (Malicious, Suspicious, Unknown)
+    * Comportamiento de adjuntos
+    * Fallos de autenticación
+    * Ruta del correo (cómo fue encaminado y entregado)
+
+> Esto revela por qué el mensaje evadió las protecciones.
+
+## Paso 6: Revisar Acciones de ZAP (Zero‑Hour Auto Purge)
+
+Verificar si:
+* ZAP eliminó el correo después de su entrega
+* ZAP no logró eliminarlo
+* Alguna política impidió la acción de ZAP
+
+> Esto ayuda a validar si la remediación post‑entrega funcionó.
+
+## Paso 7: Identificar Brechas en la Configuración
+
+En el resumen de la campaña, revisar:
+* Políticas que no se activaron
+* Safe Links/Safe Attachments que fueron evadidos
+* Anulaciones hechas por usuarios
+* Entradas en Tenant Allow/Block List
+
+> Con esto se determina por qué la campaña tuvo éxito.
+
+## Paso 8: Ejecutar Acciones de Respuesta
+
+Desde los detalles de la campaña, están disponibles acciones como:
+* Purgar correos de todos los buzones impactados
+* Bloquear remitente o dominio
+* Bloquear URL desde MDO o Microsoft Defender XDR
+* Bloquear hash de archivo / detonar en sandbox
+* Enviar muestra para análisis (false positive / false negative)
+* Crear o endurecer políticas anti‑phishing o anti‑malware
+
+## Paso 9: Documentar y Rastrear la Amenaza
+
+Para registros SOC y de cumplimiento:
+
+1. Exportar detalles de la campaña (CSV, Excel)
+2. Registrar:
+    * ID de la campaña
+    * Usuarios impactados
+    * Vectores de amenaza (URLs, IPs, tipos de adjuntos)
+    * Brechas de seguridad identificadas
+    * Acciones tomadas
+
+> Opcional: Enviar los hallazgos a Microsoft Sentinel para correlación adicional.
+
+## Paso 10: Ejecutar Remediación con Usuarios
+
+Dependiendo del impacto:
+* Notificar a los usuarios afectados
+* Restablecer credenciales comprometidas mediante Entra ID
+* Activar una Automated Investigation and Response (AIR)
+* Educar a los usuarios si interactuaron con contenido malicioso
+
+## Paso 11: Fortalecer Controles Preventivos
+
+Con base en los hallazgos:
+* Revisar políticas anti‑phishing
+* Habilitar niveles avanzados de protección contra phishing
+* Actualizar Safe Links / Safe Attachments
+* Eliminar entradas riesgosas en Allow List
+* Habilitar MFA y credenciales resistentes al phishing
+
+---
+
+# Revisión de Top Targeted Users
+
+1. Ir a https://security.microsoft.com/threatexplorer
+2. Seleccionar **Phishing** o **All email** Tab
+3. Configurar los filtros de la siguiente forma:
+    * **Período:** Últimas 24 horas
+    * **Seleccionar:** `Recipient domian -> Equal ony of -> dominio.com`
+4. En la parte inferior del Explorer seleccionar **Top targeted users**
+5. Click en el usuario para ver detalles revisar:
+    * Tipos de amenazas recibidas
+    * Tasa de entrega vs. bloqueo
+    * Si hicieron clic en enlaces maliciosos
+6. Acciones preventivas:
+    * Si el usuario es VIP/Ejecutivo:
+        * Agregar a "Priority Accounts"
+    * Si hay indicios de compromiso:
+        * Forzar cambio de contraseña
+        * Revisar actividad en Azure AD Sign-ins
+        * Verificar reglas de buzón (forwarding rules)
+
+> Documentar usuarios críticos para monitoreo continuo
