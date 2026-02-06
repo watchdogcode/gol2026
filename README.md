@@ -104,3 +104,5 @@ Inyección de Datos: Utiliza tus queries de KQL para alimentar las tablas del re
 
 Este reporte es una herramienta de visualización. Los datos mostrados dependen de la correcta configuración de las licencias y conectores de Microsoft Defender XDR en tu entorno.
 
+Creado por Ernesto Cobos Roqueñi y Jose Arturo Mandujano
+
