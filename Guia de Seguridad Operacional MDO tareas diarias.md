@@ -2,7 +2,7 @@ Monitoreo de Alertas
 
 Revisar alertas activas 
 
-Ir al portal Alerts - Microsoft Defender
+Ir al portal  [Alerts - Microsoft Defender](https://security.microsoft.com/alerts?tid=0d64d809-2796-406a-af58-54dcf35eca6d)
 Seleccione una alerta para abrir el panel de detalles, donde podrá revisar:
 Severidad de la alerta
 Origen de la detección
