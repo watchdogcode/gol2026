@@ -49,10 +49,10 @@ Revisar columnas clave:
 
 ## Verificar que el reporte esté habilitado
 
-1. Ir a **Messaging policies - Microsoft Teams admin center**
+1. Ir a **[Messaging policies - Microsoft Teams admin center](https://nam06.safelinks.protection.outlook.com/?url=https%3A%2F%2Fadmin.teams.microsoft.com%2Fpolicies%2Fmessaging&data=05%7C02%7Cjomand%40microsoft.com%7C27aab460f2e148e8325808de64defca6%7C72f988bf86f141af91ab2d7cd011db47%7C1%7C0%7C639059106031975526%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=OEIHk2LdNkPZ%2BtXEzia2gQksvKkwuxKzy3kI%2F5ykQVY%3D&reserved=0)**
 2. Abrir la política **Global (Org‑wide default)**.
 3. Confirmar que **Report inappropriate content** y **Report a security concern** estén habilitados.
-4. Ir a **Email & collaboration - Microsoft Defender**
+4. Ir a **[Email & collaboration - Microsoft Defender](https://nam06.safelinks.protection.outlook.com/?url=https%3A%2F%2Fsecurity.microsoft.com%2Fsecuritysettings%2FuserSubmission%3Ftid%3D0d64d809-2796-406a-af58-54dcf35eca6d&data=05%7C02%7Cjomand%40microsoft.com%7C27aab460f2e148e8325808de64defca6%7C72f988bf86f141af91ab2d7cd011db47%7C1%7C0%7C639059106031986928%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=JU9OCSXIo64smQT4I%2Bx%2FU95tf%2BgZoD0t4FtJ8mddiEI%3D&reserved=0)**
 5. Desplazarse a la sección **Microsoft Teams**.
 6. Verificar que **Monitor reported messages in Microsoft Teams** esté seleccionado.
 
@@ -68,7 +68,7 @@ Revisar columnas clave:
 
 ### Opción B: Desde la cola de incidentes de Defender XDR
 
-1. Ir al portal **Incidents - Microsoft Defender**
+1. Ir al portal **[Incidents - Microsoft Defender](https://nam06.safelinks.protection.outlook.com/?url=https%3A%2F%2Fsecurity.microsoft.com%2Fincidents%3Ftid%3D0d64d809-2796-406a-af58-54dcf35eca6d&data=05%7C02%7Cjomand%40microsoft.com%7C27aab460f2e148e8325808de64defca6%7C72f988bf86f141af91ab2d7cd011db47%7C1%7C0%7C639059106032019452%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=AC527YjWRlDpMHYa0hv0zGqwluPoIxGuVF%2FHkzoBATc%3D&reserved=0)**
 2. Buscar alertas con los nombres:
     * `Teams message reported by user as a security risk`
     * `Teams message reported by user as not a security risk`
@@ -128,7 +128,7 @@ Si ZAP para Teams está habilitado y el mensaje fue puesto en cuarentena:
 
 # Revisar y actuar sobre los AIRs (Investigación y Respuesta Automatizada)
 
-1. Ir a **Action center - Microsoft Defender**
+1. Ir a **[Action center - Microsoft Defender](https://nam06.safelinks.protection.outlook.com/?url=https%3A%2F%2Fsecurity.microsoft.com%2Faction-center%2Fpending&data=05%7C02%7Cjomand%40microsoft.com%7C27aab460f2e148e8325808de64defca6%7C72f988bf86f141af91ab2d7cd011db47%7C1%7C0%7C639059106032033271%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=eGoM3gVbO72Z%2FUSqlFNPrGZyE62B7nWfj%2Bt4WxwAmmg%3D&reserved=0)**
 2. Revisar acciones en espera de aprobación:
     * Soft delete email
     * Hard delete email
@@ -158,7 +158,7 @@ Este reporte brinda visibilidad sobre:
 * Detecciones de phishing
 * Detecciones de spam
 
-1. Ir a **Threat protection status - Microsoft Defender**
+1. Ir a **[Threat protection status - Microsoft Defender](https://nam06.safelinks.protection.outlook.com/?url=https%3A%2F%2Fsecurity.microsoft.com%2Freports%2FTPSAggregateReportATP&data=05%7C02%7Cjomand%40microsoft.com%7C27aab460f2e148e8325808de64defca6%7C72f988bf86f141af91ab2d7cd011db47%7C1%7C0%7C639059106032045247%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=1UB3DJ%2FZkVPKlDdj5f3eJykayMTW3dK2PbEl6K599S0%3D&reserved=0)**
 2. Revisar tendencias generales por categoría:
     * Malware
     * Phishing
