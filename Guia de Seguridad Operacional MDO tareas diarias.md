@@ -2,7 +2,7 @@
 
 ## Revisar alertas activas 
 
-Ir al portal  [Alerts - Microsoft Defender](https://security.microsoft.com/alerts?tid=0d64d809-2796-406a-af58-54dcf35eca6d)
+Ir al portal  [Alerts - Microsoft Defender](https://security.microsoft.com/alerts)
 Seleccione una alerta para abrir el panel de detalles, donde podrá revisar:
 * Severidad de la alerta
 * Origen de la detección
@@ -49,7 +49,7 @@ Revisar columnas clave:
 
 ## Verificar que el reporte esté habilitado
 
-1. Ir a **[Messaging policies - Microsoft Teams admin center](https://nam06.safelinks.protection.outlook.com/?url=https%3A%2F%2Fadmin.teams.microsoft.com%2Fpolicies%2Fmessaging&data=05%7C02%7Cjomand%40microsoft.com%7C27aab460f2e148e8325808de64defca6%7C72f988bf86f141af91ab2d7cd011db47%7C1%7C0%7C639059106031975526%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=OEIHk2LdNkPZ%2BtXEzia2gQksvKkwuxKzy3kI%2F5ykQVY%3D&reserved=0)**
+1. Ir a **[Messaging policies - Microsoft Teams admin center](https://security.microsoft.com/incidents)**
 2. Abrir la política **Global (Org‑wide default)**.
 3. Confirmar que **Report inappropriate content** y **Report a security concern** estén habilitados.
 4. Ir a **[Email & collaboration - Microsoft Defender](https://nam06.safelinks.protection.outlook.com/?url=https%3A%2F%2Fsecurity.microsoft.com%2Fsecuritysettings%2FuserSubmission%3Ftid%3D0d64d809-2796-406a-af58-54dcf35eca6d&data=05%7C02%7Cjomand%40microsoft.com%7C27aab460f2e148e8325808de64defca6%7C72f988bf86f141af91ab2d7cd011db47%7C1%7C0%7C639059106031986928%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=JU9OCSXIo64smQT4I%2Bx%2FU95tf%2BgZoD0t4FtJ8mddiEI%3D&reserved=0)**
