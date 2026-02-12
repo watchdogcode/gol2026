@@ -88,21 +88,125 @@ PowerShell / Graph API (Opcional): Para la automatización y generación del arc
 
 ## ⚙️ Configuración y Uso
 
-Clonar el repositorio: git clone https://github.com/watchdogcode/gol2026
+### Opción 1: Configuración Automatizada (Recomendado para Servidores)
 
+```powershell
+# 1. Ejecutar script de setup
+.\Setup-DefenderReportServer.ps1
 
+# 2. Seguir el asistente de configuración
+# - Ingresa Tenant ID y Client ID
+# - Configura Client Secret (encriptado con DPAPI)
+# - Valida permisos de API
 
-Personalización: Actualiza el archivo HTML con tu Tenant ID y ajusta los estilos según tu marca corporativa.
+# 3. Ejecutar reporte
+.\Run-DefenderXDRWeeklyReport.ps1
+```
 
+### Opción 2: Configuración Manual
 
+```powershell
+# Clonar el repositorio
+git clone https://github.com/watchdogcode/gol2026
 
-Inyección de Datos: Utiliza tus queries de KQL para alimentar las tablas del reporte.
+# Crear SecureString para Client Secret
+$Secret = Read-Host "Client Secret" -AsSecureString
+$Secret | ConvertFrom-SecureString | Out-File "C:\Config\Secret.txt"
 
+# Ejecutar reporte
+$SecureSecret = Get-Content "C:\Config\Secret.txt" | ConvertTo-SecureString
+.\New-DefenderXDRWeeklyReport.ps1 `
+    -TenantId "your-tenant-id" `
+    -ClientId "your-client-id" `
+    -AuthMode Secret `
+    -ClientSecret $SecureSecret `
+    -UseParallel `
+    -ExportCsv
+```
 
+### Requisitos Previos
+
+- **Azure AD App Registration** con permisos:
+  - `AdvancedHunting.Read.All` (Application)
+  - Admin Consent otorgado
+- **PowerShell 5.1** o superior (7+ recomendado para ejecución paralela)
+- **Licencias requeridas**: Microsoft 365 E5 o Microsoft Defender XDR
+
+## 🆕 Nuevas Características (v2.0)
+
+### 🔒 Seguridad Mejorada
+- ✅ **SecureString** para Client Secret (encriptación DPAPI local)
+- ✅ **Enmascaramiento** de Tenant ID en reportes
+- ✅ **Limpieza automática** de variables sensibles en memoria
+- ✅ **Cache de tokens** con expiración automática
+
+### ⚡ Rendimiento
+- ✅ **Ejecución paralela** de queries (hasta 5x más rápido)
+- ✅ **Cache de autenticación** (reutiliza tokens válidos)
+- ✅ **Reintentos exponenciales** con backoff inteligente
+
+### 📊 Funcionalidad
+- ✅ **Exportación CSV** de todas las tablas
+- ✅ **Comparación con período anterior** (KPI trends)
+- ✅ **Logging estructurado** con niveles (INFO/WARN/ERROR/DEBUG)
+- ✅ **Modo test** para pruebas sin API
+
+### 🛡️ Robustez
+- ✅ **Manejo de errores granular** (no falla todo por un query)
+- ✅ **Validación de datos** antes de generar reporte
+- ✅ **Timeout mejorado** en Device Code flow
+- ✅ **Variables configurables** (retry limits, thresholds)
+
+Ver [MEJORAS_IMPLEMENTADAS.md](MEJORAS_IMPLEMENTADAS.md) para documentación detallada.
+
+## 📁 Estructura del Proyecto
+
+```
+gol2026/
+├── New-DefenderXDRWeeklyReport.ps1      # Script principal (v2.0)
+├── New-DefenderXDRDailyReport.ps1       # Reporte diario
+├── Setup-DefenderReportServer.ps1       # Setup automatizado
+├── Run-DefenderXDRWeeklyReport.ps1      # Wrapper (generado por setup)
+├── MEJORAS_IMPLEMENTADAS.md             # Documentación de mejoras
+├── Paquete KQL Advance Hunting.md       # Queries KQL de referencia
+├── Guia de Seguridad Operacional MDO... # Guías operacionales
+└── README.md                            # Este archivo
+```
+
+## 🔧 Ejemplos de Uso
+
+### Ejecución Programada (Task Scheduler)
+```powershell
+# Crear tarea semanal (Lunes 7 AM)
+$Action = New-ScheduledTaskAction -Execute 'PowerShell.exe' `
+    -Argument '-NoProfile -ExecutionPolicy Bypass -File "C:\Scripts\Run-DefenderXDRWeeklyReport.ps1"'
+$Trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday -At 7am
+Register-ScheduledTask -TaskName "DefenderXDR-WeeklyReport" `
+    -Action $Action -Trigger $Trigger
+```
+
+### Uso Avanzado
+```powershell
+# Con todas las características
+.\New-DefenderXDRWeeklyReport.ps1 `
+    -TenantId "xxx" `
+    -ClientId "yyy" `
+    -AuthMode Secret `
+    -ClientSecret $SecureSecret `
+    -TimeWindowDays 14 `
+    -UseParallel `
+    -ExportCsv `
+    -SendMail `
+    -SmtpServer "smtp.office365.com" `
+    -To "soc-team@empresa.com" `
+    -LogPath "D:\Logs\Defender.log"
+```
 
 ## ⚠️ Disclaimer
 
 Este reporte es una herramienta de visualización. Los datos mostrados dependen de la correcta configuración de las licencias y conectores de Microsoft Defender XDR en tu entorno.
 
-Creado por Ernesto Cobos Roqueñi y Jose Arturo Mandujano
+**Creado por:** Ernesto Cobos Roqueñi y Jose Arturo Mandujano  
+**Versión:** 2.0  
+**Última actualización:** Febrero 2026
 

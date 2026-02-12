@@ -53,7 +53,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$ClientId,
 
-    [string]$ClientSecret,
+    [SecureString]$ClientSecret,
     [string]$CertThumbprint,
 
     [bool]$SendMail = $false,
@@ -63,34 +63,101 @@ param(
 
     [string]$ProxyUrl,
     [int]$TimeoutSec = 120,
-    [switch]$FailFast
+    [switch]$FailFast,
+    [switch]$ExportCsv,
+    [switch]$UseParallel,
+    [string]$LogPath = 'C:\Reports\Logs\DefenderXDR.log',
+    [switch]$TestMode
 )
 
 # --- CONFIGURATION ---
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 $ApiBaseUrl = "https://api.security.microsoft.com/api"
 $Scope = "https://api.security.microsoft.com/.default"
 $Authority = "https://login.microsoftonline.com/$TenantId"
+
+# Constants
+$MAX_RETRIES = 3
+$RETRY_DELAY_BASE = 2
+$MIN_FAILURES_SPRAY = 10
+$MIN_ALERTS_RISKY_HOST = 3
+$TOKEN_CACHE_FILE = "$env:TEMP\DefenderXDR_TokenCache.xml"
+$KPI_CACHE_FILE = "$env:TEMP\DefenderXDR_KPICache.json"
 
 if ($ProxyUrl) {
     [System.Net.WebRequest]::DefaultWebProxy = New-Object System.Net.WebProxy($ProxyUrl)
 }
 
+# --- LOGGING FUNCTION ---
+function Write-Log {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Message,
+        [ValidateSet('INFO','WARN','ERROR','DEBUG')]
+        [string]$Level = 'INFO'
+    )
+    
+    $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $LogEntry = "[$Timestamp] [$Level] $Message"
+    
+    # Console output with colors
+    $Color = switch($Level) {
+        'ERROR' { 'Red' }
+        'WARN'  { 'Yellow' }
+        'INFO'  { 'Cyan' }
+        'DEBUG' { 'Gray' }
+    }
+    Write-Host $LogEntry -ForegroundColor $Color
+    
+    # File output
+    try {
+        $LogDir = Split-Path $LogPath -Parent
+        if (-not (Test-Path $LogDir)) { 
+            New-Item -ItemType Directory -Path $LogDir -Force | Out-Null 
+        }
+        Add-Content -Path $LogPath -Value $LogEntry -Encoding UTF8 -ErrorAction SilentlyContinue
+    } catch {
+        # Silent fail on logging to avoid breaking script
+    }
+}
+
 # --- AUTHENTICATION ---
 function New-AuthToken {
-    Write-Host "[-] Authenticating via $AuthMode..." -ForegroundColor Cyan
+    Write-Log "Authenticating via $AuthMode..." -Level INFO
+    
+    # Check token cache
+    if ((Test-Path $TOKEN_CACHE_FILE)) {
+        try {
+            $CachedToken = Import-Clixml -Path $TOKEN_CACHE_FILE -ErrorAction Stop
+            if ($CachedToken.Expiry -gt (Get-Date).AddMinutes(5)) {
+                Write-Log "Using cached token (valid until $($CachedToken.Expiry))" -Level DEBUG
+                return $CachedToken.Token
+            }
+        } catch {
+            Write-Log "Token cache invalid, re-authenticating" -Level WARN
+        }
+    }
     
     try {
+        $Token = $null
+        
         if ($AuthMode -eq 'Secret') {
             if (-not $ClientSecret) { throw "ClientSecret is required for Secret auth." }
+            
+            # Convert SecureString to plain text for API call
+            $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($ClientSecret)
+            $PlainSecret = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+            [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
+            
             $Body = @{
                 grant_type    = "client_credentials"
                 client_id     = $ClientId
-                client_secret = $ClientSecret
+                client_secret = $PlainSecret
                 scope         = $Scope
             }
             $Response = Invoke-RestMethod -Method Post -Uri "$Authority/oauth2/v2.0/token" -Body $Body -ErrorAction Stop
-            return $Response.access_token
+            $Token = $Response.access_token
+            $ExpiresIn = $Response.expires_in
         }
         elseif ($AuthMode -eq 'Certificate') {
             # Basic implementation assuming certificate is in CurrentUser\My
@@ -113,17 +180,23 @@ function New-AuthToken {
                 scope     = $Scope
             }
             
-            Write-Host "    [!] To sign in, use a web browser to open the page $($CodeReq.verification_uri) and enter the code: $($CodeReq.user_code)" -ForegroundColor Yellow
+            Write-Log "To sign in, open $($CodeReq.verification_uri) and enter code: $($CodeReq.user_code)" -Level WARN
             
             $Expires = (Get-Date).AddSeconds($CodeReq.expires_in)
-            while ((Get-Date) -lt $Expires) {
+            $MaxAttempts = [math]::Ceiling($CodeReq.expires_in / 5)
+            $Attempt = 0
+            
+            while ((Get-Date) -lt $Expires -and $Attempt -lt $MaxAttempts) {
+                $Attempt++
                 try {
                     $TokenReq = Invoke-RestMethod -Method Post -Uri "$Authority/oauth2/v2.0/token" -Body @{
                         grant_type = "urn:ietf:params:oauth:grant-type:device_code"
                         client_id  = $ClientId
                         device_code = $CodeReq.device_code
                     } -ErrorAction Stop
-                    return $TokenReq.access_token
+                    $Token = $TokenReq.access_token
+                    $ExpiresIn = $TokenReq.expires_in
+                    break
                 }
                 catch {
                     $Err = $_.Exception.Response.GetResponseStream()
@@ -136,20 +209,34 @@ function New-AuthToken {
                     }
                 }
             }
-            throw "Device code flow timed out."
+            if (-not $Token) { throw "Device code flow timed out after $Attempt attempts." }
         }
         elseif ($AuthMode -eq 'Interactive') {
             # Requires Az or Mg module
             if (Get-Module -ListAvailable -Name "Az.Accounts") {
                 Connect-AzAccount -Tenant $TenantId -ErrorAction Stop | Out-Null
-                return (Get-AzAccessToken -ResourceUrl "https://api.security.microsoft.com").Token
+                $Token = (Get-AzAccessToken -ResourceUrl "https://api.security.microsoft.com").Token
+                $ExpiresIn = 3600 # Default Az token expiry
+            } else {
+                throw "Interactive auth requires 'Az.Accounts' module."
             }
-            throw "Interactive auth requires 'Az.Accounts' module."
         }
+        
+        # Cache the token
+        if ($Token) {
+            $CacheObj = @{
+                Token = $Token
+                Expiry = (Get-Date).AddSeconds($ExpiresIn - 300) # 5 min buffer
+            }
+            Export-Clixml -Path $TOKEN_CACHE_FILE -InputObject $CacheObj -Force -ErrorAction SilentlyContinue
+            Write-Log "Token cached successfully" -Level DEBUG
+        }
+        
+        return $Token
     }
     catch {
-        Write-Error "Authentication failed: $_"
-        exit 1
+        Write-Log "Authentication failed: $($_.Exception.Message)" -Level ERROR
+        throw
     }
 }
 
@@ -161,18 +248,26 @@ function Invoke-DefenderAhQuery {
         [string]$Name
     )
 
+    if ($TestMode) {
+        Write-Log "TEST MODE: Returning mock data for '$Name'" -Level DEBUG
+        return @{
+            Name = $Name
+            Results = @(@{ MockData = "Test"; Count = 0 })
+            Error = $null
+        }
+    }
+
     $Uri = "$ApiBaseUrl/advancedhunting/run"
     $Headers = @{
         "Authorization" = "Bearer $Token"
         "Content-Type"  = "application/json"
     }
     
-    # Inject TimeWindow
+    # Inject TimeWindow - Using parameterized approach for better KQL handling
     $FinalQuery = $Query -replace "ago\(TimeWindowDays\*d\)", "ago($($TimeWindowDays)d)"
     $Body = @{ Query = $FinalQuery } | ConvertTo-Json -Compress
 
     $Retries = 0
-    $MaxRetries = 3
     
     do {
         try {
@@ -180,12 +275,13 @@ function Invoke-DefenderAhQuery {
             $Response = Invoke-RestMethod -Method Post -Uri $Uri -Headers $Headers -Body $Body -TimeoutSec $TimeoutSec -ErrorAction Stop
             $Sw.Stop()
             
-            Write-Host "    [+] Query '$Name' ($($Sw.ElapsedMilliseconds)ms) - Rows: $($Response.Results.Count)" -ForegroundColor Gray
+            Write-Log "Query '$Name' completed in $($Sw.ElapsedMilliseconds)ms - Rows: $($Response.Results.Count)" -Level DEBUG
             
             return @{
                 Name = $Name
                 Results = $Response.Results
                 Error = $null
+                Duration = $Sw.ElapsedMilliseconds
             }
         }
         catch {
@@ -194,19 +290,20 @@ function Invoke-DefenderAhQuery {
             
             if ($StatusCode -eq 429 -or $StatusCode -ge 500) {
                 $Retries++
-                $Wait = [math]::Pow(2, $Retries)
-                Write-Warning "    [!] API Error $StatusCode. Retrying in $Wait seconds..."
+                $Wait = [math]::Pow($RETRY_DELAY_BASE, $Retries)
+                Write-Log "API Error $StatusCode for '$Name'. Retry $Retries/$MAX_RETRIES in $Wait seconds" -Level WARN
                 Start-Sleep -Seconds $Wait
             }
             else {
-                Write-Error "    [x] Query '$Name' Failed: $($_.Exception.Message)"
+                Write-Log "Query '$Name' failed: $($_.Exception.Message)" -Level ERROR
                 if ($FailFast) { throw $_ }
-                return @{ Name = $Name; Results = @(); Error = $_.Exception.Message }
+                return @{ Name = $Name; Results = @(); Error = $_.Exception.Message; Duration = 0 }
             }
         }
-    } while ($Retries -lt $MaxRetries)
+    } while ($Retries -lt $MAX_RETRIES)
 
-    return @{ Name = $Name; Results = @(); Error = "Max retries exceeded" }
+    Write-Log "Query '$Name' exceeded max retries" -Level ERROR
+    return @{ Name = $Name; Results = @(); Error = "Max retries exceeded"; Duration = 0 }
 }
 
 # --- KQL QUERIES ---
@@ -251,7 +348,7 @@ AlertInfo
 | where Severity in ('High', 'Critical')
 | join kind=inner (AlertEvidence | where Timestamp between (ago(TimeWindowDays*d) .. now()) | where EntityType == 'Machine') on AlertId
 | summarize AlertCount=dcount(AlertId), MaxSev=max(Severity) by DeviceName, DeviceId
-| where AlertCount >= 3
+| where AlertCount >= $MIN_ALERTS_RISKY_HOST
 | top 25 by AlertCount desc
 "@
 
@@ -269,7 +366,7 @@ IdentityLogonEvents
 | where Timestamp between (ago(TimeWindowDays*d) .. now())
 | where ActionType == 'LogonFailed'
 | summarize Failures=count(), DistinctIPs=dcount(IPAddress) by AccountUpn, Location
-| where Failures >= 10
+| where Failures >= $MIN_FAILURES_SPRAY
 | top 25 by Failures desc
 "@
 
@@ -299,35 +396,138 @@ CloudAppEvents
 }
 
 # --- MAIN EXECUTION ---
-Write-Host "Starting Weekly Defender XDR Report Generation..." -ForegroundColor Green
-Write-Host "Time Window: Last $TimeWindowDays days" -ForegroundColor Gray
+Write-Log "Starting Weekly Defender XDR Report Generation" -Level INFO
+Write-Log "Time Window: Last $TimeWindowDays days" -Level INFO
 
-# 1. Authenticate
-$Token = New-AuthToken
+try {
+    # 1. Authenticate
+    $Token = New-AuthToken
+    if (-not $Token) { throw "Authentication failed - no token received" }
 
-# 2. Execute Queries
-$Data = @{}
-foreach ($Key in $Queries.Keys) {
-    $Result = Invoke-DefenderAhQuery -Token $Token -Query $Queries[$Key] -Name $Key
-    $Data[$Key] = $Result.Results
-}
+    # 2. Execute Queries (Parallel if PS 7+ and flag enabled)
+    $Data = @{}
+    
+    if ($UseParallel -and $PSVersionTable.PSVersion.Major -ge 7) {
+        Write-Log "Executing queries in parallel..." -Level INFO
+        
+        $Results = $Queries.GetEnumerator() | ForEach-Object -Parallel {
+            $Query = $_.Value
+            $Name = $_.Key
+            $Token = $using:Token
+            $TimeWindowDays = $using:TimeWindowDays
+            $ApiBaseUrl = $using:ApiBaseUrl
+            $TimeoutSec = $using:TimeoutSec
+            $FailFast = $using:FailFast
+            $TestMode = $using:TestMode
+            $MAX_RETRIES = $using:MAX_RETRIES
+            $RETRY_DELAY_BASE = $using:RETRY_DELAY_BASE
+            
+            # Execute query (reuse function logic)
+            if ($TestMode) {
+                return @{ Name = $Name; Results = @(@{ MockData = "Test" }); Error = $null }
+            }
+            
+            $Uri = "$ApiBaseUrl/advancedhunting/run"
+            $Headers = @{
+                "Authorization" = "Bearer $Token"
+                "Content-Type"  = "application/json"
+            }
+            $FinalQuery = $Query -replace "ago\(TimeWindowDays\*d\)", "ago($($TimeWindowDays)d)"
+            $Body = @{ Query = $FinalQuery } | ConvertTo-Json -Compress
+            
+            $Retries = 0
+            do {
+                try {
+                    $Response = Invoke-RestMethod -Method Post -Uri $Uri -Headers $Headers -Body $Body -TimeoutSec $TimeoutSec -ErrorAction Stop
+                    return @{ Name = $Name; Results = $Response.Results; Error = $null }
+                }
+                catch {
+                    $StatusCode = 0
+                    if ($_.Exception.Response) { $StatusCode = $_.Exception.Response.StatusCode.value__ }
+                    if ($StatusCode -eq 429 -or $StatusCode -ge 500) {
+                        $Retries++
+                        Start-Sleep -Seconds ([math]::Pow($RETRY_DELAY_BASE, $Retries))
+                    } else {
+                        return @{ Name = $Name; Results = @(); Error = $_.Exception.Message }
+                    }
+                }
+            } while ($Retries -lt $MAX_RETRIES)
+            
+            return @{ Name = $Name; Results = @(); Error = "Max retries exceeded" }
+        } -ThrottleLimit 5
+        
+        foreach ($Result in $Results) {
+            $Data[$Result.Name] = $Result.Results
+            if ($Result.Error) {
+                Write-Log "Query '$($Result.Name)' had error: $($Result.Error)" -Level WARN
+            }
+        }
+    }
+    else {
+        Write-Log "Executing queries sequentially..." -Level INFO
+        foreach ($Key in $Queries.Keys) {
+            $Result = Invoke-DefenderAhQuery -Token $Token -Query $Queries[$Key] -Name $Key
+            $Data[$Key] = $Result.Results
+        }
+    }
+    
+    # Validate data
+    $TotalRows = ($Data.Values | Measure-Object -Property Count -Sum).Sum
+    Write-Log "Total rows retrieved: $TotalRows" -Level INFO
+    
+    if ($TotalRows -eq 0) {
+        Write-Log "Warning: No data retrieved from any query" -Level WARN
+    }
 
-# 3. Calculate KPIs
-$KPI_MDO_Phish = ($Data["MDO_Trend"] | Measure-Object -Property Phish -Sum).Sum
-$KPI_MDO_Malware = ($Data["MDO_Trend"] | Measure-Object -Property Malware -Sum).Sum
-$KPI_MDE_Alerts = ($Data["MDE_Severity"] | Measure-Object -Property Count -Sum).Sum
-$KPI_MDE_RiskyHosts = $Data["MDE_HostsRisk"].Count
-$KPI_MDI_Spray = $Data["MDI_Spray"].Count
-$KPI_MDA_OAuth = ($Data["MDA_OAuth"] | Measure-Object -Property Consents -Sum).Sum
+    # 3. Calculate KPIs
+    $KPI_MDO_Phish = ($Data["MDO_Trend"] | Measure-Object -Property Phish -Sum).Sum
+    $KPI_MDO_Malware = ($Data["MDO_Trend"] | Measure-Object -Property Malware -Sum).Sum
+    $KPI_MDE_Alerts = ($Data["MDE_Severity"] | Measure-Object -Property Count -Sum).Sum
+    $KPI_MDE_RiskyHosts = $Data["MDE_HostsRisk"].Count
+    $KPI_MDI_Spray = $Data["MDI_Spray"].Count
+    $KPI_MDA_OAuth = ($Data["MDA_OAuth"] | Measure-Object -Property Consents -Sum).Sum
 
-if (-not $KPI_MDO_Phish) { $KPI_MDO_Phish = 0 }
-if (-not $KPI_MDO_Malware) { $KPI_MDO_Malware = 0 }
-if (-not $KPI_MDE_Alerts) { $KPI_MDE_Alerts = 0 }
-if (-not $KPI_MDA_OAuth) { $KPI_MDA_OAuth = 0 }
+    # Null safety
+    if (-not $KPI_MDO_Phish) { $KPI_MDO_Phish = 0 }
+    if (-not $KPI_MDO_Malware) { $KPI_MDO_Malware = 0 }
+    if (-not $KPI_MDE_Alerts) { $KPI_MDE_Alerts = 0 }
+    if (-not $KPI_MDA_OAuth) { $KPI_MDA_OAuth = 0 }
+    
+    Write-Log "KPIs calculated: Phish=$KPI_MDO_Phish, Malware=$KPI_MDO_Malware, Alerts=$KPI_MDE_Alerts" -Level INFO
+    
+    # Compare with previous period
+    $PrevKPIs = $null
+    $KPIChanges = @{}
+    if (Test-Path $KPI_CACHE_FILE) {
+        try {
+            $PrevKPIs = Get-Content $KPI_CACHE_FILE -Raw | ConvertFrom-Json
+            $KPIChanges = @{
+                Phish = if ($PrevKPIs.Phish -gt 0) { [math]::Round((($KPI_MDO_Phish - $PrevKPIs.Phish) / $PrevKPIs.Phish) * 100, 1) } else { 0 }
+                Malware = if ($PrevKPIs.Malware -gt 0) { [math]::Round((($KPI_MDO_Malware - $PrevKPIs.Malware) / $PrevKPIs.Malware) * 100, 1) } else { 0 }
+                Alerts = if ($PrevKPIs.Alerts -gt 0) { [math]::Round((($KPI_MDE_Alerts - $PrevKPIs.Alerts) / $PrevKPIs.Alerts) * 100, 1) } else { 0 }
+            }
+            Write-Log "Trend vs previous: Phish $($KPIChanges.Phish)%, Malware $($KPIChanges.Malware)%, Alerts $($KPIChanges.Alerts)%" -Level INFO
+        } catch {
+            Write-Log "Could not load previous KPIs for comparison" -Level DEBUG
+        }
+    }
+    
+    # Save current KPIs for next run
+    $CurrentKPIs = @{
+        Phish = $KPI_MDO_Phish
+        Malware = $KPI_MDO_Malware
+        Alerts = $KPI_MDE_Alerts
+        RiskyHosts = $KPI_MDE_RiskyHosts
+        Date = (Get-Date).ToString("yyyy-MM-dd")
+    }
+    $CurrentKPIs | ConvertTo-Json | Out-File $KPI_CACHE_FILE -Encoding UTF8 -Force
 
-# --- STATUS CALCULATION (CISO View) ---
-$GlobalStatus = if ($KPI_MDE_RiskyHosts -gt 0 -or $KPI_MDO_Phish -gt 50) { "Critical" } elseif ($KPI_MDE_Alerts -gt 20) { "Warning" } else { "Healthy" }
-$StatusColor = switch ($GlobalStatus) { "Critical" { "#d13438" } "Warning" { "#ffaa44" } "Healthy" { "#107c10" } }
+    # --- STATUS CALCULATION (CISO View) ---
+    $GlobalStatus = if ($KPI_MDE_RiskyHosts -gt 0 -or $KPI_MDO_Phish -gt 50) { "Critical" } elseif ($KPI_MDE_Alerts -gt 20) { "Warning" } else { "Healthy" }
+    $StatusColor = switch ($GlobalStatus) { "Critical" { "#d13438" } "Warning" { "#ffaa44" } "Healthy" { "#107c10" } }
+    
+    # Mask Tenant ID for security (show only last 8 chars)
+    $MaskedTenantId = "****" + $TenantId.Substring($TenantId.Length - 8)
 
 # 4. Generate HTML
 function New-HtmlTable {
@@ -417,7 +617,7 @@ $HtmlContent = @"
             </div>
             <div class="meta">
                 <div class="status-badge" style="background-color: $StatusColor; display:inline-block; margin-bottom:10px;">$GlobalStatus</div><br>
-                <strong>Tenant:</strong> $TenantId<br>
+                <strong>Tenant:</strong> $MaskedTenantId<br>
                 <strong>Generated:</strong> $(Get-Date -Format "yyyy-MM-dd HH:mm")<br>
                 <strong>Period:</strong> Last $TimeWindowDays Days
             </div>
@@ -556,31 +756,67 @@ $HtmlContent = @"
 </html>
 "@
 
-# 5. Save Report
-try {
-    $Dir = Split-Path $OutputPath -Parent
-    if (-not (Test-Path $Dir)) { New-Item -ItemType Directory -Path $Dir -Force | Out-Null }
-    $HtmlContent | Out-File -FilePath $OutputPath -Encoding UTF8 -Force
-    Write-Host "[-] Report saved to: $OutputPath" -ForegroundColor Cyan
+    # 5. Save Report
+    try {
+        $Dir = Split-Path $OutputPath -Parent
+        if (-not (Test-Path $Dir)) { 
+            New-Item -ItemType Directory -Path $Dir -Force | Out-Null 
+            Write-Log "Created output directory: $Dir" -Level DEBUG
+        }
+        
+        # Use explicit UTF8 encoding (without BOM) for HTML
+        $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+        [System.IO.File]::WriteAllText($OutputPath, $HtmlContent, $Utf8NoBom)
+        
+        Write-Log "Report saved to: $OutputPath" -Level INFO
+        
+        # Export CSV if requested
+        if ($ExportCsv) {
+            $CsvDir = Join-Path $Dir "CSV_Export"
+            if (-not (Test-Path $CsvDir)) { New-Item -ItemType Directory -Path $CsvDir -Force | Out-Null }
+            
+            foreach ($Key in $Data.Keys) {
+                if ($Data[$Key].Count -gt 0) {
+                    $CsvPath = Join-Path $CsvDir "$Key.csv"
+                    $Data[$Key] | Export-Csv -Path $CsvPath -NoTypeInformation -Encoding UTF8
+                    Write-Log "Exported CSV: $CsvPath" -Level DEBUG
+                }
+            }
+            Write-Log "CSV files exported to: $CsvDir" -Level INFO
+        }
+    }
+    catch {
+        Write-Log "Failed to save report: $($_.Exception.Message)" -Level ERROR
+        throw
+    }
+
+    # 6. Send Email (Optional)
+    if ($SendMail) {
+        if ($SmtpServer -and $To) {
+            try {
+                Write-Log "Sending email to $To via $SmtpServer" -Level INFO
+                Send-MailMessage -SmtpServer $SmtpServer -From "DefenderReport@$env:COMPUTERNAME" -To $To -Subject $Subject -Body $HtmlContent -BodyAsHtml -Priority High -Encoding ([System.Text.Encoding]::UTF8)
+                Write-Log "Email sent successfully" -Level INFO
+            }
+            catch {
+                Write-Log "Failed to send email: $($_.Exception.Message)" -Level ERROR
+            }
+        } else {
+            Write-Log "Email skipped. Missing SmtpServer or To parameter" -Level WARN
+        }
+    }
+
+    Write-Log "Weekly Defender XDR Report generation completed successfully" -Level INFO
 }
 catch {
-    Write-Error "Failed to save report: $_"
+    Write-Log "Script execution failed: $($_.Exception.Message)" -Level ERROR
+    Write-Log "Stack Trace: $($_.ScriptStackTrace)" -Level DEBUG
+    throw
 }
-
-# 6. Send Email (Optional)
-if ($SendMail) {
-    if ($SmtpServer -and $To) {
-        try {
-            Write-Host "[-] Sending email to $To..." -ForegroundColor Cyan
-            Send-MailMessage -SmtpServer $SmtpServer -From "DefenderReport@$env:COMPUTERNAME" -To $To -Subject $Subject -Body $HtmlContent -BodyAsHtml -Priority High
-            Write-Host "    [+] Email sent." -ForegroundColor Green
-        }
-        catch {
-            Write-Error "Failed to send email: $_"
-        }
-    } else {
-        Write-Warning "Email skipped. Missing SmtpServer or To parameter."
-    }
+finally {
+    # Cleanup sensitive data from memory
+    if ($Token) { Clear-Variable -Name Token -ErrorAction SilentlyContinue }
+    if ($ClientSecret) { Clear-Variable -Name ClientSecret -ErrorAction SilentlyContinue }
 }
 
 # --- APPENDIX: MANUAL QUERIES ---
