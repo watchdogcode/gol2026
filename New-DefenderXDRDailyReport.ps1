@@ -34,7 +34,7 @@ param(
     [string]$SmtpServer,
     [string]$From,
     [string]$To,
-    [string]$Subject = "Daily Security Report - M365 Defender",
+    [string]$Subject = "Daily Security Report - M365 Defender XDR",
     [int]$TimeoutSec = 120,
     [bool]$FailFast = $false
 )
@@ -46,12 +46,32 @@ $ResourceUrl = "https://api.security.microsoft.com"
 $ReportDate = Get-Date
 $StartDate = $ReportDate.AddHours(-$TimeWindowHours)
 
+# --- CREDENTIAL MASKING ---
+function Mask-String {
+    param([string]$Value, [int]$VisibleChars = 4)
+    if ([string]::IsNullOrEmpty($Value)) { return '****' }
+    if ($Value.Length -le $VisibleChars) { return '****' }
+    return ('*' * ($Value.Length - $VisibleChars)) + $Value.Substring($Value.Length - $VisibleChars)
+}
+
+$MaskedTenantId  = Mask-String $TenantId
+$MaskedClientId  = Mask-String $ClientId
+$MaskedSecret    = if ($ClientSecret) { '********' } else { '(not set)' }
+
 # --- LOGGING FUNCTION ---
 function Write-Log {
     param([string]$Message, [string]$Level="INFO")
     $Color = switch($Level) { "INFO" {"Cyan"} "WARN" {"Yellow"} "ERROR" {"Red"} default {"White"} }
     Write-Host "[$((Get-Date).ToString('HH:mm:ss'))] [$Level] $Message" -ForegroundColor $Color
 }
+
+# --- SECURITY POSTURE: Log masked credentials at startup ---
+Write-Log "=== Security Context ==="
+Write-Log "  Tenant ID   : $MaskedTenantId"
+Write-Log "  Client ID   : $MaskedClientId"
+Write-Log "  Secret      : $MaskedSecret"
+Write-Log "  Auth Mode   : $AuthMode"
+Write-Log "========================"
 
 # --- AUTHENTICATION ---
 function Get-M365Token {
@@ -408,7 +428,7 @@ $HtmlContent = @"
         <h1>Daily Security Operations Report</h1>
         <div class="meta">
             <div><strong>Period:</strong> $($StartDate.ToString("yyyy-MM-dd HH:mm")) - $($ReportDate.ToString("yyyy-MM-dd HH:mm"))</div>
-            <div style="font-size: 0.85em; margin-top: 4px;">Tenant ID: $TenantId</div>
+            <div style="font-size: 0.85em; margin-top: 4px;">Tenant ID: $MaskedTenantId</div>
         </div>
     </div>
 

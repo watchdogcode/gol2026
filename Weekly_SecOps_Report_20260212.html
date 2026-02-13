@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Defender XDR - Weekly Threat Report</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #323130; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: #fff; padding: 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 8px; }
+        
+        /* Header */
+        .header { border-bottom: 3px solid #0078d4; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { margin: 0; color: #0078d4; font-size: 28px; }
+        .meta { text-align: right; font-size: 0.9em; color: #605e5c; }
+        .status-badge { padding: 5px 15px; border-radius: 4px; color: white; font-weight: bold; text-transform: uppercase; font-size: 0.9em; }
+        
+        /* Executive Summary */
+        .summary { background: #f8f9fa; padding: 20px; border-radius: 6px; border-left: 5px solid #0078d4; margin-bottom: 30px; }
+        .summary h3 { margin-top: 0; color: #201f1e; }
+        .summary ul { margin: 0; padding-left: 20px; }
+        .summary li { margin-bottom: 8px; font-size: 1.05em; }
+
+        /* KPI Grid */
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        .card { background: #fff; padding: 20px; border-radius: 6px; border: 1px solid #e1dfdd; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .card-val { font-size: 36px; font-weight: 700; color: #0078d4; margin-bottom: 5px; }
+        .card-label { font-size: 12px; text-transform: uppercase; color: #605e5c; font-weight: 600; letter-spacing: 0.5px; }
+        .card.danger .card-val { color: #d13438; }
+        .card.success .card-val { color: #107c10; }
+        
+        /* Sections */
+        h2 { color: #201f1e; border-left: 4px solid #0078d4; padding-left: 12px; margin-top: 40px; font-size: 20px; }
+        h3 { color: #605e5c; font-size: 16px; margin-top: 25px; margin-bottom: 10px; }
+        
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 20px; }
+        th { background: #f3f2f1; text-align: left; padding: 10px; border-bottom: 2px solid #e1dfdd; color: #605e5c; }
+        td { padding: 10px; border-bottom: 1px solid #e1dfdd; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        tr:hover { background-color: #f0f0f0; transition: background 0.2s; }
+        a { text-decoration: none; color: #0078d4; font-weight: 500; }
+        a:hover { text-decoration: underline; }
+
+        /* Checklist */
+        .checklist { background: #e6f2ff; padding: 20px; border-radius: 6px; margin-top: 40px; }
+        .checklist h3 { margin-top: 0; color: #005a9e; }
+        .checklist ul { list-style: none; padding: 0; }
+        .checklist li { padding: 8px 0; border-bottom: 1px solid #cce4ff; display: flex; align-items: flex-start; }
+        .checklist li:before { content: "☐"; margin-right: 10px; font-weight: bold; color: #0078d4; }
+        
+        .footer { margin-top: 50px; text-align: center; color: #8a8886; font-size: 12px; border-top: 1px solid #e1dfdd; padding-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>Defender XDR – Weekly Threat Report</h1>
+                <div style="margin-top:5px; color:#605e5c;">Weekly Security Operations & Threat Protection</div>
+            </div>
+            <div class="meta">
+                <div class="status-badge" style="background-color: #107c10; display:inline-block; margin-bottom:10px;">Healthy</div><br>
+                <strong>Tenant:</strong> ********************************8c2b<br>
+                <strong>Generated:</strong> 2026-02-12 20:37<br>
+                <strong>Period:</strong> Last 7 Days
+            </div>
+        </div>
+
+        <div class="summary">
+            <h3>Executive Summary</h3>
+            <ul>
+                <li><strong>0</strong> phishing emails and <strong>0</strong> malware attempts detected this week.</li>
+                <li><strong>0</strong> total endpoint alerts recorded; <strong>0</strong> hosts require immediate attention (Multi-Alert/High Sev).</li>
+                <li><strong>0</strong> identities showed signs of password spray or brute force attacks.</li>
+                <li><strong>0</strong> new OAuth consents granted to applications.</li>
+            </ul>
+        </div>
+
+        <div class="kpi-grid">
+            <div class="card success">
+                <div class="card-val">0</div>
+                <div class="card-label">Total Endpoint Alerts</div>
+            </div>
+            <div class="card success">
+                <div class="card-val">0</div>
+                <div class="card-label">Phishing Attempts</div>
+            </div>
+            <div class="card success">
+                <div class="card-val">0</div>
+                <div class="card-label">Critical Hosts (≥3 Alerts)</div>
+            </div>
+            <div class="card success">
+                <div class="card-val">0</div>
+                <div class="card-label">Identity Spray Attacks</div>
+            </div>
+            <div class="card success">
+                <div class="card-val">0</div>
+                <div class="card-label">New OAuth Consents</div>
+            </div>
+        </div>
+
+        <!-- MDO -->
+        <h2>MDO: Email & Collaboration</h2>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+            <div>
+                <h3>Top Active Campaigns</h3>
+                <table>
+                    <thead><tr><th>Subject</th><th>Sender Domain</th><th>Count</th><th>Targets</th></tr></thead>
+                    <tbody><tr><td colspan='4' style='text-align:center; color:#888; padding:15px;'>No data available for this period.</td></tr></tbody>
+                </table>
+            </div>
+            <div>
+                <h3>Top Targeted Users</h3>
+                <table>
+                    <thead><tr><th>User Email</th><th>Attacks</th></tr></thead>
+                    <tbody><tr><td colspan='2' style='text-align:center; color:#888; padding:15px;'>No data available for this period.</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- MDE -->
+        <h2>MDE: Endpoint Security</h2>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+            <div>
+                <h3>Alerts by Severity</h3>
+                <table>
+                    <thead><tr><th>Severity</th><th>Count</th></tr></thead>
+                    <tbody><tr><td colspan='2' style='text-align:center; color:#888; padding:15px;'>No data available for this period.</td></tr></tbody>
+                </table>
+            </div>
+            <div>
+                <h3>Hosts with Multiple High/Critical Alerts</h3>
+                <table>
+                    <thead><tr><th>Device Name</th><th>Alert Count</th><th>Max Severity</th></tr></thead>
+                    <tbody><tr><td colspan='3' style='text-align:center; color:#888; padding:15px;'>No data available for this period.</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+        <h3>Device Health Status (Top 25)</h3>
+        <table>
+            <thead><tr><th>Device Name</th><th>OS</th><th>Health State</th><th>Last Seen</th></tr></thead>
+            <tbody><tr><td><a href='https://security.microsoft.com/machines/a062332fc84cbd03744064d9aff6cf74f7fce5a7' target='_blank' title='View Device in Defender'>attackerubuntu</a></td><td>Linux</td><td></td><td>2026-02-13 02:28</td></tr><tr><td><a href='https://security.microsoft.com/machines/43bd7bd3f83616391647fb6ad6dabdb652ea0076' target='_blank' title='View Device in Defender'>svr19-pki</a></td><td>WindowsServer2019</td><td></td><td>2026-02-13 02:27</td></tr><tr><td><a href='https://security.microsoft.com/machines/518857f68aa04e970514dbcbd2659aac7262650e' target='_blank' title='View Device in Defender'>svr16-adfs</a></td><td>WindowsServer2016</td><td></td><td>2026-02-13 02:20</td></tr><tr><td><a href='https://security.microsoft.com/machines/53171c9f56e6677dbe9550650586a87be0338a15' target='_blank' title='View Device in Defender'>win10-ceo</a></td><td>Windows10</td><td></td><td>2026-02-13 02:19</td></tr><tr><td><a href='https://security.microsoft.com/machines/7f290579351f92e63b1cb2e21fdb7623af445af1' target='_blank' title='View Device in Defender'>w11</a></td><td>Windows11</td><td></td><td>2026-02-13 02:15</td></tr><tr><td><a href='https://security.microsoft.com/machines/5be61a149ad56b1bdac274fa463e85bccf5267ee' target='_blank' title='View Device in Defender'>win2022dc2</a></td><td>WindowsServer2022</td><td>Active</td><td>2026-02-13 02:14</td></tr><tr><td><a href='https://security.microsoft.com/machines/85017d537b7328885006c730ad233cc04c52a12d' target='_blank' title='View Device in Defender'>elk</a></td><td>Linux</td><td></td><td>2026-02-13 02:13</td></tr><tr><td><a href='https://security.microsoft.com/machines/3e5c6f1b92caf6dd3486cfa5dc660677f02d2a29' target='_blank' title='View Device in Defender'>lab25</a></td><td>WindowsServer2025</td><td>Active</td><td>2026-02-13 02:11</td></tr><tr><td><a href='https://security.microsoft.com/machines/d06c8380a28052a2e4eeb4fb6c73ab02a1e26ea5' target='_blank' title='View Device in Defender'>svr22-sync</a></td><td>WindowsServer2022</td><td></td><td>2026-02-13 02:08</td></tr><tr><td><a href='https://security.microsoft.com/machines/4bae693073d24cfc84670a1c57c30a0857cb01f7' target='_blank' title='View Device in Defender'>svr19-dc1</a></td><td>WindowsServer2019</td><td></td><td>2026-02-13 02:07</td></tr><tr><td><a href='https://security.microsoft.com/machines/22f7f084e1a8cc02ab8d996328594ec91eecd3a6' target='_blank' title='View Device in Defender'>attackerwin10</a></td><td>Windows10</td><td></td><td>2026-02-13 01:49</td></tr><tr><td><a href='https://security.microsoft.com/machines/40f0d4cb1cbe64dcfcf22c4cc112997df330ab87' target='_blank' title='View Device in Defender'>attackerkali</a></td><td>Linux</td><td></td><td>2026-02-13 01:43</td></tr><tr><td><a href='https://security.microsoft.com/machines/8c3b9d91724a359d5028d5c61f1a6938177be32e' target='_blank' title='View Device in Defender'>win10-adm</a></td><td>Windows10</td><td></td><td>2026-02-13 01:40</td></tr><tr><td><a href='https://security.microsoft.com/machines/1c3e1cacba9595e7e510401916dd7c6f76466095' target='_blank' title='View Device in Defender'>sensor.private.pvt</a></td><td>WindowsServer2016</td><td></td><td>2026-02-13 01:29</td></tr><tr><td><a href='https://security.microsoft.com/machines/6cac162d13d40c258f5032cb3f32519a541ac4bd' target='_blank' title='View Device in Defender'>memberserve01</a></td><td>WindowsServer2022</td><td>Active</td><td>2026-02-13 00:20</td></tr><tr><td><a href='https://security.microsoft.com/machines/722c28965678451e78dbe2d4ee928eb63340d3cf' target='_blank' title='View Device in Defender'>ubuntu-proxy</a></td><td>Linux</td><td></td><td>2026-02-12 21:40</td></tr><tr><td><a href='https://security.microsoft.com/machines/3e6a8d1dec4b105c25faf5408c4edd1501d51db1' target='_blank' title='View Device in Defender'>ravenscar</a></td><td>WindowsServer2022</td><td>Inactive</td><td>2026-02-12 20:12</td></tr><tr><td><a href='https://security.microsoft.com/machines/4df40c04471e75cec1c8990762e9cfad3d33a6b1' target='_blank' title='View Device in Defender'>dcprivate</a></td><td>WindowsServer2019</td><td></td><td>2026-02-12 15:21</td></tr><tr><td><a href='https://security.microsoft.com/machines/1c3e1cacba9595e7e510401916dd7c6f76466095' target='_blank' title='View Device in Defender'>sensor</a></td><td>Windows</td><td></td><td>2026-02-11 16:09</td></tr><tr><td><a href='https://security.microsoft.com/machines/7bea85d62352164d69791d9aba29392ae5b7da0e' target='_blank' title='View Device in Defender'>cliente01</a></td><td>Windows</td><td></td><td>2026-02-11 03:01</td></tr><tr><td><a href='https://security.microsoft.com/machines/1c3e1cacba9595e7e510401916dd7c6f76466095' target='_blank' title='View Device in Defender'></a></td><td></td><td></td><td>2026-02-10 19:42</td></tr><tr><td><a href='https://security.microsoft.com/machines/7bea85d62352164d69791d9aba29392ae5b7da0e' target='_blank' title='View Device in Defender'>desktop-5qn4g8h</a></td><td>Windows</td><td></td><td>2026-02-10 19:30</td></tr></tbody>
+        </table>
+
+        <!-- MDI -->
+        <h2>MDI: Identity Security</h2>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+            <div>
+                <h3>Password Spray / Brute Force</h3>
+                <table>
+                    <thead><tr><th>Account</th><th>Location</th><th>Failures</th><th>IPs</th></tr></thead>
+                    <tbody><tr><td colspan='4' style='text-align:center; color:#888; padding:15px;'>No data available for this period.</td></tr></tbody>
+                </table>
+            </div>
+            <div>
+                <h3>Atypical Locations (Travel)</h3>
+                <table>
+                    <thead><tr><th>Account</th><th>Countries</th><th>Last Seen</th></tr></thead>
+                    <tbody><tr><td colspan='3' style='text-align:center; color:#888; padding:15px;'>No data available for this period.</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- MDA -->
+        <h2>MDA: Cloud Apps & Shadow IT</h2>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+            <div>
+                <h3>New OAuth Consents</h3>
+                <table>
+                    <thead><tr><th>App Name</th><th>App ID</th><th>Consents</th><th>Users</th></tr></thead>
+                    <tbody><tr><td colspan='4' style='text-align:center; color:#888; padding:15px;'>No data available for this period.</td></tr></tbody>
+                </table>
+            </div>
+            <div>
+                <h3>New Apps Discovered (Shadow IT)</h3>
+                <table>
+                    <thead><tr><th>Application</th><th>Events</th><th>Users</th></tr></thead>
+                    <tbody><tr><td colspan='3' style='text-align:center; color:#888; padding:15px;'>No data available for this period.</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Recommendations -->
+        <div class="checklist">
+            <h3>Weekly Operational Checklist</h3>
+            <ul>
+                <li><strong>MDO:</strong> Review top phishing campaigns and adjust Safe Links/Attachments policies. Check "Top Targeted Users" for potential compromise or training needs.</li>
+                <li><strong>MDE:</strong> Investigate hosts with ≥3 High/Critical alerts. Isolate devices if active threats are confirmed. Validate EDR sensor health.</li>
+                <li><strong>MDI:</strong> Review accounts with high failure rates (Spray) and enforce MFA or password resets. Investigate atypical travel patterns.</li>
+                <li><strong>MDA:</strong> Audit new OAuth consents. Revoke permissions for unverified or suspicious applications. Review Shadow IT usage.</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            Source: Defender XDR – Advanced Hunting & Reporting (Weekly Ops) | Generated at 20:37
+        </div>
+    </div>
+</body>
+</html>

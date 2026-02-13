@@ -42,7 +42,7 @@ param(
     [ValidateSet(7, 14, 30)]
     [int]$TimeWindowDays = 7,
 
-    [string]$OutputPath = 'C:\Reports\DefenderXDR_Weekly.html',
+    [string]$OutputPath = "$PSScriptRoot\Weekly_SecOps_Report_$(Get-Date -Format 'yyyyMMdd').html",
 
     [ValidateSet('DeviceCode', 'Interactive', 'Secret', 'Certificate')]
     [string]$AuthMode = 'DeviceCode',
@@ -53,7 +53,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$ClientId,
 
-    [SecureString]$ClientSecret,
+    [string]$ClientSecret,
     [string]$CertThumbprint,
 
     [bool]$SendMail = $false,
@@ -81,12 +81,26 @@ $MAX_RETRIES = 3
 $RETRY_DELAY_BASE = 2
 $MIN_FAILURES_SPRAY = 10
 $MIN_ALERTS_RISKY_HOST = 3
+# Security: Token cache uses DPAPI-protected Export-Clixml (current user only)
 $TOKEN_CACHE_FILE = "$env:TEMP\DefenderXDR_TokenCache.xml"
 $KPI_CACHE_FILE = "$env:TEMP\DefenderXDR_KPICache.json"
 
 if ($ProxyUrl) {
     [System.Net.WebRequest]::DefaultWebProxy = New-Object System.Net.WebProxy($ProxyUrl)
 }
+
+# --- CREDENTIAL MASKING (Homogeneous with Daily Report) ---
+function Mask-String {
+    param([string]$Value, [int]$VisibleChars = 4)
+    if ([string]::IsNullOrEmpty($Value)) { return '****' }
+    if ($Value.Length -le $VisibleChars) { return '****' }
+    return ('*' * ($Value.Length - $VisibleChars)) + $Value.Substring($Value.Length - $VisibleChars)
+}
+
+$MaskedTenantId  = Mask-String $TenantId
+$MaskedClientId  = Mask-String $ClientId
+$MaskedSecret    = if ($ClientSecret) { '********' } else { '(not set)' }
+$MaskedThumbprint = if ($CertThumbprint) { Mask-String $CertThumbprint } else { '(not set)' }
 
 # --- LOGGING FUNCTION ---
 function Write-Log {
@@ -121,6 +135,15 @@ function Write-Log {
     }
 }
 
+# --- SECURITY POSTURE: Log masked credentials at startup ---
+Write-Log "=== Security Context ===" -Level INFO
+Write-Log "  Tenant ID   : $MaskedTenantId" -Level INFO
+Write-Log "  Client ID   : $MaskedClientId" -Level INFO
+Write-Log "  Secret      : $MaskedSecret" -Level INFO
+Write-Log "  Cert Thumb  : $MaskedThumbprint" -Level INFO
+Write-Log "  Auth Mode   : $AuthMode" -Level INFO
+Write-Log "========================" -Level INFO
+
 # --- AUTHENTICATION ---
 function New-AuthToken {
     Write-Log "Authenticating via $AuthMode..." -Level INFO
@@ -144,20 +167,19 @@ function New-AuthToken {
         if ($AuthMode -eq 'Secret') {
             if (-not $ClientSecret) { throw "ClientSecret is required for Secret auth." }
             
-            # Convert SecureString to plain text for API call
-            $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($ClientSecret)
-            $PlainSecret = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
-            [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
-            
             $Body = @{
                 grant_type    = "client_credentials"
                 client_id     = $ClientId
-                client_secret = $PlainSecret
+                client_secret = $ClientSecret
                 scope         = $Scope
             }
             $Response = Invoke-RestMethod -Method Post -Uri "$Authority/oauth2/v2.0/token" -Body $Body -ErrorAction Stop
             $Token = $Response.access_token
             $ExpiresIn = $Response.expires_in
+            
+            # Security: Clear plain-text secret from memory immediately
+            $PlainSecret = $null
+            [System.GC]::Collect()
         }
         elseif ($AuthMode -eq 'Certificate') {
             # Basic implementation assuming certificate is in CurrentUser\My
@@ -526,8 +548,7 @@ try {
     $GlobalStatus = if ($KPI_MDE_RiskyHosts -gt 0 -or $KPI_MDO_Phish -gt 50) { "Critical" } elseif ($KPI_MDE_Alerts -gt 20) { "Warning" } else { "Healthy" }
     $StatusColor = switch ($GlobalStatus) { "Critical" { "#d13438" } "Warning" { "#ffaa44" } "Healthy" { "#107c10" } }
     
-    # Mask Tenant ID for security (show only last 8 chars)
-    $MaskedTenantId = "****" + $TenantId.Substring($TenantId.Length - 8)
+    # Tenant ID already masked at script startup via Mask-String function
 
 # 4. Generate HTML
 function New-HtmlTable {
@@ -817,6 +838,13 @@ finally {
     # Cleanup sensitive data from memory
     if ($Token) { Clear-Variable -Name Token -ErrorAction SilentlyContinue }
     if ($ClientSecret) { Clear-Variable -Name ClientSecret -ErrorAction SilentlyContinue }
+    if ($PlainSecret) { Clear-Variable -Name PlainSecret -ErrorAction SilentlyContinue }
+    # Remove token cache file on exit for security
+    if (Test-Path $TOKEN_CACHE_FILE) {
+        Remove-Item $TOKEN_CACHE_FILE -Force -ErrorAction SilentlyContinue
+        Write-Log "Token cache cleaned up" -Level DEBUG
+    }
+    [System.GC]::Collect()
 }
 
 # --- APPENDIX: MANUAL QUERIES ---

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Security Report</title>
+    <style>
+        :root {
+            --primary-color: #0078d4;
+            --secondary-color: #2b2b2b;
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --text-color: #323130;
+            --border-color: #e1dfdd;
+            --danger-color: #a80000;
+        }
+        body { 
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; 
+            background-color: var(--bg-color); 
+            color: var(--text-color); 
+            margin: 0; 
+            padding: 0; 
+            line-height: 1.5;
+        }
+        .header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+        .header .meta { font-size: 0.9em; opacity: 0.9; text-align: right; }
+        
+        .container { 
+            max-width: 1200px; 
+            margin: 30px auto; 
+            padding: 0 20px; 
+        }
+        
+        h2 { 
+            color: var(--secondary-color); 
+            margin-top: 40px; 
+            margin-bottom: 15px; 
+            font-size: 18px; 
+            border-left: 4px solid var(--primary-color); 
+            padding-left: 12px; 
+            display: flex;
+            align-items: center;
+        }
+
+        /* KPI Grid */
+        .kpi-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
+            gap: 20px; 
+            margin-bottom: 30px; 
+        }
+        .kpi-card { 
+            background: var(--card-bg); 
+            padding: 25px 20px; 
+            border-radius: 8px; 
+            text-align: center; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05); 
+            transition: transform 0.2s ease;
+            border-top: 4px solid transparent;
+        }
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .kpi-card.alert { border-top-color: var(--primary-color); }
+        .kpi-card.danger { border-top-color: var(--danger-color); }
+        
+        .kpi-val { font-size: 3em; font-weight: 700; color: var(--secondary-color); line-height: 1; margin-bottom: 5px; }
+        .kpi-label { font-size: 0.85em; color: #605e5c; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+        
+        /* Tables */
+        .table-container {
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
+        th { background-color: #f8f9fa; color: #605e5c; text-align: left; padding: 12px 15px; font-weight: 600; border-bottom: 2px solid var(--border-color); }
+        td { border-bottom: 1px solid var(--border-color); padding: 12px 15px; color: var(--text-color); }
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background-color: #f8f9fa; }
+        
+        /* Recommendations */
+        .recs { 
+            background-color: #e6f2ff; 
+            padding: 20px; 
+            border-radius: 8px; 
+            border: 1px solid #cce4ff;
+        }
+        .recs ul { margin: 0; padding-left: 20px; }
+        .recs li { margin-bottom: 8px; line-height: 1.6; }
+        
+        /* Daily Activities */
+        .activities { 
+            background-color: var(--card-bg); 
+            border-radius: 8px; 
+            padding: 20px; 
+            margin-bottom: 30px; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border-left: 5px solid var(--primary-color);
+        }
+        .activities h4 { margin-top: 0; margin-bottom: 15px; color: var(--secondary-color); font-size: 1.1em; }
+        .activities ul { margin: 0; padding-left: 20px; }
+        .activities li { margin-bottom: 8px; font-size: 1em; color: var(--text-color); }
+        .activities li a { color: var(--primary-color); text-decoration: none; font-weight: 500; }
+        .activities li a:hover { text-decoration: underline; }
+        
+        .footer { text-align: center; margin-top: 50px; color: #8a8886; font-size: 0.85em; padding-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Daily Security Operations Report</h1>
+        <div class="meta">
+            <div><strong>Period:</strong> 2026-02-11 20:30 - 2026-02-12 20:30</div>
+            <div style="font-size: 0.85em; margin-top: 4px;">Tenant ID: ********************************8c2b</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- KPIs -->
+        <div class="kpi-grid">
+            <div class="kpi-card alert">
+                <div class="kpi-val">0</div>
+                <div class="kpi-label">Total Alerts (MDE)</div>
+            </div>
+            <div class="kpi-card alert">
+                <div class="kpi-val">0</div>
+                <div class="kpi-label">Phish Delivered</div>
+            </div>
+            <div class="kpi-card alert">
+                <div class="kpi-val">0</div>
+                <div class="kpi-label">High Risk Users</div>
+            </div>
+            <div class="kpi-card alert">
+                <div class="kpi-val">0</div>
+                <div class="kpi-label">Identity Brute Force</div>
+            </div>
+            <div class="kpi-card alert">
+                <div class="kpi-val">0</div>
+                <div class="kpi-label">New OAuth Consents</div>
+            </div>
+        </div>
+
+        <!-- MDO Section -->
+        <h2>MDO: Email & Collaboration</h2>
+        <div class="activities">
+            <h4>Daily Activities</h4>
+            <ul>
+                <li><a href="https://security.microsoft.com/incidents">Monitor email and collaboration incidents and alerts.</a>
+                    <div style="margin-top:8px; padding:10px; background:#f8f9fa; border-left:3px solid #0078d4; font-family:Consolas, monospace; font-size:0.85em; color:#333;">
+                        <div style="font-weight:bold; color:#0078d4; margin-bottom:5px;">💡 Recommended KQL: Suspicious Delivered Attachments (Analysis)</div>
+                        <div style="white-space:pre-wrap;">EmailAttachmentInfo | where Timestamp > ago(24h) | join kind=inner (EmailEvents | where DeliveryAction == 'Delivered') on NetworkMessageId | where FileType in ('exe', 'ps1', 'vbs', 'iso', 'js') | project Timestamp, FileName, RecipientEmailAddress</div>
+                    </div>
+                </li>
+                <li><a href="https://security.microsoft.com/campaigns">Evaluate phishing and malware campaigns that were delivered.</a></li>
+                <li><a href="https://security.microsoft.com/action-center/pending">Review pending or incomplete automated actions (AIR).</a></li>
+                <li><a href="https://security.microsoft.com/submissions">Triage suspicious messages reported by users.</a></li>
+                <li><a href="https://security.microsoft.com/alerts">Manage alerts with classification and necessary remediations.</a></li>
+            </ul>
+        </div>
+        
+        <h3>Top Phishing Campaigns Delivered</h3>
+        <div class="table-container">
+            <table>
+                <thead><tr><th>Subject</th><th>SenderDomain</th><th>Events</th><th>Targets</th></tr></thead>
+                <tbody><tr><td colspan='4' style='text-align:center; color:#666;'>No data found in period</td></tr></tbody>
+            </table>
+        </div>
+        
+        <h3>Top Targeted Users (Phishing)</h3>
+        <div class="table-container">
+            <table>
+                <thead><tr><th>Recipient</th><th>Attempts</th></tr></thead>
+                <tbody><tr><td colspan='2' style='text-align:center; color:#666;'>No data found in period</td></tr></tbody>
+            </table>
+        </div>
+
+        <!-- MDE Section -->
+        <h2>MDE: Endpoint Security</h2>
+        <h3>Alerts by Severity</h3>
+        <div class="table-container">
+            <table>
+                <thead><tr><th>Severity</th><th>Count</th></tr></thead>
+                <tbody><tr><td colspan='2' style='text-align:center; color:#666;'>No data found in period</td></tr></tbody>
+            </table>
+        </div>
+
+        <!-- MDI Section -->
+        <h2>MDI: Identity Security</h2>
+        <h3>Potential Brute Force Success</h3>
+        <div class="table-container">
+            <table>
+                <thead><tr><th>Account</th><th>IP Address</th><th>Location</th><th>Fails</th><th>Success</th></tr></thead>
+                <tbody><tr><td colspan='5' style='text-align:center; color:#666;'>No data found in period</td></tr></tbody>
+            </table>
+        </div>
+
+        <h3>Users with High Risk Sign-ins</h3>
+        <div class="table-container">
+            <table>
+                <thead><tr><th>Account</th><th>Risk Level</th><th>Events</th></tr></thead>
+                <tbody><tr><td colspan='3' style='text-align:center; color:#666;'>No data found in period</td></tr></tbody>
+            </table>
+        </div>
+
+        <!-- MDA Section -->
+        <h2>MDA: Cloud Apps & Shadow IT</h2>
+        <h3>New OAuth Consents</h3>
+        <div class="table-container">
+            <table>
+                <thead><tr><th>Application</th><th>AppId</th><th>Consents</th><th>Users</th></tr></thead>
+                <tbody><tr><td colspan='4' style='text-align:center; color:#666;'>No data found in period</td></tr></tbody>
+            </table>
+        </div>
+
+        <!-- Recommendations -->
+        <h2>Daily Recommendations & Actions</h2>
+        <div class="recs">
+            <ul>
+                <li><strong>MDO:</strong> Review the phishing campaigns and validate ZAP effectiveness. Check top targeted users for awareness training.</li>
+                <li><strong>MDI:</strong> Investigate the <b>0</b> users with high risk sign-ins. Reset passwords or enforce MFA for risky sessions.</li>
+                <li><strong>MDI:</strong> Analyze the <b>0</b> accounts with brute force success. Reset passwords and enforce MFA if not present.</li>
+                <li><strong>MDA:</strong> Audit the <b>0</b> new OAuth consents. Revoke permissions for suspicious or unverified publishers.</li>
+            </ul>
+        </div>
+        
+        <div class="footer">
+            Generated by Automated Security Operations | Microsoft 365 Defender
+        </div>
+    </div>
+</body>
+</html>

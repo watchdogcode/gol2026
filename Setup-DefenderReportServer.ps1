@@ -1,316 +1,592 @@
 <#
 .SYNOPSIS
     Setup-DefenderReportServer.ps1
-    Script de configuración inicial para servidor Defender XDR Reporting
+    Script de configuracion inicial para Defender XDR Daily & Weekly Reporting.
 
 .DESCRIPTION
-    Ayuda a configurar el entorno del servidor para ejecutar New-DefenderXDRWeeklyReport.ps1
-    - Crea estructura de directorios
-    - Configura ClientSecret encriptado con DPAPI
-    - Valida permisos de la App Registration
-    - Crea script wrapper para Task Scheduler
+    Configura el entorno completo para ejecutar:
+      - New-DefenderXDRDailyReport.ps1  (reporte diario)
+      - New-DefenderXDRWeeklyReport.ps1 (reporte semanal)
+
+    Acciones que realiza:
+      1. Crea estructura de directorios segura
+      2. Solicita y almacena credenciales (DPAPI-encrypted)
+      3. Valida permisos de App Registration contra la API
+      4. Copia los scripts a la ruta de ejecucion
+      5. Genera wrappers seguros para Task Scheduler
+      6. Crea tareas programadas (Daily 7:00 AM / Weekly Lunes 7:30 AM)
+
+.PARAMETER ConfigPath
+    Ruta para archivos de configuracion (default: $PSScriptRoot\Config).
+
+.PARAMETER ReportsPath
+    Ruta base para reportes generados (default: $PSScriptRoot\Reports).
+
+.PARAMETER ScriptsPath
+    Ruta donde se copiaran los scripts de reporte (default: $PSScriptRoot).
+
+.PARAMETER SkipValidation
+    Omite la validacion de permisos contra la API.
+
+.PARAMETER SkipScheduledTasks
+    Omite la creacion de tareas programadas.
 
 .EXAMPLE
     .\Setup-DefenderReportServer.ps1
+    .\Setup-DefenderReportServer.ps1 -SkipScheduledTasks
 
 .NOTES
-    Debe ejecutarse con la cuenta de servicio que ejecutará los reportes programados.
+    Debe ejecutarse con la cuenta de servicio que ejecutara los reportes programados.
+    Las credenciales se protegen con DPAPI (solo funcionan con el usuario que ejecuto el setup).
+    Permiso requerido en App Registration: AdvancedHunting.Read.All (Application).
 #>
 
 param(
-    [string]$ConfigPath = "C:\Config\DefenderXDR",
-    [string]$ReportsPath = "C:\Reports",
-    [string]$ScriptsPath = "C:\Scripts"
+    [string]$ConfigPath   = "$PSScriptRoot\Config",
+    [string]$ReportsPath  = "$PSScriptRoot\Reports",
+    [string]$ScriptsPath  = "$PSScriptRoot",
+    [switch]$SkipValidation,
+    [switch]$SkipScheduledTasks
 )
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "`n=== Configuración Inicial - Defender XDR Reports ===" -ForegroundColor Cyan
-Write-Host "Usuario actual: $env:USERNAME" -ForegroundColor Gray
-Write-Host "Fecha: $(Get-Date -Format 'yyyy-MM-dd HH:mm')`n" -ForegroundColor Gray
+# ============================================================
+#  UTILIDADES
+# ============================================================
 
-# --- PASO 1: Crear estructura de directorios ---
-Write-Host "[1/6] Creando estructura de directorios..." -ForegroundColor Yellow
+function Mask-String {
+    param([string]$Value, [int]$VisibleChars = 4)
+    if ([string]::IsNullOrEmpty($Value)) { return '****' }
+    if ($Value.Length -le $VisibleChars) { return '****' }
+    return ('*' * ($Value.Length - $VisibleChars)) + $Value.Substring($Value.Length - $VisibleChars)
+}
+
+function Write-Step {
+    param([string]$Step, [string]$Message)
+    Write-Host "`n[$Step] $Message" -ForegroundColor Yellow
+}
+
+function Write-Ok {
+    param([string]$Message)
+    Write-Host "  [OK] $Message" -ForegroundColor Green
+}
+
+function Write-Skip {
+    param([string]$Message)
+    Write-Host "  [--] $Message" -ForegroundColor Gray
+}
+
+function Write-Fail {
+    param([string]$Message)
+    Write-Host "  [!!] $Message" -ForegroundColor Red
+}
+
+function Write-Info {
+    param([string]$Message)
+    Write-Host "  $Message" -ForegroundColor Cyan
+}
+
+# ============================================================
+#  BANNER
+# ============================================================
+
+$Banner = @"
+
+  ===================================================================
+   Defender XDR Report Server - Setup
+   Daily & Weekly Security Operations Reports
+  ===================================================================
+   Usuario  : $env:USERDOMAIN\$env:USERNAME
+   Equipo   : $env:COMPUTERNAME
+   Fecha    : $(Get-Date -Format 'yyyy-MM-dd HH:mm')
+   PS       : $($PSVersionTable.PSVersion)
+  ===================================================================
+
+"@
+
+Write-Host $Banner -ForegroundColor Cyan
+
+# ============================================================
+#  PASO 1: Estructura de directorios
+# ============================================================
+
+Write-Step "1/7" "Creando estructura de directorios..."
 
 $Directories = @(
     $ConfigPath,
+    "$ReportsPath\Daily",
     "$ReportsPath\Weekly",
-    "$ReportsPath\Logs",
-    "$ReportsPath\CSV_Export",
-    $ScriptsPath
+    "$ReportsPath\Logs"
 )
 
 foreach ($Dir in $Directories) {
     if (-not (Test-Path $Dir)) {
         New-Item -ItemType Directory -Path $Dir -Force | Out-Null
-        Write-Host "  ✓ Creado: $Dir" -ForegroundColor Green
+        Write-Ok "Creado: $Dir"
     } else {
-        Write-Host "  ⊙ Ya existe: $Dir" -ForegroundColor Gray
+        Write-Skip "Ya existe: $Dir"
     }
 }
 
-# --- PASO 2: Solicitar credenciales Azure AD ---
-Write-Host "`n[2/6] Configuración de Azure AD App Registration" -ForegroundColor Yellow
+# Proteger carpeta de configuracion (solo usuario actual + SYSTEM)
+try {
+    $Acl = Get-Acl $ConfigPath
+    $Acl.SetAccessRuleProtection($true, $false)
+    $Rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+        "$env:USERDOMAIN\$env:USERNAME", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
+    )
+    $Acl.AddAccessRule($Rule)
+    $RuleSystem = New-Object System.Security.AccessControl.FileSystemAccessRule(
+        "SYSTEM", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
+    )
+    $Acl.AddAccessRule($RuleSystem)
+    Set-Acl -Path $ConfigPath -AclObject $Acl -ErrorAction SilentlyContinue
+    Write-Ok "ACL restringida aplicada a $ConfigPath"
+} catch {
+    Write-Skip "No se pudo restringir ACL (requiere permisos elevados)"
+}
 
-$TenantId = Read-Host "Ingrese Tenant ID"
-$ClientId = Read-Host "Ingrese Client ID (App Registration)"
+# ============================================================
+#  PASO 2: Credenciales Azure AD
+# ============================================================
 
-Write-Host "`nMétodos de autenticación disponibles:" -ForegroundColor Cyan
-Write-Host "  1. Client Secret (Recomendado para servidores)"
-Write-Host "  2. Device Code (Para testing manual)"
-Write-Host "  3. Saltar (configuraré después)"
+Write-Step "2/7" "Configuracion de Azure AD App Registration"
 
-$AuthChoice = Read-Host "Seleccione método [1-3]"
+$TenantId = Read-Host "  Ingrese Tenant ID"
+$ClientId = Read-Host "  Ingrese Client ID (App Registration)"
 
-$UseSecret = $false
+Write-Host ""
+Write-Info "Metodos de autenticacion disponibles:"
+Write-Host "    1. Client Secret  (Recomendado para ejecucion automatizada)" -ForegroundColor White
+Write-Host "    2. Device Code    (Para testing manual interactivo)" -ForegroundColor White
+Write-Host "    3. Saltar         (Configurare las credenciales despues)" -ForegroundColor White
+
+$AuthChoice = Read-Host "`n  Seleccione metodo [1-3]"
+
+$AuthMode   = "DeviceCode"
+$UseSecret  = $false
 $SecretFile = "$ConfigPath\ClientSecret.enc"
+$PlainSecretForValidation = $null
 
 if ($AuthChoice -eq "1") {
-    Write-Host "`n  Configurando Client Secret..." -ForegroundColor Cyan
-    $SecretPlain = Read-Host "Ingrese Client Secret" -AsSecureString
-    
-    # Encriptar con DPAPI (CurrentUser)
-    $SecretPlain | ConvertFrom-SecureString | Out-File $SecretFile -Force
-    Write-Host "  ✓ Secret encriptado guardado en: $SecretFile" -ForegroundColor Green
-    Write-Host "    IMPORTANTE: Solo funcionará con el usuario actual ($env:USERNAME)" -ForegroundColor Yellow
-    
+    Write-Info "Configurando Client Secret..."
+    $SecretInput = Read-Host "  Ingrese Client Secret" -AsSecureString
+
+    # Guardar encriptado con DPAPI (solo usuario actual puede descifrar)
+    $SecretInput | ConvertFrom-SecureString | Out-File $SecretFile -Force
+
+    # Obtener plain text para validacion inmediata
+    $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecretInput)
+    $PlainSecretForValidation = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+    [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
+
+    Write-Ok "Secret encriptado (DPAPI) guardado en: $SecretFile"
+    Write-Host "       Solo funciona con el usuario: $env:USERDOMAIN\$env:USERNAME" -ForegroundColor DarkYellow
+
+    $AuthMode  = "Secret"
     $UseSecret = $true
 }
 elseif ($AuthChoice -eq "2") {
-    Write-Host "  ⊙ Usará Device Code para autenticación interactiva" -ForegroundColor Gray
+    $AuthMode = "DeviceCode"
+    Write-Skip "Usara Device Code para autenticacion interactiva"
 }
 else {
-    Write-Host "  ⊙ Configuración de autenticación omitida" -ForegroundColor Gray
+    Write-Skip "Configuracion de autenticacion omitida"
 }
 
-# --- PASO 3: Guardar configuración ---
-Write-Host "`n[3/6] Guardando configuración..." -ForegroundColor Yellow
+# Mostrar resumen enmascarado
+Write-Host ""
+Write-Info "Resumen de credenciales (enmascarado):"
+Write-Host "    Tenant ID : $(Mask-String $TenantId)" -ForegroundColor White
+Write-Host "    Client ID : $(Mask-String $ClientId)" -ForegroundColor White
+Write-Host "    Secret    : $(if ($UseSecret) {'********'} else {'(no configurado)'})" -ForegroundColor White
+Write-Host "    Auth Mode : $AuthMode" -ForegroundColor White
+
+# ============================================================
+#  PASO 3: Guardar configuracion
+# ============================================================
+
+Write-Step "3/7" "Guardando configuracion..."
 
 $Config = @{
-    TenantId = $TenantId
-    ClientId = $ClientId
-    AuthMode = if ($UseSecret) { "Secret" } else { "DeviceCode" }
-    SecretFile = if ($UseSecret) { $SecretFile } else { $null }
-    ConfigDate = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-    ConfiguredBy = $env:USERNAME
-    ScriptPath = "$ScriptsPath\New-DefenderXDRWeeklyReport.ps1"
-    OutputPath = "$ReportsPath\Weekly"
-    LogPath = "$ReportsPath\Logs"
+    TenantId      = $TenantId
+    ClientId      = $ClientId
+    AuthMode      = $AuthMode
+    SecretFile    = if ($UseSecret) { $SecretFile } else { $null }
+    ConfigDate    = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+    ConfiguredBy  = "$env:USERDOMAIN\$env:USERNAME"
+    ScriptsPath   = $ScriptsPath
+    ReportsPath   = $ReportsPath
+    LogPath       = "$ReportsPath\Logs"
+    DailyScript   = "$ScriptsPath\New-DefenderXDRDailyReport.ps1"
+    WeeklyScript  = "$ScriptsPath\New-DefenderXDRWeeklyReport.ps1"
 }
 
 $ConfigFile = "$ConfigPath\Config.json"
-$Config | ConvertTo-Json | Out-File $ConfigFile -Encoding UTF8 -Force
-Write-Host "  ✓ Configuración guardada en: $ConfigFile" -ForegroundColor Green
+$Config | ConvertTo-Json -Depth 3 | Out-File $ConfigFile -Encoding UTF8 -Force
+Write-Ok "Configuracion guardada en: $ConfigFile"
 
-# --- PASO 4: Validar permisos (opcional) ---
-Write-Host "`n[4/6] Validación de permisos de App Registration" -ForegroundColor Yellow
-$ValidatePerms = Read-Host "¿Desea validar permisos ahora? (Requiere conectividad) [S/n]"
+# ============================================================
+#  PASO 4: Validar permisos contra la API
+# ============================================================
 
-if ($ValidatePerms -ne "n" -and $ValidatePerms -ne "N") {
-    try {
-        Write-Host "  Intentando autenticación de prueba..." -ForegroundColor Cyan
-        
-        $AuthUri = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
-        
-        if ($UseSecret) {
-            $SecureSecret = Get-Content $SecretFile | ConvertTo-SecureString
-            $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureSecret)
-            $PlainSecret = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
-            [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
-            
+Write-Step "4/7" "Validacion de permisos de App Registration"
+
+if ($SkipValidation) {
+    Write-Skip "Validacion omitida (parametro -SkipValidation)"
+}
+elseif (-not $UseSecret) {
+    Write-Skip "Validacion requiere Client Secret (AuthMode=$AuthMode)"
+}
+else {
+    $DoValidate = Read-Host "  Validar permisos ahora? (requiere conectividad) [S/n]"
+
+    if ($DoValidate -notin @("n", "N")) {
+        try {
+            Write-Info "Intentando autenticacion de prueba..."
+
+            $AuthUri = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
             $Body = @{
                 grant_type    = "client_credentials"
                 client_id     = $ClientId
-                client_secret = $PlainSecret
+                client_secret = $PlainSecretForValidation
                 scope         = "https://api.security.microsoft.com/.default"
             }
-            
-            $TokenResponse = Invoke-RestMethod -Method Post -Uri $AuthUri -Body $Body
-            
-            Write-Host "  ✓ Autenticación exitosa" -ForegroundColor Green
-            Write-Host "  ✓ Token recibido (expira en $($TokenResponse.expires_in) segundos)" -ForegroundColor Green
-            
-            # Test API call
-            $TestUri = "https://api.security.microsoft.com/api/advancedhunting/run"
+
+            $TokenResponse = Invoke-RestMethod -Method Post -Uri $AuthUri -Body $Body -ErrorAction Stop
+            Write-Ok "Autenticacion exitosa (token expira en $($TokenResponse.expires_in)s)"
+
+            # Test Advanced Hunting
+            Write-Info "Probando acceso a Advanced Hunting API..."
             $Headers = @{
                 "Authorization" = "Bearer $($TokenResponse.access_token)"
                 "Content-Type"  = "application/json"
             }
-            $TestQuery = @{ Query = "print Version='Test', Status='OK'" } | ConvertTo-Json
-            
-            $TestResult = Invoke-RestMethod -Method Post -Uri $TestUri -Headers $Headers -Body $TestQuery
-            Write-Host "  ✓ API de Advanced Hunting accesible" -ForegroundColor Green
-            Write-Host "  ✓ Permisos verificados correctamente" -ForegroundColor Green
+            $TestQuery = @{ Query = "print Test='OK', Timestamp=now()" } | ConvertTo-Json -Compress
+            $TestResult = Invoke-RestMethod -Method Post `
+                -Uri "https://api.security.microsoft.com/api/advancedhunting/run" `
+                -Headers $Headers -Body $TestQuery -ErrorAction Stop
+
+            Write-Ok "Advanced Hunting API accesible - Permisos verificados"
+            Write-Ok "AdvancedHunting.Read.All: CONCEDIDO"
         }
-        else {
-            Write-Host "  ⊙ Validación omitida (requiere Client Secret)" -ForegroundColor Gray
+        catch {
+            Write-Fail "Error en validacion: $($_.Exception.Message)"
+            Write-Host "    Verifique que la App Registration tenga:" -ForegroundColor DarkYellow
+            Write-Host "      - Permiso: AdvancedHunting.Read.All (Application)" -ForegroundColor DarkYellow
+            Write-Host "      - Admin Consent otorgado en el tenant" -ForegroundColor DarkYellow
+            Write-Host "      - Client Secret vigente (no expirado)" -ForegroundColor DarkYellow
         }
     }
-    catch {
-        Write-Host "  ✗ Error en validación: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host "  Verifique que la App Registration tenga:" -ForegroundColor Yellow
-        Write-Host "    - Permiso: AdvancedHunting.Read.All (Application)" -ForegroundColor Yellow
-        Write-Host "    - Admin Consent otorgado" -ForegroundColor Yellow
+    else {
+        Write-Skip "Validacion omitida por el usuario"
     }
 }
-else {
-    Write-Host "  ⊙ Validación omitida" -ForegroundColor Gray
+
+# Limpiar secret de memoria
+if ($PlainSecretForValidation) {
+    $PlainSecretForValidation = $null
+    [System.GC]::Collect()
 }
 
-# --- PASO 5: Copiar script principal ---
-Write-Host "`n[5/6] Copiando script principal..." -ForegroundColor Yellow
+# ============================================================
+#  PASO 5: Copiar scripts de reporte
+# ============================================================
 
-$CurrentScriptDir = Split-Path $MyInvocation.MyCommand.Path -Parent
-$SourceScript = Join-Path $CurrentScriptDir "New-DefenderXDRWeeklyReport.ps1"
+Write-Step "5/7" "Copiando scripts de reporte..."
 
-if (Test-Path $SourceScript) {
-    Copy-Item $SourceScript -Destination $ScriptsPath -Force
-    Write-Host "  ✓ Script copiado a: $ScriptsPath" -ForegroundColor Green
-} else {
-    Write-Host "  ⚠ Script principal no encontrado en: $SourceScript" -ForegroundColor Yellow
-    Write-Host "    Cópielo manualmente a: $ScriptsPath\New-DefenderXDRWeeklyReport.ps1" -ForegroundColor Yellow
+$SourceDir = Split-Path $MyInvocation.MyCommand.Path -Parent
+
+$ScriptsToCopy = @(
+    "New-DefenderXDRDailyReport.ps1",
+    "New-DefenderXDRWeeklyReport.ps1"
+)
+
+foreach ($Script in $ScriptsToCopy) {
+    $Source = Join-Path $SourceDir $Script
+    $Dest   = Join-Path $ScriptsPath $Script
+
+    if ($Source -eq $Dest) {
+        Write-Skip "$Script ya esta en la ruta destino"
+    }
+    elseif (Test-Path $Source) {
+        Copy-Item $Source -Destination $Dest -Force
+        Write-Ok "Copiado: $Script -> $ScriptsPath"
+    }
+    else {
+        Write-Fail "No encontrado: $Source"
+        Write-Host "    Copie manualmente a: $Dest" -ForegroundColor DarkYellow
+    }
 }
 
-# --- PASO 6: Crear script wrapper ---
-Write-Host "`n[6/6] Creando script wrapper para ejecución programada..." -ForegroundColor Yellow
+# ============================================================
+#  PASO 6: Crear wrappers para Task Scheduler
+# ============================================================
 
-$WrapperScript = @"
+Write-Step "6/7" "Creando wrappers de ejecucion programada..."
+
+# ---- WRAPPER: Daily Report ----
+$DailyWrapperContent = @"
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Wrapper script para ejecutar Defender XDR Weekly Report
-    Generado automáticamente por Setup-DefenderReportServer.ps1
-    
+    Wrapper - Defender XDR Daily Report (ejecucion programada)
+    Generado automaticamente por Setup-DefenderReportServer.ps1
+
 .NOTES
-    Usuario configurado: $env:USERNAME
-    Fecha configuración: $(Get-Date -Format 'yyyy-MM-dd HH:mm')
+    Usuario : $env:USERDOMAIN\$env:USERNAME
+    Creado  : $(Get-Date -Format 'yyyy-MM-dd HH:mm')
 #>
 
 `$ErrorActionPreference = "Stop"
 
-# Cargar configuración
+# Cargar configuracion
 `$ConfigFile = "$ConfigFile"
+if (-not (Test-Path `$ConfigFile)) { Write-Error "Config no encontrado: `$ConfigFile"; exit 1 }
 `$Config = Get-Content `$ConfigFile -Raw | ConvertFrom-Json
 
-# Preparar parámetros
-`$Params = @{
-    TenantId = `$Config.TenantId
-    ClientId = `$Config.ClientId
-    AuthMode = `$Config.AuthMode
-    TimeWindowDays = 7
-    OutputPath = Join-Path `$Config.OutputPath "DefenderXDR_`$(Get-Date -Format 'yyyyMMdd').html"
-    LogPath = Join-Path `$Config.LogPath "DefenderXDR_`$(Get-Date -Format 'yyyyMMdd').log"
-    ExportCsv = `$true
-    UseParallel = `$true
-}
+`$OutputDir = Join-Path `$Config.ReportsPath "Daily"
+if (-not (Test-Path `$OutputDir)) { New-Item -ItemType Directory -Path `$OutputDir -Force | Out-Null }
 
-# Cargar Client Secret si está configurado
+# Cargar Client Secret desde archivo encriptado (DPAPI)
+`$ClientSecretPlain = `$null
 if (`$Config.AuthMode -eq "Secret" -and `$Config.SecretFile) {
     if (Test-Path `$Config.SecretFile) {
-        `$Params['ClientSecret'] = Get-Content `$Config.SecretFile | ConvertTo-SecureString
+        try {
+            `$Secure = Get-Content `$Config.SecretFile | ConvertTo-SecureString -ErrorAction Stop
+            `$BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR(`$Secure)
+            `$ClientSecretPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(`$BSTR)
+            [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR(`$BSTR)
+        } catch {
+            Write-Error "No se pudo descifrar el secret. Ejecute Setup nuevamente con el usuario correcto."
+            exit 1
+        }
     } else {
-        Write-Error "Secret file not found: `$(`$Config.SecretFile)"
+        Write-Error "Archivo de secret no encontrado: `$(`$Config.SecretFile)"
         exit 1
     }
 }
 
-# Ejecutar reporte
+# Construir parametros
+`$Params = @{
+    TenantId        = `$Config.TenantId
+    ClientId        = `$Config.ClientId
+    AuthMode        = `$Config.AuthMode
+    TimeWindowHours = 24
+    OutputPath      = Join-Path `$OutputDir "Daily_SecOps_Report_`$(Get-Date -Format 'yyyyMMdd').html"
+    TimeoutSec      = 120
+}
+
+if (`$ClientSecretPlain) { `$Params['ClientSecret'] = `$ClientSecretPlain }
+
+# Ejecutar
 try {
-    Write-Host "[`$(Get-Date -Format 'HH:mm:ss')] Iniciando Defender XDR Weekly Report..." -ForegroundColor Cyan
-    
-    & `$Config.ScriptPath @Params
-    
-    Write-Host "[`$(Get-Date -Format 'HH:mm:ss')] Reporte completado exitosamente" -ForegroundColor Green
-    
-    # Limpieza de reportes antiguos (mantener 60 días)
-    `$RetentionDays = 60
-    Get-ChildItem "`$(`$Config.OutputPath)\*.html" | 
-        Where-Object LastWriteTime -lt (Get-Date).AddDays(-`$RetentionDays) | 
-        Remove-Item -Force -ErrorAction SilentlyContinue
-    
-    Get-ChildItem "`$(`$Config.LogPath)\*.log" | 
-        Where-Object LastWriteTime -lt (Get-Date).AddDays(-`$RetentionDays) | 
+    Write-Host "[`$(Get-Date -Format 'HH:mm:ss')] Iniciando Defender XDR Daily Report..." -ForegroundColor Cyan
+    & `$Config.DailyScript @Params
+    Write-Host "[`$(Get-Date -Format 'HH:mm:ss')] Reporte diario completado." -ForegroundColor Green
+
+    # Limpieza de reportes antiguos (retener 90 dias)
+    `$RetentionDays = 90
+    Get-ChildItem "`$OutputDir\*.html" -ErrorAction SilentlyContinue |
+        Where-Object LastWriteTime -lt (Get-Date).AddDays(-`$RetentionDays) |
         Remove-Item -Force -ErrorAction SilentlyContinue
 }
 catch {
-    Write-Error "Error ejecutando reporte: `$(`$_.Exception.Message)"
+    Write-Error "Error en reporte diario: `$(`$_.Exception.Message)"
     exit 1
+}
+finally {
+    `$ClientSecretPlain = `$null
+    [System.GC]::Collect()
 }
 "@
 
-$WrapperPath = "$ScriptsPath\Run-DefenderXDRWeeklyReport.ps1"
-$WrapperScript | Out-File $WrapperPath -Encoding UTF8 -Force
-Write-Host "  ✓ Wrapper creado en: $WrapperPath" -ForegroundColor Green
+$DailyWrapperPath = "$ScriptsPath\Run-DefenderXDRDailyReport.ps1"
+$DailyWrapperContent | Out-File $DailyWrapperPath -Encoding UTF8 -Force
+Write-Ok "Wrapper diario:  $DailyWrapperPath"
 
-# --- RESUMEN FINAL ---
-Write-Host "`n" + ("=" * 70) -ForegroundColor Cyan
-Write-Host "✓ CONFIGURACIÓN COMPLETADA" -ForegroundColor Green
-Write-Host ("=" * 70) -ForegroundColor Cyan
+# ---- WRAPPER: Weekly Report ----
+$WeeklyWrapperContent = @"
+#Requires -Version 5.1
+<#
+.SYNOPSIS
+    Wrapper - Defender XDR Weekly Report (ejecucion programada)
+    Generado automaticamente por Setup-DefenderReportServer.ps1
 
-Write-Host "`nArchivos creados:" -ForegroundColor Yellow
-Write-Host "  • Config: $ConfigFile"
-if ($UseSecret) {
-    Write-Host "  • Secret: $SecretFile (SOLO usuario: $env:USERNAME)"
-}
-Write-Host "  • Wrapper: $WrapperPath"
-Write-Host "  • Script: $ScriptsPath\New-DefenderXDRWeeklyReport.ps1"
+.NOTES
+    Usuario : $env:USERDOMAIN\$env:USERNAME
+    Creado  : $(Get-Date -Format 'yyyy-MM-dd HH:mm')
+#>
 
-Write-Host "`nPróximos pasos:" -ForegroundColor Yellow
-Write-Host "  1. Probar ejecución manual:" -ForegroundColor Cyan
-Write-Host "     & '$WrapperPath'" -ForegroundColor White
-Write-Host ""
-Write-Host "  2. Crear tarea programada (Task Scheduler):" -ForegroundColor Cyan
-Write-Host "     PowerShell.exe -NoProfile -ExecutionPolicy Bypass -File '$WrapperPath'" -ForegroundColor White
-Write-Host ""
-Write-Host "  3. Verificar logs en:" -ForegroundColor Cyan
-Write-Host "     $ReportsPath\Logs\" -ForegroundColor White
-Write-Host ""
-Write-Host "  4. Agregar email (opcional):" -ForegroundColor Cyan
-Write-Host "     Editar wrapper y agregar: -SendMail `$true -SmtpServer 'smtp.office365.com' -To 'soc@empresa.com'" -ForegroundColor White
+`$ErrorActionPreference = "Stop"
 
-Write-Host "`n" + ("=" * 70) -ForegroundColor Cyan
+# Cargar configuracion
+`$ConfigFile = "$ConfigFile"
+if (-not (Test-Path `$ConfigFile)) { Write-Error "Config no encontrado: `$ConfigFile"; exit 1 }
+`$Config = Get-Content `$ConfigFile -Raw | ConvertFrom-Json
 
-# Preguntar si crear tarea programada
-Write-Host "`n¿Desea crear una Tarea Programada ahora? [S/n]" -ForegroundColor Yellow
-$CreateTask = Read-Host
+`$OutputDir = Join-Path `$Config.ReportsPath "Weekly"
+if (-not (Test-Path `$OutputDir)) { New-Item -ItemType Directory -Path `$OutputDir -Force | Out-Null }
 
-if ($CreateTask -ne "n" -and $CreateTask -ne "N") {
-    Write-Host "`nConfiguración de Task Scheduler:" -ForegroundColor Cyan
-    Write-Host "  Frecuencia: Semanal (Lunes 7:00 AM)"
-    Write-Host "  Script: $WrapperPath"
-    Write-Host "  Usuario: $env:USERDOMAIN\$env:USERNAME"
-    
-    $Confirm = Read-Host "`n¿Continuar? [S/n]"
-    
-    if ($Confirm -ne "n" -and $Confirm -ne "N") {
+# Cargar Client Secret desde archivo encriptado (DPAPI)
+`$ClientSecretPlain = `$null
+if (`$Config.AuthMode -eq "Secret" -and `$Config.SecretFile) {
+    if (Test-Path `$Config.SecretFile) {
         try {
-            $Action = New-ScheduledTaskAction -Execute 'PowerShell.exe' `
-                -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$WrapperPath`""
-            
-            $Trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday -At 7am
-            
-            $Settings = New-ScheduledTaskSettingsSet `
-                -ExecutionTimeLimit (New-TimeSpan -Hours 2) `
-                -RestartCount 3 `
-                -RestartInterval (New-TimeSpan -Minutes 10)
-            
-            Register-ScheduledTask `
-                -TaskName "DefenderXDR-WeeklyReport" `
-                -Action $Action `
-                -Trigger $Trigger `
-                -Settings $Settings `
-                -Description "Genera reporte semanal de seguridad de Defender XDR" `
-                -User "$env:USERDOMAIN\$env:USERNAME" `
-                -Force
-            
-            Write-Host "`n  ✓ Tarea programada creada: DefenderXDR-WeeklyReport" -ForegroundColor Green
-            Write-Host "    Próxima ejecución: $(((Get-ScheduledTask -TaskName 'DefenderXDR-WeeklyReport').Triggers[0].StartBoundary))" -ForegroundColor Gray
+            `$Secure = Get-Content `$Config.SecretFile | ConvertTo-SecureString -ErrorAction Stop
+            `$BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR(`$Secure)
+            `$ClientSecretPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(`$BSTR)
+            [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR(`$BSTR)
+        } catch {
+            Write-Error "No se pudo descifrar el secret. Ejecute Setup nuevamente con el usuario correcto."
+            exit 1
         }
-        catch {
-            Write-Host "`n  ✗ Error creando tarea: $($_.Exception.Message)" -ForegroundColor Red
-            Write-Host "    Créela manualmente usando Task Scheduler GUI" -ForegroundColor Yellow
-        }
+    } else {
+        Write-Error "Archivo de secret no encontrado: `$(`$Config.SecretFile)"
+        exit 1
     }
 }
 
-Write-Host "`n✓ Setup completado. Happy reporting! 🛡️`n" -ForegroundColor Green
+# Construir parametros
+`$Params = @{
+    TenantId       = `$Config.TenantId
+    ClientId       = `$Config.ClientId
+    AuthMode       = `$Config.AuthMode
+    TimeWindowDays = 7
+    OutputPath     = Join-Path `$OutputDir "Weekly_SecOps_Report_`$(Get-Date -Format 'yyyyMMdd').html"
+    LogPath        = Join-Path `$Config.LogPath "DefenderXDR_Weekly_`$(Get-Date -Format 'yyyyMMdd').log"
+    TimeoutSec     = 120
+    ExportCsv      = `$true
+}
+
+if (`$ClientSecretPlain) { `$Params['ClientSecret'] = `$ClientSecretPlain }
+
+# Ejecutar
+try {
+    Write-Host "[`$(Get-Date -Format 'HH:mm:ss')] Iniciando Defender XDR Weekly Report..." -ForegroundColor Cyan
+    & `$Config.WeeklyScript @Params
+    Write-Host "[`$(Get-Date -Format 'HH:mm:ss')] Reporte semanal completado." -ForegroundColor Green
+
+    # Limpieza de reportes antiguos (retener 90 dias)
+    `$RetentionDays = 90
+    Get-ChildItem "`$OutputDir\*.html" -ErrorAction SilentlyContinue |
+        Where-Object LastWriteTime -lt (Get-Date).AddDays(-`$RetentionDays) |
+        Remove-Item -Force -ErrorAction SilentlyContinue
+}
+catch {
+    Write-Error "Error en reporte semanal: `$(`$_.Exception.Message)"
+    exit 1
+}
+finally {
+    `$ClientSecretPlain = `$null
+    [System.GC]::Collect()
+}
+"@
+
+$WeeklyWrapperPath = "$ScriptsPath\Run-DefenderXDRWeeklyReport.ps1"
+$WeeklyWrapperContent | Out-File $WeeklyWrapperPath -Encoding UTF8 -Force
+Write-Ok "Wrapper semanal: $WeeklyWrapperPath"
+
+# ============================================================
+#  PASO 7: Tareas programadas
+# ============================================================
+
+Write-Step "7/7" "Tareas programadas (Task Scheduler)"
+
+if ($SkipScheduledTasks) {
+    Write-Skip "Creacion de tareas omitida (parametro -SkipScheduledTasks)"
+}
+else {
+    $CreateTasks = Read-Host "  Crear tareas programadas? [S/n]"
+
+    if ($CreateTasks -notin @("n", "N")) {
+
+        $TaskDefs = @(
+            @{
+                Name    = "DefenderXDR-DailyReport"
+                Script  = $DailyWrapperPath
+                Trigger = { New-ScheduledTaskTrigger -Daily -At 7am }
+                Desc    = "Reporte diario de seguridad - Defender XDR (Daily 7:00 AM)"
+            },
+            @{
+                Name    = "DefenderXDR-WeeklyReport"
+                Script  = $WeeklyWrapperPath
+                Trigger = { New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday -At "7:30AM" }
+                Desc    = "Reporte semanal de seguridad - Defender XDR (Lunes 7:30 AM)"
+            }
+        )
+
+        foreach ($Task in $TaskDefs) {
+            try {
+                $Action = New-ScheduledTaskAction -Execute 'PowerShell.exe' `
+                    -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$($Task.Script)`""
+
+                $Trigger = & $Task.Trigger
+
+                $Settings = New-ScheduledTaskSettingsSet `
+                    -ExecutionTimeLimit (New-TimeSpan -Hours 2) `
+                    -RestartCount 3 `
+                    -RestartInterval (New-TimeSpan -Minutes 10) `
+                    -StartWhenAvailable
+
+                Register-ScheduledTask `
+                    -TaskName $Task.Name `
+                    -Action $Action `
+                    -Trigger $Trigger `
+                    -Settings $Settings `
+                    -Description $Task.Desc `
+                    -User "$env:USERDOMAIN\$env:USERNAME" `
+                    -Force | Out-Null
+
+                Write-Ok "Tarea creada: $($Task.Name) - $($Task.Desc)"
+            }
+            catch {
+                Write-Fail "Error creando '$($Task.Name)': $($_.Exception.Message)"
+                Write-Host "    Puede crearla manualmente desde Task Scheduler" -ForegroundColor DarkYellow
+            }
+        }
+    }
+    else {
+        Write-Skip "Tareas programadas omitidas por el usuario"
+    }
+}
+
+# ============================================================
+#  RESUMEN FINAL
+# ============================================================
+
+Write-Host ""
+Write-Host ("=" * 70) -ForegroundColor Cyan
+Write-Host "  CONFIGURACION COMPLETADA" -ForegroundColor Green
+Write-Host ("=" * 70) -ForegroundColor Cyan
+
+Write-Host "`n  Archivos de configuracion:" -ForegroundColor Yellow
+Write-Host "    Config       : $ConfigFile"
+if ($UseSecret) {
+    Write-Host "    Secret (DPAPI): $SecretFile  (usuario: $env:USERNAME)"
+}
+
+Write-Host "`n  Scripts de reporte:" -ForegroundColor Yellow
+Write-Host "    Daily  : $ScriptsPath\New-DefenderXDRDailyReport.ps1"
+Write-Host "    Weekly : $ScriptsPath\New-DefenderXDRWeeklyReport.ps1"
+
+Write-Host "`n  Wrappers (Task Scheduler):" -ForegroundColor Yellow
+Write-Host "    Daily  : $DailyWrapperPath"
+Write-Host "    Weekly : $WeeklyWrapperPath"
+
+Write-Host "`n  Reportes se guardan en:" -ForegroundColor Yellow
+Write-Host "    Daily  : $ReportsPath\Daily\"
+Write-Host "    Weekly : $ReportsPath\Weekly\"
+Write-Host "    Logs   : $ReportsPath\Logs\"
+
+Write-Host "`n  Ejecucion manual de prueba:" -ForegroundColor Yellow
+Write-Host "    & '$DailyWrapperPath'" -ForegroundColor White
+Write-Host "    & '$WeeklyWrapperPath'" -ForegroundColor White
+
+Write-Host "`n  Agregar email (editar wrappers):" -ForegroundColor Yellow
+Write-Host "    -SendMail `$true -SmtpServer 'smtp.office365.com' -To 'soc@empresa.com'" -ForegroundColor White
+
+Write-Host "`n" -NoNewline
+Write-Host ("=" * 70) -ForegroundColor Cyan
+Write-Host "  Setup completado.`n" -ForegroundColor Green
