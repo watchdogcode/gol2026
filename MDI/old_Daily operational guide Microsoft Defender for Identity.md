@@ -59,13 +59,13 @@ https://learn.microsoft.com/en-us/defender-for-identity/ops-guide/ops-guide-dail
    - Informational / expected activity
 5. Si es **True positive**:
    - Especifica *threat type*.
-   - Assign a un analista y cambia el estado a **In progress**.
+   - Asigna a un analista y cambia el estado a **In progress**.
 6. Si ya fue remediado:
    - **Resolve** el incidente para cerrar alertas relacionadas y dejar clasificación final.
 
 ### Salida / DoD
 
-- No quedan incidentes High sin revisar/accionar; los *In progress* quedan asignados con próximos pasos.
+- No quedan incidentes *High* sin revisar/accionar; los *In progress* quedan asignados con próximos pasos.
 
 ---
 
@@ -83,8 +83,8 @@ https://learn.microsoft.com/en-us/defender-for-identity/ops-guide/ops-guide-dail
 
 1. Ve a **Hunting > Advanced hunting**.
 2. Usa datos del incidente / evidencia para definir condiciones del tuning (por entidad, comportamiento, origen, etc.).
-3. Crea o ajusta la regla de tuning correspondiente (para reducir triage innecesario).
-4. Documenta: objetivo, alcance, owner, fecha, criterio de reversión.
+3. Crea o ajusta la regla de tuning correspondiente para reducir triage innecesario.
+4. Documenta: objetivo, alcance, owner, fecha y criterio de reversión.
 
 ### Ejemplo concreto (muy realista)
 
@@ -105,7 +105,7 @@ IdentityLogonEvents
 | summarize Count=count() by ActionType, DeviceName
 ```
 
-### Resultado
+**Resultado**
 
 - 100% eventos esperados
 - Ningún indicio de compromiso
@@ -120,25 +120,33 @@ IdentityLogonEvents
 
 ### Paso a paso
 
-1. Abre Advanced hunting: https://security.microsoft.com/v2/advanced-hunting
+1. Abre **Advanced hunting**: https://security.microsoft.com/v2/advanced-hunting
 2. Si eres principiante, usa *guided advanced hunting* (query builder).
-3. Ejecuta hunts enfocados:
+3. Ejecuta hunts enfocados, por ejemplo:
    - Usuarios con actividad anómala
    - Movimientos laterales sospechosos
-   - Patrones repetitivos en credenciales / NTLM / Kerberos
+   - Patrones repetitivos en credenciales / NTLM / Kerberos (según detecciones existentes)
 4. Crea *casos* (work items) con hallazgos:
-   - Indicador, entidad, evidencia, severidad sugerida, acción
+   - Indicador
+   - Entidad
+   - Evidencia
+   - Severidad sugerida
+   - Acción
 
 ### Criterios de salida
 
-- Al menos 1–3 hunts de alto valor ejecutados.
+- Al menos 1–3 hunts de alto valor ejecutados (según capacidad).
 - Hallazgos accionables registrados.
 
 ### Ejemplo de KQL – Proactive Hunting
 
 **Cuenta autenticando en demasiados equipos (posible lateral movement)**
 
+- **Qué detecta:** usuarios con logons exitosos en muchos dispositivos dentro de una ventana de 1 hora.
+- **Por qué sirve:** patrón común de movimiento lateral o uso de credenciales comprometidas.
+
 ```kql
+// Proactive hunt: una misma cuenta con logons exitosos en muchos dispositivos en poco tiempo
 let Lookback = 1d;
 let Window = 1h;
 let MinDevices = 6;
@@ -155,22 +163,26 @@ DeviceLogonEvents
 | order by Devices desc, TotalLogons desc
 ```
 
+Más ejemplos:
+https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md#recomendaciones-r%C3%A1pidas-antes-de-ejecutar
+
 ---
 
 ## Revisar Health issues (Global y Sensor)
 
-**Propósito:** evitar gaps de cobertura por fallas de sensores / conectividad.
+**Propósito:** evitar gaps de cobertura por fallas de sensores o conectividad.
 
 ### Paso a paso
 
-1. Entra a https://security.microsoft.com/identities/health-issues
-2. Revisa pestañas:
+1. Entra a **Identities > Health issues**:
+   https://security.microsoft.com/identities/health-issues
+2. Revisa las pestañas:
    - Global
    - Sensor (por DC / servidor)
 3. Para cada issue:
-   - Evalúa impacto (¿afecta recolección / detección?).
-   - Asigna owner y abre ticket si depende de AD / Infra.
-4. Verifica notificaciones por correo para issues de servicio.
+   - Evalúa impacto (¿afecta recolección o detección?).
+   - Asigna owner y abre ticket si depende de AD / Infraestructura.
+4. Verifica que existan notificaciones por correo para issues de servicio (si aplica).
 
 ### Salida / DoD
 
