@@ -104,9 +104,9 @@ IdentityLogonEvents
 | where AccountName == "svc_sqlbackup"
 | summarize Count=count() by ActionType, DeviceName
 ```
+[Más ejemplos](https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md#recomendaciones-r%C3%A1pidas-antes-de-ejecutar)
 
 **Resultado**
-
 - 100% eventos esperados
 - Ningún indicio de compromiso
 
@@ -163,8 +163,8 @@ DeviceLogonEvents
 | order by Devices desc, TotalLogons desc
 ```
 
-Más ejemplos:
-https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md#recomendaciones-r%C3%A1pidas-antes-de-ejecutar
+[Más ejemplos](https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md#recomendaciones-r%C3%A1pidas-antes-de-ejecutar)
+
 
 ---
 
