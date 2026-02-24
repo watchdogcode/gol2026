@@ -5,7 +5,6 @@
     Checks required PowerShell modules, installs them if missing, and generates
     an HTML report with the domain's email authentication configuration.
 .NOTES
-    Author:  Ernesto Cobos Roqueñí
     Date:    2026-02-20
     Version: 2.5
     Requires: Administrator privileges
