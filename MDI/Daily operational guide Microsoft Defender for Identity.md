@@ -110,7 +110,7 @@ IdentityLogonEvents
 - 100% eventos esperados
 - Ningún indicio de compromiso
 
-✅ Confirmado: *Benign true positive*
+Confirmado: *Benign true positive*
 
 ---
 
