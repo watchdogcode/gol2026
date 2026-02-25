@@ -105,7 +105,7 @@ Marca como **prioridad alta:**
 
 ---
 
-###Validar estado de componentes híbridos
+### Validar estado de componentes híbridos
 
 **Aplica si se utilizan los siguientes componentes**
 - Pass‑Through Authentication Agents.
