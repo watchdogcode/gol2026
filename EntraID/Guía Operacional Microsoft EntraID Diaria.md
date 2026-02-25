@@ -1,6 +1,6 @@
 # 🛡️ Guía de Seguridad Operacional Diaria: Microsoft EntraID
 
-La guía de EntraID ayuda a tener una operación continua, reducción de riesgo de identidad y estabilidad del servicio  
+La operación efectiva de Microsoft Entra ID requiere monitoreo continuo, control de cambios y revisión periódica de privilegios para reducir riesgos de identidad y garantizar continuidad del negocio.
 
 ---
 
