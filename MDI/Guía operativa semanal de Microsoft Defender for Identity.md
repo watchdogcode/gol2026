@@ -1,4 +1,8 @@
-# TAREAS SEMANALES
+# 🛡️ Guía de Seguridad Operacional Diaria: Microsoft Defender for Identity
+
+La guía semanal de MDI permite identificar y ajustar proactivamente riesgos emergentes de identidad antes de que se conviertan en incidentes críticos para el negocio.
+
+---
 
 ## Revisar Secure Score recommendations (por producto)
 **Propósito:** mejorar postura de identidad e infraestructura on‑premises.
