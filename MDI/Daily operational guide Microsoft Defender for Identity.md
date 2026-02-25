@@ -1,4 +1,8 @@
-# Operación diaria
+# 🛡️ Guía de Seguridad Operacional Diaria: Microsoft Defender for Identity
+
+La guía diaria de MDI asegura que las amenazas a identidades se detecten y contengan antes de que impacten la operación del negocio.
+
+---
 
 ## Daily operational guide – Microsoft Defender for Identity
 
