@@ -3,125 +3,210 @@
 Esta guía establece los procedimientos semanales para analizar tendencias, identificar usuarios de alto riesgo y gestionar campañas de amenazas en Microsoft Defender for Office 365 (MDO).
 
 ---
+# Revisar Tendencias de Detección de Correo en Microsoft Defender for Office 365
 
-## 1. 📈 Análisis de Tendencias de Detección
+## Email & Collaboration Reporting
 
-### A. Revisar el "Threat Protection Status Report"
-Este es el reporte principal para evaluar la eficacia de las políticas de seguridad.
+### Acceso al reporte principal
+1. Ir a: https://security.microsoft.com/emailandcollabreport
+2. Seleccionar **Threat protection status report**
 
-1.  **Navegar a:** `Email & collaboration` > `Reports` > `Threat protection status`.
-2.  **Analizar las gráficas:**
-    *   Detecciones de Malware, Phishing y Spam.
-    *   Veredictos de URLs y adjuntos.
-    *   Acciones de políticas (Bloqueado, Entregado, ZAP).
-
-### B. Ajustar Filtros y Profundizar
-Utiliza la barra superior para refinar la investigación:
-*   **Time range:** Comparar últimos 7 días vs 30 días.
-*   **Detection type:** Filtrar por `Phish` o `High-confidence Phish`.
-*   **Drill-down:** Al hacer clic en un pico de la gráfica, se abre una vista detallada con:
-    *   IDs de mensajes.
-    *   IP/Dominio del remitente.
-    *   Usuarios impactados.
+El panel muestra gráficas de tendencias para:
+- Detecciones de malware
+- Detecciones de phishing
+- Detecciones de spam
+- Veredictos de URLs y adjuntos
+- Acciones de políticas (bloqueado, entregado, ZAP)
 
 ---
 
-## 2. 📑 Reportes de Seguridad Adicionales
+## Ajustar Filtros para Analizar Tendencias
 
-Revisa estos reportes complementarios en la sección de **Email & collaboration reports**:
+Utiliza la barra de filtros superior:
+- **Time range**: 24 horas, 7 días, 30 días, 90 días
+- **Detection type**: Malware, Phish, Spam, High‑confidence Phish
+- **Delivery location**: Inbox, Junk, Quarantine, Removed
+- **Workload**: Exchange Online, Teams, SharePoint, OneDrive
 
-| Reporte | Descripción |
-| :--- | :--- |
-| **Mail latency report** | Vista agregada de la latencia de entrega y detonación. |
-| **Post-delivery activities** | Mensajes eliminados post-entrega mediante ZAP (Zero-Hour Auto Purge). |
-| **Top senders and recipients** | Identifica quién envía y recibe más volumen (útil para anomalías). |
-| **URL protection report** | Tendencias sobre amenazas detectadas y clics en Safe Links. |
-
-### 💻 Comandos de PowerShell Equivalentes
-Si prefieres automatizar la extracción de datos, utiliza estos cmdlets:
-
-```powershell
-# Tráfico y Top Senders/Malware
-Get-MailTrafficSummaryReport
-
-# Estado de Protección
-Get-MailTrafficATPReport
-Get-MailDetailATPReport
-
-# Safe Links
-Get-SafeLinksAggregateReport
-Get-SafeLinksDetailReport
-
-# Usuarios Comprometidos
-Get-CompromisedUserAggregateReport
-Get-CompromisedUserDetailReport
-
-# Actividad Post-Entrega (ZAP)
-Get-AggregateZapReport
-Get-DetailZapReport
-```
-
-> **Tip:** Exporta los datos a CSV para revisiones semanales del SOC o para establecer líneas base de KPIs.
+Esto permite aislar anomalías y comparar periodos.
 
 ---
 
-## 3. 🎯 Identificación de Usuarios Más Atacados (Top Targets)
+## Profundizar en Categorías Específicas
 
-### Pasos para el Análisis
-1.  Ir a **Threat Protection Status Report**.
-2.  Filtrar por **Threat Type**:
-    *   **Malware:** Revisar `Detection Technology` (Anti-malware / Safe Attachments).
-    *   **Phishing:** Revisar `Phish detections` y `Spoofing`.
-3.  Desplazarse a la tabla **Top targeted recipients** y ordenar por conteo de detecciones.
+Al seleccionar un punto de la gráfica se muestra detalle con:
+- Message IDs
+- IP / dominio del remitente
+- Políticas activadas
+- Acciones ejecutadas (Blocked, Quarantine, ZAP)
+- Usuarios impactados
 
-### 🕵️ Análisis SOC Recomendado
-Para cada usuario en el "Top 10":
-*   **Validar Rol:** ¿Es VIP (C-Level, Finanzas, RRHH)?
-*   **Verificar Interacción:** ¿Hubo clics en enlaces maliciosos o reportes manuales?
-*   **Revisar Identidad:** Buscar fallos de autenticación anómalos en los logs de Azure AD.
-*   **Postura:** Confirmar que tienen MFA habilitado y políticas estrictas de Safe Links.
-
-### ⚡ Runbook de Respuesta Rápida
-
-| Escenario | Acción SOC Recomendada |
-| :--- | :--- |
-| **Objetivo repetido (>10 eventos)** | Notificar al usuario y aumentar vigilancia. |
-| **Usuario recurrente** | Asignar entrenamiento de simulación de phishing. |
-| **Anomalía detectada** | Revisar reglas de transporte o inbox rules sospechosas. |
-| **Evasión de controles** | Endurecer políticas Anti-phishing y Safe Links. |
-| **Campaña activa** | Investigar dominios/URLs y bloquear en Tenant Allow/Block List. |
+Útil para identificar campañas y fallas de configuración.
 
 ---
 
-## 4. 🦠 Análisis de Campañas (Campaigns View)
+## Revisar Reportes de Email Security
 
-*Disponible en Defender for Office 365 Plan 2.*
+Desde **Email & collaboration reports**:
 
-### ¿Qué es una Campaña?
-Microsoft agrupa ataques coordinados basándose en la fuente (IPs/Dominios), propiedades del mensaje (contenido/estilo) y payloads (URLs/Archivos).
+### Mail Latency Report
+- Vista agregada de latencia de entrega y detonación.
 
-### Procedimiento de Revisión
-1.  **Acceder:** Ir a `Email & collaboration` > `Explorer` > `Campaigns`.
-2.  **Identificar Top Malware Campaigns:**
-    *   Filtrar `Threat Type` = **Malware**.
-    *   Ordenar por `Impacted recipients`.
-    *   Analizar: Familia de malware y acciones automáticas (ZAP/Cuarentena).
-3.  **Identificar Top Phishing Campaigns:**
-    *   Filtrar `Threat Type` = **Phishing**.
-    *   Buscar indicadores de **BEC** o **Whaling**.
-    *   Analizar: Narrativa del ataque y similitudes entre correos.
+### Post-delivery Activities Report
+- Mensajes eliminados tras la entrega mediante ZAP.
 
-### Anatomía de una Campaña
-Al abrir una campaña, revisa las 4 dimensiones clave:
+### Threat Protection Status Report
+- Vista unificada de amenazas detectadas y bloqueadas.
 
-1.  **Attack Source:** IPs y dominios de origen.
-2.  **Attack Payload:** URLs maliciosas y adjuntos.
-3.  **Recipients:** Usuarios y roles afectados.
-4.  **Timeline:** Inicio, fin y picos de actividad.
+### Top Senders and Recipients Report
+- Principales remitentes y destinatarios.
 
-### 🛡️ Acciones de Respuesta
+### URL Protection Report
+- Tendencias y acciones de Safe Links.
 
-*   **Correlacionar:** Abrir incidentes vinculados y revisar acciones de AIR.
-*   **Priorizar:** Contactar inmediatamente a usuarios críticos afectados.
-*   **Endurecer:** Bloquear URLs/Dominios y reforzar MFA.
-*   **Investigar:** Buscar reglas de reenvío maliciosas o actividad sospechosa en la identidad.
+---
+
+## Otros Reportes vía PowerShell
+
+- **Top senders / recipients**: Get-MailTrafficSummaryReport
+- **Top malware**: Get-MailTrafficSummaryReport
+- **Threat protection status**: Get-MailTrafficATPReport, Get-MailDetailATPReport
+- **Safe Links**: Get-SafeLinksAggregateReport, Get-SafeLinksDetailReport
+- **Compromised users**: Get-CompromisedUserAggregateReport, Get-CompromisedUserDetailReport
+- **Mail flow status**: Get-MailflowStatusReport
+- **Spoofed users**: Get-SpoofMailReport
+- **Post-delivery activity**: Get-AggregateZapReport, Get-DetailZapReport
+
+Referencia: *View Defender for Office 365 reports in the Microsoft Defender portal*
+
+---
+
+## Exportar Datos para Análisis
+
+Los reportes permiten:
+- Exportar a CSV
+- Exportar gráficas como imagen
+- Abrir en Advanced Hunting (KQL)
+
+Usos comunes:
+- Revisiones semanales SOC
+- KPIs
+- Resúmenes ejecutivos
+- Líneas base de tendencias
+
+---
+
+# Identificar Usuarios Más Atacados por Malware y Phishing
+
+## Threat Protection Status Report
+
+1. Acceder a: https://security.microsoft.com/emailandcollabreport
+2. Seleccionar **Threat Protection Status Report**
+
+Muestra:
+- Malware detectado
+- Intentos de phishing
+- Spoofing / impersonación
+- Mensajes bloqueados o en cuarentena
+- Acciones ZAP
+
+---
+
+## Filtrar por Tipo de Amenaza
+
+### Malware
+- Threat Type → Malware
+- Revisar columnas Recipient, Detection Technology y Action Taken
+
+### Phishing
+- Threat Type → Phishing
+- Revisar spoofing, impersonation y acciones
+
+---
+
+## Identificar Top Targets
+
+1. Ir a **Top targeted recipients**
+2. Ordenar por número de detecciones
+3. Exportar resultados si es necesario
+
+---
+
+## Correlación con Otros Reportes
+
+- **Compromised Users Report**
+- **Top Malware Report**
+- **Spoof / Impersonation Reports**
+
+---
+
+## Análisis SOC Recomendado
+
+Para cada usuario:
+- Validar rol sensible
+- Revisar clics, reportes y fallos de autenticación
+- Verificar políticas de protección y MFA
+- Revisar incidentes correlacionados
+
+---
+
+## Acciones Derivadas (Runbook Rápido)
+
+- Notificar al usuario
+- Entrenamiento anti-phishing dirigido
+- Revisar reglas sospechosas
+- Endurecer políticas
+- Investigar dominios y URLs
+
+---
+
+# Revisar Campañas de Malware y Phishing (Campaigns – MDO P2)
+
+## Acceso a Campaigns
+
+1. Ir a: https://security.microsoft.com/threatexplorerv3
+2. Seleccionar **Campaigns** (Plan 2)
+
+---
+
+## Análisis de Campañas
+
+Microsoft agrupa campañas según:
+- Fuente del ataque
+- Contenido del mensaje
+- Relación entre destinatarios
+- Payloads maliciosos
+
+---
+
+## Top Malware Campaigns
+
+- Filtrar por Threat Type: Malware
+- Ordenar por impacto
+- Revisar adjuntos, familias, origen y acciones automáticas
+
+---
+
+## Top Phishing Campaigns
+
+- Filtrar por Phishing
+- Analizar narrativa, payload y usuarios objetivo
+
+---
+
+## Vista Detallada de Campaña
+
+Incluye:
+- Attack source
+- Payload
+- Recipients
+- Timeline
+
+---
+
+## Acciones SOC desde Campaigns
+
+- Correlacionar incidentes
+- Priorizar respuesta
+- Endurecer postura defensiva
+- Revisar movimientos posteriores
