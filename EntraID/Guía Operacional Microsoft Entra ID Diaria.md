@@ -1,4 +1,4 @@
-# 🛡️ Guía de Seguridad Operacional Diaria: Microsoft Defender for Identity
+# 🛡️ Guía de Seguridad Operacional Diaria: Microsoft EntraID
 
 La guía diaria de EntraID ayuda a tener una operación continua, reducción de riesgo de identidad y estabilidad del servicio  
 
@@ -12,7 +12,7 @@ La guía diaria de EntraID ayuda a tener una operación continua, reducción de 
 Detectar accesos anómalos o fallos que puedan impactar la continuidad del negocio.
 
 **Pasos operativos**
-1. Revisar **Sign-in logs** en Microsoft Entra ID.
+1. Ir a  https://entra.microsoft.com/#view/Microsoft_AAD_IAM/SignInLogsList.ReactView/timeRangeType/last24hours/showApplicationSignIns~/true e inicia sesión
 2. Identificar:
    - Picos de fallos de autenticación.
    - Inicios de sesión desde ubicaciones inusuales.
@@ -32,11 +32,34 @@ Detectar accesos anómalos o fallos que puedan impactar la continuidad del negoc
 Garantizar una sincronización saludable entre **Active Directory on‑premises** y **Microsoft Entra ID**.
 
 **Pasos operativos**
-1. Revisar alertas relacionadas con:
-   - Errores de sincronización (Sync errors).
-   - Latencia de sincronización.
-   - Fallas de agentes.
-2. Confirmar que no existan errores persistentes o recurrentes.
+- Accede al portal https://entra.microsoft.com inicia sesión
+- En el menú izquierdo, selecciona: Identity → Hybrid management
+- Haz clic en: Microsoft Entra Connect Health
+- O ir a https://entra.microsoft.com/#view/Microsoft_AAD_Connect_Health/ConnectHealthMenuBlade/~/overview
+
+**Revisar el estado general del servicio**
+1. En la vista Overview, valida:
+   - Estado general (Healthy / Warning / Critical).
+   - Componentes registrados (Sync, AD FS, PTA, etc.).   
+2. Si el estado no es Healthy, continúa con el análisis detallado.
+
+
+**Verificar alertas de sincronización (Sync errors)**
+1. Selecciona el servicio: **Azure AD Connect Sync**
+2. Revisa la sección **Alerts**
+3. Identifica alertas relacionadas con:
+   - Object synchronization errors.
+   - Export / Import errors. 
+   -  Connector space issues
+
+**Acción inmediata:**
+
+- Abrir cada alerta y revisar:
+    - Hora de inicio
+    - Número de objetos afectados
+    - Severidad
+
+
 
 **Impacto de no hacerlo**  
 - Usuarios sin acceso.
