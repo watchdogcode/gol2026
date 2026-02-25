@@ -1,4 +1,19 @@
-# Importancia de SPF, DKIM, DMARC y MTA-STS
+# Importancia del setup básico
+
+Un setup correcto de **SPF, DKIM, DMARC y MTA‑STS**, combinado con **reglas de flujo de correo en Microsoft 365**, permite:
+
+- Proteger la **marca** y el **dominio**
+- Reducir **phishing** y **spoofing**
+- Asegurar la **entregabilidad** del correo legítimo
+- Evitar el **abuso de dominios técnicos** (por ejemplo: `*.onmicrosoft.com`)
+- Forzar el **cifrado SMTP en tránsito** entre servidores
+
+---
+
+> **Resumen ejecutivo:** Este setup básico establece los controles mínimos necesarios para proteger la identidad del dominio y garantizar una comunicación de correo electrónico segura y confiable.
+
+
+# SPF, DKIM, DMARC y MTA-STS
 
 SPF, DKIM, DMARC y MTA-STS son controles fundamentales de seguridad de correo electrónico que protegen a las organizaciones contra suplantación de identidad (spoofing), phishing, fraude y ataques en tránsito, además de asegurar la entregabilidad del correo legítimo.
 
