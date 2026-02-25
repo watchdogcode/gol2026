@@ -60,6 +60,43 @@ Garantizar una sincronización saludable entre **Active Directory on‑premises*
     - Severidad
 
 
+**Validar latencia de sincronización**
+1. Dentro de Azure AD Connect Sync, revisa:
+   -Última sincronización exitosa
+   - Tiempo desde la última sincronización
+
+2. Confirma que:
+   - La sincronización ocurre dentro del intervalo esperado (ej. < 30 min).
+
+**Señal de alerta:**
+   - Sincronizaciones retrasadas o detenidas por varias horas
+
+
+**Revisar fallas de agentes (Agents health)**
+
+1. Regresa a Entra Connect Health.
+2. Revisa el estado de:
+   - Entra Connect Sync Agent
+   - Pass‑Through Authentication Agents (si aplica)
+   - AD FS / otros agentes híbridos
+
+Confirma que:
+   - Todos los agentes estén Active
+   - No existan alertas de desconexión o heartbeat perdido
+
+
+**Confirmar que no existan errores persistentes**
+
+1. Revisa la antigüedad de las alertas:
+  - Identifica alertas con más de 24–48 horas
+
+Verifica si:
+  - El error ya fue mitigado
+  - El error sigue reapareciendo
+
+Marca como **prioridad alta:**
+  - Errores repetitivos
+  - Errores con impacto en usuarios productivos
 
 **Impacto de no hacerlo**  
 - Usuarios sin acceso.
