@@ -5,7 +5,7 @@ Esta guía establece los procedimientos semanales para analizar tendencias, iden
 ---
 # Revisar Tendencias de Detección de Correo en Microsoft Defender for Office 365
 
-## Email & Collaboration Reporting
+### Email & Collaboration Reporting
 
 ### Acceso al reporte principal
 1. Ir a: https://security.microsoft.com/emailandcollabreport
@@ -68,16 +68,20 @@ Desde **Email & collaboration reports**:
 
 ## Otros Reportes vía PowerShell
 
-- **Top senders / recipients**: Get-MailTrafficSummaryReport
-- **Top malware**: Get-MailTrafficSummaryReport
-- **Threat protection status**: Get-MailTrafficATPReport, Get-MailDetailATPReport
-- **Safe Links**: Get-SafeLinksAggregateReport, Get-SafeLinksDetailReport
-- **Compromised users**: Get-CompromisedUserAggregateReport, Get-CompromisedUserDetailReport
-- **Mail flow status**: Get-MailflowStatusReport
-- **Spoofed users**: Get-SpoofMailReport
-- **Post-delivery activity**: Get-AggregateZapReport, Get-DetailZapReport
+- **Top senders / recipients**: [Get-MailTrafficSummaryReport](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-mailtrafficsummaryreport?view=exchange-ps)
+- **Top malware**: [Get-MailTrafficSummaryReport](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-mailtrafficsummaryreport?view=exchange-ps)
+- **Threat protection status**: [Get-MailTrafficATPReport](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-mailtrafficatpreport?view=exchange-ps)
+- **Threat protection status**: [Get-MailDetailATPReport](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-maildetailatpreport?view=exchange-ps)
+- **Safe Links**: [Get-SafeLinksAggregateReport](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-safelinksaggregatereport?view=exchange-ps)
+- **Safe Links**: [Get-SafeLinksDetailReport](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-safelinksdetailreport?view=exchange-ps)
+- **Compromised users**: [Get-CompromisedUserAggregateReport](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-compromiseduseraggregatereport?view=exchange-ps)
+- **Compromised users**: [Get-CompromisedUserDetailReport](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-compromiseduserdetailreport?view=exchange-ps)
+- **Mail flow status**: [Get-MailflowStatusReport](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-mailflowstatusreport?view=exchange-ps)
+- **Spoofed users**: [Get-SpoofMailReport](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-spoofmailreport?view=exchange-ps)
+- **Post-delivery activity**: [Get-AggregateZapReport](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-aggregatezapreport?view=exchange-ps)
+- **Post-delivery activity**: [Get-DetailZapReport](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-detailzapreport?view=exchange-ps)
 
-Referencia: *View Defender for Office 365 reports in the Microsoft Defender portal*
+Referencia: [*View Defender for Office 365 reports in the Microsoft Defender portal*](https://learn.microsoft.com/en-us/defender-office-365/reports-defender-for-office-365)
 
 ---
 
