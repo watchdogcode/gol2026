@@ -147,7 +147,8 @@ Microsoft 365 detecta automáticamente remitentes que parecen ser de tu organiza
 
 ---
 
-## 🔍 Opción B: PowerShell (Compliance Search)
+## 🔍 Opción B: PowerShell (Compliance Search) 
+### Útil para IR avanzada, scripting o automatización
 
 ### Conectar
 ```
