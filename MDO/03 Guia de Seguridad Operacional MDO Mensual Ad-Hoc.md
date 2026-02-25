@@ -1,6 +1,6 @@
-# 🏹 Guía de Hunting Proactivo en Microsoft Defender for Office 365
+# 🛡️ Guía de Seguridad Operacional Mensual/Ad-Hoc: Microsoft Defender for Office 365
 
-Esta guía detalla los procedimientos para la búsqueda proactiva de amenazas, análisis de detecciones y remediación en el entorno de Microsoft Defender for Office 365 (MDO).
+Esta guía establece los procedimientos semanales para analizar tendencias, identificar usuarios de alto riesgo y gestionar campañas de amenazas en Microsoft Defender for Office 365 (MDO).
 
 ---
 
