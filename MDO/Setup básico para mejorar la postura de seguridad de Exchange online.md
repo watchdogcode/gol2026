@@ -1,3 +1,221 @@
+# Importancia de SPF, DKIM, DMARC y MTA-STS
+
+SPF, DKIM, DMARC y MTA-STS son controles fundamentales de seguridad de correo electrónico que protegen a las organizaciones contra suplantación de identidad (spoofing), phishing, fraude y ataques en tránsito, además de asegurar la entregabilidad del correo legítimo.
+
+**En conjunto, estos mecanismos protegen la marca, reducen el riesgo de fraude y garantizan que el correo crítico del negocio llegue de forma segura a su destino.**
+
+---
+
+## SPF (Sender Policy Framework)
+
+### ¿Qué es SPF?
+SPF define qué servidores están autorizados a enviar correos en nombre de un dominio.
+
+### ¿Qué problemas previene?
+- Envío de correos falsificados usando tu dominio
+- Spoofing básico basado en IP
+
+### ¿Cómo funciona SPF?
+
+#### 1. Registro SPF en DNS (TXT)
+El dominio publica un registro TXT que especifica los hosts/IPs autorizados.
+
+Ejemplo:
+```
+v=spf1 ip4:203.0.113.0/24 include:mail.example.com -all
+```
+
+Estructura:
+- `v=spf1` → versión
+- Mecanismos: `ip4`, `ip6`, `a`, `mx`, `include`, `exists`
+- Qualifier final: `-all`, `~all`, `?all`, `+all`
+
+#### 2. Evaluación en el servidor receptor
+- El MTA receptor consulta el dominio del **MAIL FROM**
+- Compara la IP remitente contra los mecanismos definidos
+
+Resultados posibles:
+- `pass`
+- `fail`
+- `softfail`
+- `neutral`
+- `permerror`
+- `temperror`
+
+#### 3. Acción según resultado
+- **pass** → correo aceptado
+- **fail (-all)** → posible rechazo
+- **softfail (~all)** → marcado como sospechoso
+
+### Mecanismos principales SPF
+
+- **ip4 / ip6** → autoriza IPs específicas
+- **a / mx** → autoriza IPs resueltas por DNS
+- **include** → hereda reglas de otro dominio
+- **exists** → validación condicional avanzada
+
+### Qualifiers SPF
+
+- `-all` → rechazo duro
+- `~all` → rechazo suave
+- `?all` → neutral
+- `+all` → permitir todo (no recomendado)
+
+> Nota: El qualifier `/all` **no existe** en el estándar SPF.
+
+---
+
+## DKIM (DomainKeys Identified Mail)
+
+### ¿Qué es DKIM?
+DKIM es un mecanismo de autenticación criptográfica a nivel de dominio que permite verificar que:
+1. El mensaje fue autorizado por el dominio emisor
+2. El contenido no fue alterado en tránsito
+
+DKIM valida **el dominio**, no al usuario.
+
+### Componentes clave
+
+#### Par de claves criptográficas
+- **Clave privada**: reside en el servidor de envío y firma el mensaje
+- **Clave pública**: se publica en DNS como registro TXT
+
+> Recomendación actual: **RSA 2048 bits**
+
+#### Selector DKIM
+Permite múltiples claves activas por dominio.
+
+Ejemplo:
+```
+selector1._domainkey.ejemplo.com
+```
+
+Ventajas:
+- Rotación sin downtime
+- Múltiples proveedores
+- Delegación segura
+
+#### Header DKIM-Signature
+
+Ejemplo:
+```
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=ejemplo.com; s=selector1;
+ h=from:to:subject:date:message-id;
+ bh=Base64HashBody;
+ b=FirmaDigitalBase64
+```
+
+Campos importantes:
+- `d` → dominio firmante
+- `s` → selector
+- `h` → headers firmados
+- `bh` → hash del cuerpo
+- `b` → firma digital
+
+---
+
+## DMARC (Domain-based Message Authentication, Reporting & Conformance)
+
+### ¿Qué es DMARC?
+DMARC es un protocolo que opera sobre SPF y DKIM, añadiendo:
+- Alineación con el campo **From:**
+- Políticas de acción
+- Reportes de visibilidad
+
+### ¿Cómo funciona?
+1. El receptor evalúa SPF y DKIM
+2. Verifica alineación con From:
+3. Aplica la política definida (`none`, `quarantine`, `reject`)
+
+### Componentes de un registro DMARC
+
+Publicado en:
+```
+_dmarc.tudominio.com
+```
+
+Tags principales:
+- `p` → política
+- `rua` → reportes agregados
+- `ruf` → reportes forenses
+- `adkim` / `aspf` → alineación
+- `pct` → porcentaje de aplicación
+
+### Implementación recomendada
+
+1. Preparar SPF y DKIM
+2. Empezar con `p=none`
+3. Analizar reportes
+4. Migrar a `quarantine`
+5. Endurecer a `reject`
+
+Ejemplo estricto:
+```
+v=DMARC1; p=reject; sp=reject; adkim=s; aspf=s; pct=100
+```
+
+Buenas prácticas:
+- Monitoreo continuo
+- Alineación estricta
+- Protección de subdominios
+
+---
+
+## MTA-STS (Mail Transfer Agent – Strict Transport Security)
+
+### ¿Qué es MTA-STS?
+MTA-STS es un estándar (RFC 8461) que protege el correo **en tránsito entre servidores SMTP**, forzando el uso de TLS validado.
+
+### Amenazas mitigadas
+- Man-in-the-Middle (MITM)
+- TLS downgrade
+- Intercepción del tráfico SMTP
+
+### Problema histórico de SMTP
+- STARTTLS oportunista
+- Fallback a texto plano
+
+MTA-STS convierte TLS en **obligatorio**.
+
+### Componentes clave
+
+#### 1. Registro DNS `_mta-sts`
+```
+_mta-sts.ejemplo.com IN TXT "v=STSv1; id=2024022501"
+```
+
+#### 2. Política HTTPS
+
+Ubicación:
+```
+https://mta-sts.ejemplo.com/.well-known/mta-sts.txt
+```
+
+Ejemplo:
+```
+version: STSv1
+mode: enforce
+mx: mail.ejemplo.com
+max_age: 604800
+```
+
+#### 3. TLS Reporting (TLS-RPT)
+
+```
+_smtp._tls.ejemplo.com IN TXT "v=TLSRPTv1; rua=mailto:tlsrpt@ejemplo.com"
+```
+
+Permite visibilidad operativa.
+
+---
+
+## Script de validación
+
+Puedes validar SPF, DKIM, DMARC y MTA-STS con el siguiente script:
+
+[Domain-Health-Check.ps1](https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/Scripts/Domain-Health-Check.ps1)
+
 # Reglas básicas de flujo de correo – Microsoft 365
 
 A continuación encontrará reglas básicas de flujo de correo que son **altamente recomendadas** agregar para mejorar la postura de seguridad de Microsoft 365.
