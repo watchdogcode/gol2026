@@ -6,7 +6,7 @@ La operación efectiva de Microsoft Entra ID requiere monitoreo continuo, contro
 
 ## 🟢 Tareas Diarias (Daily Operations)
 
-### 1. Monitorear eventos de inicio de sesión y autenticación
+### Monitorear eventos de inicio de sesión y autenticación
 
 **Objetivo**  
 Detectar accesos anómalos o fallos que puedan impactar la continuidad del negocio.
@@ -26,7 +26,7 @@ Detectar accesos anómalos o fallos que puedan impactar la continuidad del negoc
 
 ---
 
-### 2. Revisar alertas de Microsoft Entra Connect Health (entornos híbridos)
+### Revisar alertas de Microsoft Entra Connect Health (entornos híbridos)
 
 **Objetivo**  
 Garantizar una sincronización saludable entre **Active Directory on‑premises** y **Microsoft Entra ID**.
@@ -105,7 +105,7 @@ Marca como **prioridad alta:**
 
 ---
 
-### 3. Validar estado de componentes híbridos
+###Validar estado de componentes híbridos
 
 **Aplica si se utilizan los siguientes componentes**
 - Pass‑Through Authentication Agents.

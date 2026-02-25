@@ -4,7 +4,7 @@ La operación efectiva de Microsoft Entra ID requiere monitoreo continuo, contro
 
 ---
 
-## 4. Revisión de cambios administrativos
+## Revisión de cambios administrativos
 
 ### Objetivo
 Detectar configuraciones riesgosas o cambios no planeados que puedan afectar la postura de seguridad de identidad.
@@ -26,7 +26,7 @@ Detectar configuraciones riesgosas o cambios no planeados que puedan afectar la 
 
 ---
 
-## 5. Seguimiento del Identity Secure Score
+## Seguimiento del Identity Secure Score
 
 ### Objetivo
 Medir la postura de seguridad de identidad y priorizar acciones de mejora continua.
@@ -47,7 +47,7 @@ Medir la postura de seguridad de identidad y priorizar acciones de mejora contin
 
 ---
 
-## 6. Revisión de errores de sincronización antiguos
+## Revisión de errores de sincronización antiguos
 
 ### Objetivo
 Evitar **deuda técnica** en identidades y problemas persistentes de sincronización.
