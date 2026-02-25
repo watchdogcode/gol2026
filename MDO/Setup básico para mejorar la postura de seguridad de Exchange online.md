@@ -11,7 +11,7 @@ A continuación encontrará reglas básicas de flujo de correo que son **altamen
 
 ## Regla de flujo de correo para bloquear correos enviados a mydominio.onmicrosoft.com y mydominio.mail.onmicrosoft.com
 
-### Opción 1: Script automatizado descargue el script que ejecuta esta tarea: [Block-onmicrosoftEmails] (https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/Block-OnMicrosoftEmails.ps1)
+### Opción 1: Script automatizado descargue el script que ejecuta esta tarea: [Block-onmicrosoftEmails](https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/Block-OnMicrosoftEmails.ps1)
 
 ### Opción 2: Creación manual
 
