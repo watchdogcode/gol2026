@@ -348,7 +348,7 @@ Con base en los hallazgos:
 * Habilitar MFA y credenciales resistentes al phishing
 
 ---
- 
+
 # Revisión de Top Targeted Users
 
 ----------------------------------------------------------------------
@@ -396,4 +396,3 @@ Verificar reglas de buzón (forwarding rules)
  
 
 Documentar usuarios críticos para monitoreo continuo
-> Documentar usuarios críticos para monitoreo continuo
