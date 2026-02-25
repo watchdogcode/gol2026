@@ -120,3 +120,67 @@ Microsoft 365 detecta automáticamente remitentes que parecen ser de tu organiza
     *   Agregar usuarios protegidos (VIPs).
     *   Ajustar el umbral de phishing (*phishing threshold*).
 *   **Hunting Adicional:** Buscar variaciones del dominio y actividad anómala en los usuarios atacados.
+---
+
+# Borrar Correos Sospechosos en Exchange Online (Ad-Hoc)
+
+## Opción A (RECOMENDADA): Portal Microsoft 365 Defender
+
+### Prerrequisitos
+- Rol: Security Administrator / Compliance Administrator / Global Administrator
+
+### Pasos
+1. https://security.microsoft.com/threatexplorerv3
+2. Definir rango de fechas
+3. Buscar por Subject, Sender, IP, Message ID, URL, Hash
+4. Validar resultados
+5. **Take action** → Move or delete
+6. Soft Delete (recomendado) o Hard Delete
+7. Monitorear:
+   - https://security.microsoft.com/action-center/history
+
+### Prevención posterior
+- Bloquear sender
+- Bloquear URLs
+- Ajustar políticas
+- Verificar SPF / DKIM / DMARC
+
+---
+
+## Opción B: PowerShell (Compliance Search)
+
+### Conectar
+```
+Connect-IPPSSession
+```
+
+### Crear búsqueda
+```
+New-ComplianceSearch  -Name "Purge-Phishing-25022026"  -ExchangeLocation All  -ContentMatchQuery 'Subject:"Factura pendiente"'
+```
+
+### Ejecutar
+```
+Start-ComplianceSearch -Identity "Purge-Phishing-25022026"
+```
+
+### Purgar
+**Soft Delete**
+```
+New-ComplianceSearchAction  -SearchName "Purge-Phishing-25022026"  -Purge -PurgeType SoftDelete
+```
+
+**Hard Delete (casos críticos)**
+```
+New-ComplianceSearchAction  -SearchName "Purge-Phishing-25022026"  -Purge -PurgeType HardDelete
+```
+
+---
+
+## Buenas Prácticas Clave
+- Usar SoftDelete primero
+- Validar resultados
+- Documentar criterios, fecha e impacto
+- Combinar con bloqueos y DMARC enforcement
+- No purgar sin validación
+- HardDelete solo con aprobación IR/Legal
