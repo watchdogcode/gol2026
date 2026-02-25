@@ -124,7 +124,7 @@ Microsoft 365 detecta automáticamente remitentes que parecen ser de tu organiza
 
 # Borrar Correos Sospechosos en Exchange Online (Ad-Hoc)
 
-## Opción A (RECOMENDADA): Portal Microsoft 365 Defender
+## 🔍 Opción A (RECOMENDADA): Portal Microsoft 365 Defender
 
 ### Prerrequisitos
 - Rol: Security Administrator / Compliance Administrator / Global Administrator
@@ -147,7 +147,7 @@ Microsoft 365 detecta automáticamente remitentes que parecen ser de tu organiza
 
 ---
 
-## Opción B: PowerShell (Compliance Search)
+## 🔍 Opción B: PowerShell (Compliance Search)
 
 ### Conectar
 ```
