@@ -1,6 +1,6 @@
 # 🛡️ Guía de Seguridad Operacional Diaria: Microsoft EntraID
 
-La guía diaria de EntraID ayuda a tener una operación continua, reducción de riesgo de identidad y estabilidad del servicio  
+La guía de EntraID ayuda a tener una operación continua, reducción de riesgo de identidad y estabilidad del servicio  
 
 ---
 
