@@ -266,7 +266,7 @@ A continuación encontrará reglas básicas de flujo de correo que son **altamen
 
 ## Regla de flujo de correo para bloquear correos que no pueden ser inspeccionados
 
-### Opción 1: Script automatizado descargue el script que ejecuta esta tarea 
+### Opción 1: Script automatizado descargue el script que ejecuta esta tarea: 
 [Quarantine Attachments Can’t be inspected](https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/Scripts/Quarantine%20Attachments%20Can%C2%B4t%20be%20inspected.ps1)
 
 ### Opción 2: Creación manual
