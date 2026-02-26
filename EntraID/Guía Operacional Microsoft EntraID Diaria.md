@@ -10,7 +10,7 @@ La operación efectiva de Microsoft Entra ID requiere monitoreo continuo, contro
 Detectar accesos anómalos o fallos que puedan impactar la continuidad del negocio.
 
 **Pasos operativos**
-1. Ir a  https://entra.microsoft.com/#view/Microsoft_AAD_IAM/SignInLogsList.ReactView/timeRangeType/last24hours/showApplicationSignIns~/true e inicia sesión
+1. Ir a  https://entra.microsoft.com/#view/Microsoft_AAD_IAM/SignInLogsList.ReactView e inicia sesión
 2. Identificar:
    - Picos de fallos de autenticación.
    - Inicios de sesión desde ubicaciones inusuales.
