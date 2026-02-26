@@ -24,6 +24,66 @@ Detectar accesos anómalos o fallos que puedan impactar la continuidad del negoc
 
 ---
 
+## Revisión de Usuarios con Riesgo (Alto / Medio)
+
+### Paso 1 – Acceso
+Portal Microsoft Entra  
+`Protección > Identity Protection`
+
+### Paso 2 – Usuarios en Riesgo
+URL directa:  
+https://entra.microsoft.com/#view/Microsoft_AAD_IAM/IdentityProtectionUsersBlade
+
+### Paso 3 – Filtros recomendados
+- Nivel de riesgo: **Alto, Medio**
+- Estado del riesgo: **Activo**
+- (Opcional) Tipo de riesgo, ubicación, fecha
+
+### Paso 4 – Análisis por usuario
+Revisar:
+- Nivel de riesgo actual
+- Tipo de riesgo:
+  - Password Spray
+  - Anonymous IP
+  - Impossible Travel
+  - Leaked Credentials
+- Última actividad riesgosa
+- Estado: Active / Remediated / Dismissed
+
+### Paso 5 – Acciones operativas
+- Forzar cambio de contraseña
+- Requerir MFA
+- Confirmar actividad con el usuario
+- Marcar como **Remediated** si fue mitigado
+
+Referencia:  
+https://learn.microsoft.com/entra/id-protection/concept-identity-protection-risks
+
+---
+
+## Revisión de Inicios de Sesión con Riesgo
+
+### Paso 1 – Inicios con Riesgo
+URL directa:  
+https://entra.microsoft.com/#view/Microsoft_AAD_IAM/IdentityProtectionSignInsBlade
+
+### Paso 2 – Filtros
+- Nivel de riesgo: **Alto, Medio**
+- Estado: Activo
+- Aplicación, IP, Ubicación
+
+### Paso 3 – Análisis del evento
+Revisar:
+- Usuario afectado
+- Aplicación objetivo
+- Dirección IP / País
+- Tipo de riesgo
+- Resultado: Success / Failure / Interrupted
+
+Referencia:  
+https://learn.microsoft.com/entra/id-protection/concept-identity-protection-sign-in-risk
+
+---
 ### Revisar alertas de Microsoft Entra Connect Health (entornos híbridos)
 
 **Objetivo**  
