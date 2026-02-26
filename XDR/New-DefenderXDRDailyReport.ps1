@@ -1,25 +1,25 @@
 <#
 .SYNOPSIS
-    Daily Security Operations Report Generator using Microsoft 365 Defender API.
-    Automates KQL Advanced Hunting queries for MDO, MDE, MDI, and MDA.
+    Generador de Reporte Diario de Operaciones de Seguridad usando la API de Microsoft 365 Defender.
+    Automatiza consultas KQL de Advanced Hunting para MDO, MDE, MDI y MDA.
 
 .DESCRIPTION
-    This script authenticates against the M365 Defender API, executes a defined set of 
-    daily hunting queries, and generates a professional HTML executive report.
+    Este script se autentica contra la API de M365 Defender, ejecuta un conjunto definido de
+    consultas de hunting diarias y genera un reporte ejecutivo profesional en HTML.
 
 .PARAMETER TimeWindowHours
-    Time window in hours for the analysis (Default: 24).
+    Ventana de tiempo en horas para el análisis (Por defecto: 24).
 
 .PARAMETER OutputPath
-    Full path for the output HTML file.
+    Ruta completa para el archivo HTML de salida.
 
 .PARAMETER AuthMode
-    Authentication method: 'Secret', 'Interactive', 'DeviceCode'.
-    For 'Secret', ensure $ClientId, $TenantId, and $ClientSecret are set (or env vars).
+    Método de autenticación: 'Secret', 'Interactive', 'DeviceCode'.
+    Para 'Secret', asegúrese de configurar $ClientId, $TenantId y $ClientSecret (o variables de entorno).
 
 .NOTES
-    API Endpoint: https://api.security.microsoft.com
-    Required Permission: AdvancedHunting.Read.All
+    Endpoint de API: https://api.security.microsoft.com
+    Permiso requerido: AdvancedHunting.Read.All
 #>
 
 param(
@@ -34,19 +34,19 @@ param(
     [string]$SmtpServer,
     [string]$From,
     [string]$To,
-    [string]$Subject = "Daily Security Report - M365 Defender XDR",
+    [string]$Subject = "Reporte Diario de Seguridad - M365 Defender XDR",
     [int]$TimeoutSec = 120,
     [bool]$FailFast = $false
 )
 
-# --- CONFIGURATION & GLOBALS ---
+# --- CONFIGURACIÓN Y VARIABLES GLOBALES ---
 $ErrorActionPreference = "Stop"
 $ApiBaseUrl = "https://api.security.microsoft.com/api"
 $ResourceUrl = "https://api.security.microsoft.com"
 $ReportDate = Get-Date
 $StartDate = $ReportDate.AddHours(-$TimeWindowHours)
 
-# --- CREDENTIAL MASKING ---
+# --- ENMASCARAMIENTO DE CREDENCIALES ---
 function Mask-String {
     param([string]$Value, [int]$VisibleChars = 4)
     if ([string]::IsNullOrEmpty($Value)) { return '****' }
@@ -56,31 +56,31 @@ function Mask-String {
 
 $MaskedTenantId  = Mask-String $TenantId
 $MaskedClientId  = Mask-String $ClientId
-$MaskedSecret    = if ($ClientSecret) { '********' } else { '(not set)' }
+$MaskedSecret    = if ($ClientSecret) { '********' } else { '(no configurado)' }
 
-# --- LOGGING FUNCTION ---
+# --- FUNCIÓN DE REGISTRO (LOG) ---
 function Write-Log {
     param([string]$Message, [string]$Level="INFO")
     $Color = switch($Level) { "INFO" {"Cyan"} "WARN" {"Yellow"} "ERROR" {"Red"} default {"White"} }
     Write-Host "[$((Get-Date).ToString('HH:mm:ss'))] [$Level] $Message" -ForegroundColor $Color
 }
 
-# --- SECURITY POSTURE: Log masked credentials at startup ---
-Write-Log "=== Security Context ==="
+# --- POSTURA DE SEGURIDAD: Registrar credenciales enmascaradas al inicio ---
+Write-Log "=== Contexto de Seguridad ==="
 Write-Log "  Tenant ID   : $MaskedTenantId"
 Write-Log "  Client ID   : $MaskedClientId"
 Write-Log "  Secret      : $MaskedSecret"
 Write-Log "  Auth Mode   : $AuthMode"
-Write-Log "========================"
+Write-Log "=============================="
 
-# --- AUTHENTICATION ---
+# --- AUTENTICACIÓN ---
 function Get-M365Token {
-    Write-Log "Acquiring Access Token via $AuthMode..."
+    Write-Log "Obteniendo Token de Acceso vía $AuthMode..."
     
     try {
         if ($AuthMode -eq "Secret") {
             if (-not ($TenantId -and $ClientId -and $ClientSecret)) {
-                throw "For 'Secret' auth, TenantId, ClientId, and ClientSecret are required."
+                throw "Para autenticación 'Secret', se requieren TenantId, ClientId y ClientSecret."
             }
             $Body = @{
                 grant_type    = "client_credentials"
@@ -92,31 +92,31 @@ function Get-M365Token {
             return $TokenReq.access_token
         }
         elseif ($AuthMode -in @("Interactive", "DeviceCode")) {
-            # Attempt to use Az or Mg modules if available for interactive flows
+            # Intentar usar módulos Az o Mg si están disponibles para flujos interactivos
             if (Get-Module -ListAvailable -Name "Az.Accounts") {
-                Write-Log "Using Az.Accounts for interactive token..."
+                Write-Log "Usando Az.Accounts para token interactivo..."
                 $TokenData = Get-AzAccessToken -ResourceUrl $ResourceUrl -ErrorAction Stop
                 return $TokenData.Token
             }
             elseif (Get-Module -ListAvailable -Name "Microsoft.Graph.Authentication") {
-                Write-Log "Using Microsoft.Graph for interactive token..."
-                # Connect if not connected
+                Write-Log "Usando Microsoft.Graph para token interactivo..."
+                # Conectar si no hay conexión activa
                 if (-not (Get-MgContext)) { Connect-MgGraph -Scopes "AdvancedHunting.Read.All" -NoWelcome }
                 $TokenData = Get-MgAccessToken -ResourceUrl $ResourceUrl -ErrorAction Stop
                 return $TokenData
             }
             else {
-                throw "Modules 'Az.Accounts' or 'Microsoft.Graph.Authentication' not found. Required for Interactive/DeviceCode auth."
+                throw "No se encontraron los módulos 'Az.Accounts' o 'Microsoft.Graph.Authentication'. Requeridos para autenticación Interactive/DeviceCode."
             }
         }
     }
     catch {
-        Write-Log "Authentication Failed: $_" -Level ERROR
+        Write-Log "Error de Autenticación: $_" -Level ERROR
         throw $_
     }
 }
 
-# --- API EXECUTION ---
+# --- EJECUCIÓN DE API ---
 function Invoke-HuntingQuery {
     param(
         [string]$Token,
@@ -130,7 +130,7 @@ function Invoke-HuntingQuery {
         "Content-Type"  = "application/json"
     }
     
-    # Inject TimeWindow
+    # Inyectar ventana de tiempo
     $FinalQuery = $Query -replace "ago\(24h\)", "ago($($TimeWindowHours)h)"
     $Body = @{ Query = $FinalQuery } | ConvertTo-Json -Compress
 
@@ -143,7 +143,7 @@ function Invoke-HuntingQuery {
             $Response = Invoke-RestMethod -Method Post -Uri $Uri -Headers $Headers -Body $Body -TimeoutSec $TimeoutSec -ErrorAction Stop
             $Sw.Stop()
             
-            Write-Log "Query ['$Name'] executed in $($Sw.ElapsedMilliseconds)ms. Rows: $($Response.Results.Count)"
+            Write-Log "Consulta ['$Name'] ejecutada en $($Sw.ElapsedMilliseconds)ms. Filas: $($Response.Results.Count)"
             
             return @{
                 Name = $Name
@@ -157,21 +157,21 @@ function Invoke-HuntingQuery {
             if ($StatusCode -eq 429 -or $StatusCode -ge 500) {
                 $Retries++
                 $Wait = [math]::Pow(2, $Retries)
-                Write-Log "API Error $StatusCode. Retrying in $Wait seconds..." -Level WARN
+                Write-Log "Error de API $StatusCode. Reintentando en $Wait segundos..." -Level WARN
                 Start-Sleep -Seconds $Wait
             }
             else {
-                Write-Log "Query ['$Name'] Failed: $_" -Level ERROR
+                Write-Log "Consulta ['$Name'] Falló: $_" -Level ERROR
                 if ($FailFast) { throw $_ }
                 return @{ Name = $Name; Results = @(); Error = $_.Exception.Message }
             }
         }
     } while ($Retries -lt $MaxRetries)
 
-    return @{ Name = $Name; Results = @(); Error = "Max retries exceeded" }
+    return @{ Name = $Name; Results = @(); Error = "Máximo de reintentos excedido" }
 }
 
-# --- KQL DEFINITIONS ---
+# --- DEFINICIONES KQL ---
 $Queries = @{
     "MDO_Campaigns" = @"
 EmailEvents
@@ -252,19 +252,19 @@ CloudAppEvents
 "@
 }
 
-# --- MAIN EXECUTION ---
+# --- EJECUCIÓN PRINCIPAL ---
 
-# 1. Authenticate
+# 1. Autenticar
 $Token = Get-M365Token
 
-# 2. Execute Queries
+# 2. Ejecutar Consultas
 $Data = @{}
 foreach ($Key in $Queries.Keys) {
     $Result = Invoke-HuntingQuery -Token $Token -Query $Queries[$Key] -Name $Key
     $Data[$Key] = $Result.Results
 }
 
-# 3. Calculate KPIs
+# 3. Calcular KPIs
 $Kpi_TotalAlerts = ($Data["MDE_AlertsBySev"] | Measure-Object -Property Count -Sum).Sum
 if (-not $Kpi_TotalAlerts) { $Kpi_TotalAlerts = 0 }
 
@@ -276,20 +276,20 @@ $Kpi_HighRiskUsers = $Data["MDI_HighRiskUsers"].Count
 $Kpi_NewOAuth = ($Data["MDA_OAuth"] | Measure-Object -Property Consents -Sum).Sum
 if (-not $Kpi_NewOAuth) { $Kpi_NewOAuth = 0 }
 
-# --- RANDOM DAILY KQL SELECTION ---
+# --- SELECCIÓN ALEATORIA DE KQL DIARIO ---
 $MdoDailyQueries = @(
-    @{ Title="High Severity MDO Alerts (Incidents Queue)"; Query="AlertInfo | where Timestamp > ago(24h) | where ServiceSource == 'MicrosoftDefenderForOffice365' and Severity == 'High' | summarize Count=count() by Title" },
-    @{ Title="Delivered Phishing/Malware (False Negatives)"; Query="EmailEvents | where Timestamp > ago(24h) | where DeliveryAction == 'Delivered' and ThreatTypes has_any ('Phish','Malware') | project Timestamp, Subject, SenderFromAddress, RecipientEmailAddress, ThreatTypes" },
-    @{ Title="Top Active Campaigns (Campaigns View)"; Query="EmailEvents | where Timestamp > ago(24h) | where isnotempty(CampaignId) | summarize Events=count(), Targets=dcount(RecipientEmailAddress) by CampaignId, Subject | top 5 by Events desc" },
-    @{ Title="ZAP Activity (Automated Investigation)"; Query="EmailPostDeliveryEvents | where Timestamp > ago(24h) | where ActionType has 'ZAP' | summarize Count=count() by ActionTrigger, ActionResult" },
-    @{ Title="Suspicious Delivered Attachments (Analysis)"; Query="EmailAttachmentInfo | where Timestamp > ago(24h) | join kind=inner (EmailEvents | where DeliveryAction == 'Delivered') on NetworkMessageId | where FileType in ('exe', 'ps1', 'vbs', 'iso', 'js') | project Timestamp, FileName, RecipientEmailAddress" }
+    @{ Title="Alertas MDO de Alta Severidad (Cola de Incidentes)"; Query="AlertInfo | where Timestamp > ago(24h) | where ServiceSource == 'MicrosoftDefenderForOffice365' and Severity == 'High' | summarize Count=count() by Title" },
+    @{ Title="Phishing/Malware Entregado (Falsos Negativos)"; Query="EmailEvents | where Timestamp > ago(24h) | where DeliveryAction == 'Delivered' and ThreatTypes has_any ('Phish','Malware') | project Timestamp, Subject, SenderFromAddress, RecipientEmailAddress, ThreatTypes" },
+    @{ Title="Principales Campañas Activas (Vista de Campañas)"; Query="EmailEvents | where Timestamp > ago(24h) | where isnotempty(CampaignId) | summarize Events=count(), Targets=dcount(RecipientEmailAddress) by CampaignId, Subject | top 5 by Events desc" },
+    @{ Title="Actividad ZAP (Investigación Automatizada)"; Query="EmailPostDeliveryEvents | where Timestamp > ago(24h) | where ActionType has 'ZAP' | summarize Count=count() by ActionTrigger, ActionResult" },
+    @{ Title="Adjuntos Sospechosos Entregados (Análisis)"; Query="EmailAttachmentInfo | where Timestamp > ago(24h) | join kind=inner (EmailEvents | where DeliveryAction == 'Delivered') on NetworkMessageId | where FileType in ('exe', 'ps1', 'vbs', 'iso', 'js') | project Timestamp, FileName, RecipientEmailAddress" }
 )
 $SelectedMdoQuery = $MdoDailyQueries | Get-Random
 
-# 4. Generate HTML
+# 4. Generar HTML
 function ConvertTo-HtmlTable {
     param($Rows, $Columns)
-    if (-not $Rows -or $Rows.Count -eq 0) { return "<tr><td colspan='$($Columns.Count)' style='text-align:center; color:#666;'>No data found in period</td></tr>" }
+    if (-not $Rows -or $Rows.Count -eq 0) { return "<tr><td colspan='$($Columns.Count)' style='text-align:center; color:#666;'>No se encontraron datos en el período</td></tr>" }
     
     $Html = ""
     foreach ($Row in $Rows) {
@@ -310,7 +310,7 @@ $HtmlContent = @"
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daily Security Report</title>
+    <title>Reporte Diario de Seguridad</title>
     <style>
         :root {
             --primary-color: #0078d4;
@@ -358,7 +358,7 @@ $HtmlContent = @"
             align-items: center;
         }
 
-        /* KPI Grid */
+        /* Cuadrícula de KPIs */
         .kpi-grid { 
             display: grid; 
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
@@ -381,7 +381,7 @@ $HtmlContent = @"
         .kpi-val { font-size: 3em; font-weight: 700; color: var(--secondary-color); line-height: 1; margin-bottom: 5px; }
         .kpi-label { font-size: 0.85em; color: #605e5c; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
         
-        /* Tables */
+        /* Tablas */
         .table-container {
             background: var(--card-bg);
             border-radius: 8px;
@@ -395,7 +395,7 @@ $HtmlContent = @"
         tr:last-child td { border-bottom: none; }
         tr:hover { background-color: #f8f9fa; }
         
-        /* Recommendations */
+        /* Recomendaciones */
         .recs { 
             background-color: #e6f2ff; 
             padding: 20px; 
@@ -405,7 +405,7 @@ $HtmlContent = @"
         .recs ul { margin: 0; padding-left: 20px; }
         .recs li { margin-bottom: 8px; line-height: 1.6; }
         
-        /* Daily Activities */
+        /* Actividades Diarias */
         .activities { 
             background-color: var(--card-bg); 
             border-radius: 8px; 
@@ -425,9 +425,9 @@ $HtmlContent = @"
 </head>
 <body>
     <div class="header">
-        <h1>Daily Security Operations Report</h1>
+        <h1>Reporte Diario de Operaciones de Seguridad</h1>
         <div class="meta">
-            <div><strong>Period:</strong> $($StartDate.ToString("yyyy-MM-dd HH:mm")) - $($ReportDate.ToString("yyyy-MM-dd HH:mm"))</div>
+            <div><strong>Período:</strong> $($StartDate.ToString("yyyy-MM-dd HH:mm")) - $($ReportDate.ToString("yyyy-MM-dd HH:mm"))</div>
             <div style="font-size: 0.85em; margin-top: 4px;">Tenant ID: $MaskedTenantId</div>
         </div>
     </div>
@@ -437,140 +437,140 @@ $HtmlContent = @"
         <div class="kpi-grid">
             <div class="kpi-card alert">
                 <div class="kpi-val">$Kpi_TotalAlerts</div>
-                <div class="kpi-label">Total Alerts (MDE)</div>
+                <div class="kpi-label">Total Alertas (MDE)</div>
             </div>
             <div class="kpi-card $(if($Kpi_PhishDelivered -gt 0){'danger'}else{'alert'})">
                 <div class="kpi-val">$Kpi_PhishDelivered</div>
-                <div class="kpi-label">Phish Delivered</div>
+                <div class="kpi-label">Phishing Entregado</div>
             </div>
             <div class="kpi-card $(if($Kpi_HighRiskUsers -gt 0){'danger'}else{'alert'})">
                 <div class="kpi-val">$Kpi_HighRiskUsers</div>
-                <div class="kpi-label">High Risk Users</div>
+                <div class="kpi-label">Usuarios de Alto Riesgo</div>
             </div>
             <div class="kpi-card $(if($Kpi_CompromisedIdentities -gt 0){'danger'}else{'alert'})">
                 <div class="kpi-val">$Kpi_CompromisedIdentities</div>
-                <div class="kpi-label">Identity Brute Force</div>
+                <div class="kpi-label">Fuerza Bruta en Identidades</div>
             </div>
             <div class="kpi-card alert">
                 <div class="kpi-val">$Kpi_NewOAuth</div>
-                <div class="kpi-label">New OAuth Consents</div>
+                <div class="kpi-label">Nuevos Consentimientos OAuth</div>
             </div>
         </div>
 
-        <!-- MDO Section -->
-        <h2>MDO: Email & Collaboration</h2>
+        <!-- Sección MDO -->
+        <h2>MDO: Correo Electrónico y Colaboración</h2>
         <div class="activities">
-            <h4>Daily Activities</h4>
+            <h4>Actividades Diarias</h4>
             <ul>
-                <li><a href="https://security.microsoft.com/incidents">Monitor email and collaboration incidents and alerts.</a>
+                <li><a href="https://security.microsoft.com/incidents">Monitorear incidentes y alertas de correo electrónico y colaboración.</a>
                     <div style="margin-top:8px; padding:10px; background:#f8f9fa; border-left:3px solid #0078d4; font-family:Consolas, monospace; font-size:0.85em; color:#333;">
-                        <div style="font-weight:bold; color:#0078d4; margin-bottom:5px;">💡 Recommended KQL: $($SelectedMdoQuery.Title)</div>
+                        <div style="font-weight:bold; color:#0078d4; margin-bottom:5px;">💡 KQL Recomendado: $($SelectedMdoQuery.Title)</div>
                         <div style="white-space:pre-wrap;">$($SelectedMdoQuery.Query)</div>
                     </div>
                 </li>
-                <li><a href="https://security.microsoft.com/campaigns">Evaluate phishing and malware campaigns that were delivered.</a></li>
-                <li><a href="https://security.microsoft.com/action-center/pending">Review pending or incomplete automated actions (AIR).</a></li>
-                <li><a href="https://security.microsoft.com/submissions">Triage suspicious messages reported by users.</a></li>
-                <li><a href="https://security.microsoft.com/alerts">Manage alerts with classification and necessary remediations.</a></li>
+                <li><a href="https://security.microsoft.com/campaigns">Evaluar campañas de phishing y malware que fueron entregadas.</a></li>
+                <li><a href="https://security.microsoft.com/action-center/pending">Revisar acciones automatizadas pendientes o incompletas (AIR).</a></li>
+                <li><a href="https://security.microsoft.com/submissions">Clasificar mensajes sospechosos reportados por usuarios.</a></li>
+                <li><a href="https://security.microsoft.com/alerts">Gestionar alertas con clasificación y remediaciones necesarias.</a></li>
             </ul>
         </div>
         
-        <h3>Top Phishing Campaigns Delivered</h3>
+        <h3>Principales Campañas de Phishing Entregadas</h3>
         <div class="table-container">
             <table>
-                <thead><tr><th>Subject</th><th>SenderDomain</th><th>Events</th><th>Targets</th></tr></thead>
+                <thead><tr><th>Asunto</th><th>Dominio del Remitente</th><th>Eventos</th><th>Objetivos</th></tr></thead>
                 <tbody>$(ConvertTo-HtmlTable $Data["MDO_Campaigns"] @("Subject","SenderFromDomain","Events","Targets"))</tbody>
             </table>
         </div>
         
-        <h3>Top Targeted Users (Phishing)</h3>
+        <h3>Usuarios Más Atacados (Phishing)</h3>
         <div class="table-container">
             <table>
-                <thead><tr><th>Recipient</th><th>Attempts</th></tr></thead>
+                <thead><tr><th>Destinatario</th><th>Intentos</th></tr></thead>
                 <tbody>$(ConvertTo-HtmlTable $Data["MDO_TopUsers"] @("RecipientEmailAddress","Attempts"))</tbody>
             </table>
         </div>
 
-        <!-- MDE Section -->
-        <h2>MDE: Endpoint Security</h2>
-        <h3>Alerts by Severity</h3>
+        <!-- Sección MDE -->
+        <h2>MDE: Seguridad de Endpoints</h2>
+        <h3>Alertas por Severidad</h3>
         <div class="table-container">
             <table>
-                <thead><tr><th>Severity</th><th>Count</th></tr></thead>
+                <thead><tr><th>Severidad</th><th>Cantidad</th></tr></thead>
                 <tbody>$(ConvertTo-HtmlTable $Data["MDE_AlertsBySev"] @("Severity","Count"))</tbody>
             </table>
         </div>
 
-        <!-- MDI Section -->
-        <h2>MDI: Identity Security</h2>
-        <h3>Potential Brute Force Success</h3>
+        <!-- Sección MDI -->
+        <h2>MDI: Seguridad de Identidades</h2>
+        <h3>Potencial de éxito de Fuerza Bruta</h3>
         <div class="table-container">
             <table>
-                <thead><tr><th>Account</th><th>IP Address</th><th>Location</th><th>Fails</th><th>Success</th></tr></thead>
+                <thead><tr><th>Cuenta</th><th>Dirección IP</th><th>Ubicación</th><th>Fallos</th><th>Éxitos</th></tr></thead>
                 <tbody>$(ConvertTo-HtmlTable $Data["MDI_BruteForce"] @("AccountUpn","IPAddress","Location","Fails","Success"))</tbody>
             </table>
         </div>
 
-        <h3>Users with High Risk Sign-ins</h3>
+        <h3>Usuarios con Inicios de Sesión de Alto Riesgo</h3>
         <div class="table-container">
             <table>
-                <thead><tr><th>Account</th><th>Risk Level</th><th>Events</th></tr></thead>
+                <thead><tr><th>Cuenta</th><th>Nivel de Riesgo</th><th>Eventos</th></tr></thead>
                 <tbody>$(ConvertTo-HtmlTable $Data["MDI_HighRiskUsers"] @("UserPrincipalName","RiskLevelAggregated","Events"))</tbody>
             </table>
         </div>
 
-        <!-- MDA Section -->
-        <h2>MDA: Cloud Apps & Shadow IT</h2>
-        <h3>New OAuth Consents</h3>
+        <!-- Sección MDA -->
+        <h2>MDA: Aplicaciones en la Nube y Shadow IT</h2>
+        <h3>Nuevos Consentimientos OAuth</h3>
         <div class="table-container">
             <table>
-                <thead><tr><th>Application</th><th>AppId</th><th>Consents</th><th>Users</th></tr></thead>
+                <thead><tr><th>Aplicación</th><th>AppId</th><th>Consentimientos</th><th>Usuarios</th></tr></thead>
                 <tbody>$(ConvertTo-HtmlTable $Data["MDA_OAuth"] @("Application","ApplicationId","Consents","Users"))</tbody>
             </table>
         </div>
 
-        <!-- Recommendations -->
-        <h2>Daily Recommendations & Actions</h2>
+        <!-- Recomendaciones -->
+        <h2>Recomendaciones y Acciones Diarias</h2>
         <div class="recs">
             <ul>
-                <li><strong>MDO:</strong> Review the $(if($Kpi_PhishDelivered -gt 0){"<b>$Kpi_PhishDelivered</b> delivered phishing campaigns"}else{"phishing campaigns"}) and validate ZAP effectiveness. Check top targeted users for awareness training.</li>
-                <li><strong>MDI:</strong> Investigate the <b>$Kpi_HighRiskUsers</b> users with high risk sign-ins. Reset passwords or enforce MFA for risky sessions.</li>
-                <li><strong>MDI:</strong> Analyze the <b>$Kpi_CompromisedIdentities</b> accounts with brute force success. Reset passwords and enforce MFA if not present.</li>
-                <li><strong>MDA:</strong> Audit the <b>$Kpi_NewOAuth</b> new OAuth consents. Revoke permissions for suspicious or unverified publishers.</li>
+                <li><strong>MDO:</strong> Revisar $(if($Kpi_PhishDelivered -gt 0){"las <b>$Kpi_PhishDelivered</b> campañas de phishing entregadas"}else{"las campañas de phishing"}) y validar la efectividad de ZAP. Verificar los usuarios más atacados para capacitación de concientización.</li>
+                <li><strong>MDI:</strong> Investigar los <b>$Kpi_HighRiskUsers</b> usuarios con inicios de sesión de alto riesgo. Restablecer contraseñas o aplicar MFA en sesiones riesgosas.</li>
+                <li><strong>MDI:</strong> Analizar las <b>$Kpi_CompromisedIdentities</b> cuentas con éxito de fuerza bruta. Restablecer contraseñas y aplicar MFA si no está configurado.</li>
+                <li><strong>MDA:</strong> Auditar los <b>$Kpi_NewOAuth</b> nuevos consentimientos OAuth. Revocar permisos de publicadores sospechosos o no verificados.</li>
             </ul>
         </div>
         
         <div class="footer">
-            Generated by Automated Security Operations | Microsoft 365 Defender
+            Generado por Operaciones de Seguridad Automatizadas | Microsoft 365 Defender XDR
         </div>
     </div>
 </body>
 </html>
 "@
 
-# 5. Save Output
+# 5. Guardar Resultado
 try {
     $Dir = Split-Path $OutputPath -Parent
     if (-not (Test-Path $Dir)) { New-Item -ItemType Directory -Path $Dir -Force | Out-Null }
     $HtmlContent | Out-File -FilePath $OutputPath -Encoding UTF8 -Force
-    Write-Log "Report saved to: $OutputPath"
+    Write-Log "Reporte guardado en: $OutputPath"
 }
 catch {
-    Write-Log "Failed to save report: $_" -Level ERROR
+    Write-Log "Error al guardar el reporte: $_" -Level ERROR
 }
 
-# 6. Send Mail (Optional)
+# 6. Enviar Correo (Opcional)
 if ($SendMail) {
     if ($SmtpServer -and $From -and $To) {
         try {
-            Write-Log "Sending email to $To..."
+            Write-Log "Enviando correo a $To..."
             Send-MailMessage -SmtpServer $SmtpServer -From $From -To $To -Subject $Subject -Body $HtmlContent -BodyAsHtml -Priority High
-            Write-Log "Email sent successfully."
+            Write-Log "Correo enviado exitosamente."
         }
         catch {
-            Write-Log "Failed to send email: $_" -Level ERROR
+            Write-Log "Error al enviar correo: $_" -Level ERROR
         }
     } else {
-        Write-Log "Email skipped. Missing SMTP parameters." -Level WARN
+        Write-Log "Envío de correo omitido. Faltan parámetros SMTP." -Level WARN
     }
 }
