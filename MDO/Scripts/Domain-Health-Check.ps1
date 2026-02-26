@@ -238,6 +238,8 @@ $mtaSt  = if ($DHCMtaRecord -and $DHCMtaRecord -ne "yourinfo") { "bg-success" } 
 $spfAdv   = $DHCSpfAdvisory
 $dkimAdv  = if ($dkim.Count -gt 0) { "DKIM selectors found" } else { "No DKIM selectors detected" }
 $dmarcAdv = if ($DHCDmarcRecord -match "p=none") { "DMARC policy in monitoring mode (p=none)" } elseif ([string]::IsNullOrWhiteSpace($DHCDmarcRecord) -or $DHCDmarcRecord -eq "yourinfo") { "No DMARC record detected" } else { "DMARC policy is enforcing" }
+$dmarcAdvSt = if ($dmarcAdv -match 'p=none' -or $dmarcAdv -match 'No DMARC') { 'bg-danger' } else { 'bg-success' }
+$dmarcAdvClass = if ($DHCDmarcAdvisory -match 'will prevent abuse' -and $DHCDmarcAdvisory -match 'subdomain policy does not prevent abuse') { 'bg-warning-custom' } elseif ($DHCDmarcAdvisory -match 'will prevent abuse') { 'bg-success text-white' } elseif ($DHCDmarcAdvisory -match 'p=reject' -or $DHCDmarcAdvisory -match 'p=quarantine') { 'bg-success text-white' } elseif ($DHCDmarcAdvisory -match 'does not prevent abuse') { 'bg-danger text-white' } else { 'bg-danger text-white' }
 $mtaAdv   = if ($DHCMtaRecord -and $DHCMtaRecord -ne "yourinfo") { "MTA-STS DNS record found" } else { "MTA-STS DNS record not found" }
 
 $mtaTTLValue = if ($null -ne $MTA) { $MTA.TTL } else { "N/A" }
@@ -328,6 +330,7 @@ $html = @"
         .section-divider { border-bottom: 2px solid #0078d4; color: #0078d4; font-weight: bold; margin: 25px 0 15px 0; font-size: 1.25rem; }
         .record-box { background-color: #f8f9fa; border: 1px solid #ddd; padding: 12px; border-radius: 4px; display: block; word-break: break-all; font-family: 'Consolas', monospace; font-size: 0.95rem; margin-top: 5px; border-left: 5px solid #0078d4; }
         .badge-advisory { display: block; padding: 8px; border-radius: 4px; font-weight: 600; margin-bottom: 10px; width: fit-content; text-transform: uppercase; font-size: 0.8rem; }
+        .bg-warning-custom { background-color: #FAFD55 !important; color: #000 !important; }
     </style>
 </head>
 <body>
@@ -381,9 +384,14 @@ $html = @"
 
             <!-- 4. DMARC POLICY -->
             <div class="section-divider">&#128678; 4. DMARC POLICY</div>
-            <span class="badge-advisory $dmSt text-white">$dmarcAdv</span>
+            <span class="badge-advisory $dmarcAdvClass">$DHCDmarcAdvisory</span>
             <strong>Current DMARC:</strong><code class="record-box">$DHCDmarcRecord</code>
-            <div class="mt-2"><strong>TTL:</strong> <span class="$(Get-TtlClass $DMARCTTL)">$DMARCTTL</span></div>
+            <div class="mt-2">
+                <strong>TTL:</strong> <span class="$(Get-TtlClass $DMARCTTL)">$DMARCTTL</span>
+            </div>
+            <div class="mt-2">
+                <span class="badge-advisory $dmarcAdvSt text-white">$dmarcAdv</span>
+            </div>
 
             <!-- 5. MTA-STS -->
             <div class="section-divider">&#127760; 5. MTA-STS POLICY</div>
