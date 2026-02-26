@@ -4,7 +4,7 @@ La guía semanal de MDI permite identificar y ajustar proactivamente riesgos eme
 
 ---
 
-## Revisar Secure Score recommendations (por producto)
+## Revisar recomendaciones de Secure Score (por producto)
 **Propósito:** mejorar postura de identidad e infraestructura on‑premises.
 
 ### Paso a paso
