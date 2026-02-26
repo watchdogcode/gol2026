@@ -271,7 +271,7 @@ if ($DHCSpfRecord -match 'include:') {
             $spfIncludes += [pscustomobject]@{
                 Name = $incDomain
                 TTL  = 'N/A'
-                SPF  = 'TXT record not found or inaccessible'
+                SPF  = 'TXT record not found, inaccessible or use macros'
             }
         }
     }
@@ -355,14 +355,14 @@ $html = @"
         <div class="table-card">
 
             <!-- 1. MX RECORDS -->
-            <div class="section-divider">&#128236; 1. MX RECORDS</div>
+            <div class="section-divider">&#128236; 1. MX Records for $DHCName</div>
             <table class="table table-sm">
                 <thead><tr><th class="small fw-bold">Hostname</th><th class="small fw-bold">Preference</th><th class="small fw-bold">TTL</th><th class="small fw-bold">Type</th></tr></thead>
                 <tbody>$mxRows</tbody>
             </table>
 
             <!-- 2. SPF RECORD -->
-            <div class="section-divider">&#128737;&#65039; 2. SPF RECORD</div>
+            <div class="section-divider">&#128737;&#65039; 2. SPF Record for $DHCName</div>
             <span class="badge-advisory $spfSt text-white">$spfAdv</span>
             <strong>Current SPF Record:</strong><code class="record-box">$DHCSpfRecord</code>
             <div class="mt-2">
@@ -373,7 +373,7 @@ $html = @"
             $spfIncludesTable
 
             <!-- 3. DKIM DETAILS -->
-            <div class="section-divider">&#128273; 3. DKIM DETAILS</div>
+            <div class="section-divider">&#128273; 3. DKIM Details for $DHCName</div>
             <span class="badge-advisory $dkSt text-white">$dkimAdv</span>
             <div class="mb-2">
                 <strong>Selector:</strong> $DHCDkimSelector<br>
@@ -383,7 +383,7 @@ $html = @"
             $dkimTable
 
             <!-- 4. DMARC POLICY -->
-            <div class="section-divider">&#128678; 4. DMARC POLICY</div>
+            <div class="section-divider">&#128678; 4. DMARC Policy for $DHCName</div>
             <span class="badge-advisory $dmarcAdvClass">$DHCDmarcAdvisory</span>
             <strong>Current DMARC:</strong><code class="record-box">$DHCDmarcRecord</code>
             <div class="mt-2">
@@ -394,7 +394,7 @@ $html = @"
             </div>
 
             <!-- 5. MTA-STS -->
-            <div class="section-divider">&#127760; 5. MTA-STS POLICY</div>
+            <div class="section-divider">&#127760; 5. MTA-STS Policy for $DHCName</div>
             <span class="badge-advisory $mtaSt text-white">$mtaAdv</span>
             <div class="bg-light border rounded p-3 mt-2">
                 <div style="border-bottom:1px solid #eee;padding:8px 0;"><strong style="width:160px;display:inline-block;">MTA Record:</strong> $DHCMtaRecord</div>
@@ -420,6 +420,7 @@ $html = @"
                     <li><strong>List of DKIM selectors</strong> - <a href="https://www.syskeo.com/en/resources/dkim" target="_blank">syskeo.com</a></li>
                     <li><strong>Upgrade DMARC policy from 'none' to 'reject'</strong> - <a href="https://www.rfc-editor.org/rfc/rfc7489.html" target="_blank">RFC 7489</a></li>
                     <li><strong>DMARC Record Syntax: Every Tag and Parameter Explained</strong> - <a href="https://dmarccreator.com/resources/dmarc-record-syntax-tags" target="_blank">dmarccreator.com</a></li>
+                    <li><strong>SMTP MTA Strict Transport Security (MTA-STS)</strong> - <a href="https://www.rfc-editor.org/rfc/rfc8461" target="_blank">RFC 8461</a></li>
                     <li><strong>Implement MTA-STS</strong> - <a href="https://learn.microsoft.com/en-us/purview/enhancing-mail-flow-with-mta-sts" target="_blank">Microsoft Configuration Guide</a></li>
                     <li><strong>DNS Propagation and TTL Explained</strong> - <a href="https://www.whatsmyiplive.com/blog/dns-propagation-and-ttl.html" target="_blank">whatsmyiplive.com</a></li>
                     <li><strong>Double check with EmailAuthChecker: Start-EmailAuthChecker</strong> - <a href="https://www.linkedin.com/posts/abdullah-al-zmaili-57496128_i-am-excited-to-share-that-i-have-developed-activity-7358838297034407936-tM70" target="_blank">Introducing EmailAuthChecker</a></li>
