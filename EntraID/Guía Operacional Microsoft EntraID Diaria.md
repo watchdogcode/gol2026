@@ -4,8 +4,6 @@ La operación efectiva de Microsoft Entra ID requiere monitoreo continuo, contro
 
 ---
 
-## 🟢 Tareas Diarias (Daily Operations)
-
 ### Monitorear eventos de inicio de sesión y autenticación
 
 **Objetivo**  
