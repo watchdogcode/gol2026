@@ -503,7 +503,7 @@ $HtmlContent = @"
 
         <!-- Sección MDI -->
         <h2>MDI: Seguridad de Identidades</h2>
-        <h3>Potencial de éxito de Fuerza Bruta</h3>
+        <h3>Potencial de éxito de Ataque de Fuerza Bruta</h3>
         <div class="table-container">
             <table>
                 <thead><tr><th>Cuenta</th><th>Dirección IP</th><th>Ubicación</th><th>Fallos</th><th>Éxitos</th></tr></thead>
