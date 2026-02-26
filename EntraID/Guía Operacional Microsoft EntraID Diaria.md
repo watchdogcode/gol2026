@@ -55,15 +55,13 @@ Revisar:
 - Confirmar actividad con el usuario
 - Marcar como **Remediated** si fue mitigado
 
-Referencia:  https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskySignIns
-
 ---
 
 ## Revisión de Inicios de Sesión con Riesgo
 
 ### Paso 1 – Inicios con Riesgo
-URL directa:  
-https://entra.microsoft.com/#view/Microsoft_AAD_IAM/IdentityProtectionSignInsBlade
+URL directa:  https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskySignIns
+
 
 ### Paso 2 – Filtros
 - Nivel de riesgo: **Alto, Medio**
@@ -77,9 +75,6 @@ Revisar:
 - Dirección IP / País
 - Tipo de riesgo
 - Resultado: Success / Failure / Interrupted
-
-Referencia:  
-https://learn.microsoft.com/entra/id-protection/concept-identity-protection-sign-in-risk
 
 ---
 ### Revisar alertas de Microsoft Entra Connect Health (entornos híbridos)
