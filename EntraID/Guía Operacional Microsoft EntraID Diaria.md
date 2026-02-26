@@ -26,19 +26,19 @@ Detectar accesos anómalos o fallos que puedan impactar la continuidad del negoc
 
 ### Revisión de Usuarios con Riesgo (Alto / Medio)
 
-** Paso 1 – Acceso 
+**Paso 1 – Acceso**
 Portal Microsoft Entra  
-`Protección > Identity Protection`**
+`Protección > Identity Protection`
 
-** Paso 2 – Usuarios en Riesgo **
+**Paso 2 – Usuarios en Riesgo**
 URL directa:  https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskyUsers
 
-** Paso 3 – Filtros recomendados **
+**Paso 3 – Filtros recomendados**
 - Nivel de riesgo: **Alto, Medio**
 - Estado del riesgo: **Activo**
 - (Opcional) Tipo de riesgo, ubicación, fecha
 
-** Paso 4 – Análisis por usuario **
+**Paso 4 – Análisis por usuario**
 Revisar:
 - Nivel de riesgo actual
 - Tipo de riesgo:
@@ -49,7 +49,7 @@ Revisar:
 - Última actividad riesgosa
 - Estado: Active / Remediated / Dismissed
 
-** Paso 5 – Acciones operativas **
+**Paso 5 – Acciones operativas**
 - Forzar cambio de contraseña
 - Requerir MFA
 - Confirmar actividad con el usuario
@@ -59,16 +59,16 @@ Revisar:
 
 ### Revisión de Inicios de Sesión con Riesgo
 
-** Paso 1 – Inicios con Riesgo **
+**Paso 1 – Inicios con Riesgo**
 URL directa:  https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskySignIns
 
 
-** Paso 2 – Filtros **
+**Paso 2 – Filtros**
 - Nivel de riesgo: **Alto, Medio**
 - Estado: Activo
 - Aplicación, IP, Ubicación
 
-** Paso 3 – Análisis del evento **
+**Paso 3 – Análisis del evento**
 Revisar:
 - Usuario afectado
 - Aplicación objetivo
