@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daily Security Report</title>
+    <title>Reporte Diario de Seguridad</title>
     <style>
         :root {
             --primary-color: #0078d4;
@@ -51,7 +51,7 @@
             align-items: center;
         }
 
-        /* KPI Grid */
+        /* Cuadrícula de KPIs */
         .kpi-grid { 
             display: grid; 
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
@@ -74,7 +74,7 @@
         .kpi-val { font-size: 3em; font-weight: 700; color: var(--secondary-color); line-height: 1; margin-bottom: 5px; }
         .kpi-label { font-size: 0.85em; color: #605e5c; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
         
-        /* Tables */
+        /* Tablas */
         .table-container {
             background: var(--card-bg);
             border-radius: 8px;
@@ -88,7 +88,7 @@
         tr:last-child td { border-bottom: none; }
         tr:hover { background-color: #f8f9fa; }
         
-        /* Recommendations */
+        /* Recomendaciones */
         .recs { 
             background-color: #e6f2ff; 
             padding: 20px; 
@@ -98,7 +98,7 @@
         .recs ul { margin: 0; padding-left: 20px; }
         .recs li { margin-bottom: 8px; line-height: 1.6; }
         
-        /* Daily Activities */
+        /* Actividades Diarias */
         .activities { 
             background-color: var(--card-bg); 
             border-radius: 8px; 
@@ -118,9 +118,9 @@
 </head>
 <body>
     <div class="header">
-        <h1>Daily Security Operations Report</h1>
+        <h1>Reporte Diario de Operaciones de Seguridad</h1>
         <div class="meta">
-            <div><strong>Period:</strong> 2026-02-11 20:30 - 2026-02-12 20:30</div>
+            <div><strong>Período:</strong> 2026-02-24 20:55 - 2026-02-25 20:55</div>
             <div style="font-size: 0.85em; margin-top: 4px;">Tenant ID: ********************************8c2b</div>
         </div>
     </div>
@@ -130,111 +130,111 @@
         <div class="kpi-grid">
             <div class="kpi-card alert">
                 <div class="kpi-val">0</div>
-                <div class="kpi-label">Total Alerts (MDE)</div>
+                <div class="kpi-label">Total Alertas (MDE)</div>
             </div>
             <div class="kpi-card alert">
                 <div class="kpi-val">0</div>
-                <div class="kpi-label">Phish Delivered</div>
+                <div class="kpi-label">Phishing Entregado</div>
             </div>
             <div class="kpi-card alert">
                 <div class="kpi-val">0</div>
-                <div class="kpi-label">High Risk Users</div>
+                <div class="kpi-label">Usuarios de Alto Riesgo</div>
             </div>
             <div class="kpi-card alert">
                 <div class="kpi-val">0</div>
-                <div class="kpi-label">Identity Brute Force</div>
+                <div class="kpi-label">Fuerza Bruta en Identidades</div>
             </div>
             <div class="kpi-card alert">
                 <div class="kpi-val">0</div>
-                <div class="kpi-label">New OAuth Consents</div>
+                <div class="kpi-label">Nuevos Consentimientos OAuth</div>
             </div>
         </div>
 
-        <!-- MDO Section -->
-        <h2>MDO: Email & Collaboration</h2>
+        <!-- Sección MDO -->
+        <h2>MDO: Correo Electrónico y Colaboración</h2>
         <div class="activities">
-            <h4>Daily Activities</h4>
+            <h4>Actividades Diarias</h4>
             <ul>
-                <li><a href="https://security.microsoft.com/incidents">Monitor email and collaboration incidents and alerts.</a>
+                <li><a href="https://security.microsoft.com/incidents">Monitorear incidentes y alertas de correo electrónico y colaboración.</a>
                     <div style="margin-top:8px; padding:10px; background:#f8f9fa; border-left:3px solid #0078d4; font-family:Consolas, monospace; font-size:0.85em; color:#333;">
-                        <div style="font-weight:bold; color:#0078d4; margin-bottom:5px;">💡 Recommended KQL: Suspicious Delivered Attachments (Analysis)</div>
-                        <div style="white-space:pre-wrap;">EmailAttachmentInfo | where Timestamp > ago(24h) | join kind=inner (EmailEvents | where DeliveryAction == 'Delivered') on NetworkMessageId | where FileType in ('exe', 'ps1', 'vbs', 'iso', 'js') | project Timestamp, FileName, RecipientEmailAddress</div>
+                        <div style="font-weight:bold; color:#0078d4; margin-bottom:5px;">💡 KQL Recomendado: Actividad ZAP (Investigación Automatizada)</div>
+                        <div style="white-space:pre-wrap;">EmailPostDeliveryEvents | where Timestamp > ago(24h) | where ActionType has 'ZAP' | summarize Count=count() by ActionTrigger, ActionResult</div>
                     </div>
                 </li>
-                <li><a href="https://security.microsoft.com/campaigns">Evaluate phishing and malware campaigns that were delivered.</a></li>
-                <li><a href="https://security.microsoft.com/action-center/pending">Review pending or incomplete automated actions (AIR).</a></li>
-                <li><a href="https://security.microsoft.com/submissions">Triage suspicious messages reported by users.</a></li>
-                <li><a href="https://security.microsoft.com/alerts">Manage alerts with classification and necessary remediations.</a></li>
+                <li><a href="https://security.microsoft.com/campaigns">Evaluar campañas de phishing y malware que fueron entregadas.</a></li>
+                <li><a href="https://security.microsoft.com/action-center/pending">Revisar acciones automatizadas pendientes o incompletas (AIR).</a></li>
+                <li><a href="https://security.microsoft.com/submissions">Clasificar mensajes sospechosos reportados por usuarios.</a></li>
+                <li><a href="https://security.microsoft.com/alerts">Gestionar alertas con clasificación y remediaciones necesarias.</a></li>
             </ul>
         </div>
         
-        <h3>Top Phishing Campaigns Delivered</h3>
+        <h3>Principales Campañas de Phishing Entregadas</h3>
         <div class="table-container">
             <table>
-                <thead><tr><th>Subject</th><th>SenderDomain</th><th>Events</th><th>Targets</th></tr></thead>
-                <tbody><tr><td colspan='4' style='text-align:center; color:#666;'>No data found in period</td></tr></tbody>
+                <thead><tr><th>Asunto</th><th>Dominio del Remitente</th><th>Eventos</th><th>Objetivos</th></tr></thead>
+                <tbody><tr><td colspan='4' style='text-align:center; color:#666;'>No se encontraron datos en el período</td></tr></tbody>
             </table>
         </div>
         
-        <h3>Top Targeted Users (Phishing)</h3>
+        <h3>Usuarios Más Atacados (Phishing)</h3>
         <div class="table-container">
             <table>
-                <thead><tr><th>Recipient</th><th>Attempts</th></tr></thead>
-                <tbody><tr><td colspan='2' style='text-align:center; color:#666;'>No data found in period</td></tr></tbody>
+                <thead><tr><th>Destinatario</th><th>Intentos</th></tr></thead>
+                <tbody><tr><td colspan='2' style='text-align:center; color:#666;'>No se encontraron datos en el período</td></tr></tbody>
             </table>
         </div>
 
-        <!-- MDE Section -->
-        <h2>MDE: Endpoint Security</h2>
-        <h3>Alerts by Severity</h3>
+        <!-- Sección MDE -->
+        <h2>MDE: Seguridad de Endpoints</h2>
+        <h3>Alertas por Severidad</h3>
         <div class="table-container">
             <table>
-                <thead><tr><th>Severity</th><th>Count</th></tr></thead>
-                <tbody><tr><td colspan='2' style='text-align:center; color:#666;'>No data found in period</td></tr></tbody>
+                <thead><tr><th>Severidad</th><th>Cantidad</th></tr></thead>
+                <tbody><tr><td colspan='2' style='text-align:center; color:#666;'>No se encontraron datos en el período</td></tr></tbody>
             </table>
         </div>
 
-        <!-- MDI Section -->
-        <h2>MDI: Identity Security</h2>
-        <h3>Potential Brute Force Success</h3>
+        <!-- Sección MDI -->
+        <h2>MDI: Seguridad de Identidades</h2>
+        <h3>Potencial de éxito de Fuerza Bruta</h3>
         <div class="table-container">
             <table>
-                <thead><tr><th>Account</th><th>IP Address</th><th>Location</th><th>Fails</th><th>Success</th></tr></thead>
-                <tbody><tr><td colspan='5' style='text-align:center; color:#666;'>No data found in period</td></tr></tbody>
+                <thead><tr><th>Cuenta</th><th>Dirección IP</th><th>Ubicación</th><th>Fallos</th><th>Éxitos</th></tr></thead>
+                <tbody><tr><td colspan='5' style='text-align:center; color:#666;'>No se encontraron datos en el período</td></tr></tbody>
             </table>
         </div>
 
-        <h3>Users with High Risk Sign-ins</h3>
+        <h3>Usuarios con Inicios de Sesión de Alto Riesgo</h3>
         <div class="table-container">
             <table>
-                <thead><tr><th>Account</th><th>Risk Level</th><th>Events</th></tr></thead>
-                <tbody><tr><td colspan='3' style='text-align:center; color:#666;'>No data found in period</td></tr></tbody>
+                <thead><tr><th>Cuenta</th><th>Nivel de Riesgo</th><th>Eventos</th></tr></thead>
+                <tbody><tr><td colspan='3' style='text-align:center; color:#666;'>No se encontraron datos en el período</td></tr></tbody>
             </table>
         </div>
 
-        <!-- MDA Section -->
-        <h2>MDA: Cloud Apps & Shadow IT</h2>
-        <h3>New OAuth Consents</h3>
+        <!-- Sección MDA -->
+        <h2>MDA: Aplicaciones en la Nube y Shadow IT</h2>
+        <h3>Nuevos Consentimientos OAuth</h3>
         <div class="table-container">
             <table>
-                <thead><tr><th>Application</th><th>AppId</th><th>Consents</th><th>Users</th></tr></thead>
-                <tbody><tr><td colspan='4' style='text-align:center; color:#666;'>No data found in period</td></tr></tbody>
+                <thead><tr><th>Aplicación</th><th>AppId</th><th>Consentimientos</th><th>Usuarios</th></tr></thead>
+                <tbody><tr><td colspan='4' style='text-align:center; color:#666;'>No se encontraron datos en el período</td></tr></tbody>
             </table>
         </div>
 
-        <!-- Recommendations -->
-        <h2>Daily Recommendations & Actions</h2>
+        <!-- Recomendaciones -->
+        <h2>Recomendaciones y Acciones Diarias</h2>
         <div class="recs">
             <ul>
-                <li><strong>MDO:</strong> Review the phishing campaigns and validate ZAP effectiveness. Check top targeted users for awareness training.</li>
-                <li><strong>MDI:</strong> Investigate the <b>0</b> users with high risk sign-ins. Reset passwords or enforce MFA for risky sessions.</li>
-                <li><strong>MDI:</strong> Analyze the <b>0</b> accounts with brute force success. Reset passwords and enforce MFA if not present.</li>
-                <li><strong>MDA:</strong> Audit the <b>0</b> new OAuth consents. Revoke permissions for suspicious or unverified publishers.</li>
+                <li><strong>MDO:</strong> Revisar las campañas de phishing y validar la efectividad de ZAP. Verificar los usuarios más atacados para capacitación de concientización.</li>
+                <li><strong>MDI:</strong> Investigar los <b>0</b> usuarios con inicios de sesión de alto riesgo. Restablecer contraseñas o aplicar MFA en sesiones riesgosas.</li>
+                <li><strong>MDI:</strong> Analizar las <b>0</b> cuentas con éxito de fuerza bruta. Restablecer contraseñas y aplicar MFA si no está configurado.</li>
+                <li><strong>MDA:</strong> Auditar los <b>0</b> nuevos consentimientos OAuth. Revocar permisos de publicadores sospechosos o no verificados.</li>
             </ul>
         </div>
         
         <div class="footer">
-            Generated by Automated Security Operations | Microsoft 365 Defender
+            Generado por Operaciones de Seguridad Automatizadas | Microsoft 365 Defender
         </div>
     </div>
 </body>

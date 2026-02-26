@@ -1,41 +1,41 @@
 <#
 .SYNOPSIS
     New-DefenderXDRWeeklyReport.ps1
-    Generates a Weekly Executive Threat Report using Microsoft Defender XDR Advanced Hunting API.
+    Genera un Reporte Ejecutivo Semanal de Amenazas utilizando la API de Advanced Hunting de Microsoft Defender XDR.
 
 .DESCRIPTION
-    Automates weekly security operations tasks for MDO, MDE, MDI, and MDA.
-    Extracts KPIs, trends, and actionable insights into a standalone HTML report.
+    Automatiza las tareas semanales de operaciones de seguridad para MDO, MDE, MDI y MDA.
+    Extrae KPIs, tendencias e información procesable en un reporte HTML independiente.
 
 .PARAMETER TimeWindowDays
-    Analysis period in days (7, 14, or 30). Default: 7.
+    Periodo de análisis en días (7, 14 o 30). Predeterminado: 7.
 
 .PARAMETER OutputPath
-    Path to save the HTML report.
+    Ruta para guardar el reporte HTML.
 
 .PARAMETER AuthMode
-    Authentication method: 'DeviceCode' (default), 'Interactive', 'Secret', 'Certificate'.
+    Método de autenticación: 'DeviceCode' (predeterminado), 'Interactive', 'Secret', 'Certificate'.
 
 .PARAMETER TenantId
-    Azure AD Tenant ID (Required).
+    ID del Inquilino (Tenant ID) de Azure AD (Requerido).
 
 .PARAMETER ClientId
-    App Registration Client ID (Required).
+    ID del Cliente (Client ID) del registro de la aplicación (Requerido).
 
 .PARAMETER ClientSecret
-    Client Secret (Required if AuthMode is 'Secret').
+    Secreto del Cliente (Requerido si AuthMode es 'Secret').
 
 .PARAMETER CertThumbprint
-    Certificate Thumbprint (Required if AuthMode is 'Certificate').
+    Huella digital del certificado (Requerido si AuthMode es 'Certificate').
 
 .PARAMETER SendMail
-    Switch to send the report via email.
+    Interruptor para enviar el reporte por correo electrónico.
 
 .EXAMPLE
     .\New-DefenderXDRWeeklyReport.ps1 -TenantId "xxx" -ClientId "yyy" -AuthMode DeviceCode
 
 .NOTES
-    Requires 'AdvancedHunting.Read.All' permission.
+    Requiere el permiso 'AdvancedHunting.Read.All'.
 #>
 
 param(
@@ -59,7 +59,7 @@ param(
     [bool]$SendMail = $false,
     [string]$SmtpServer,
     [string]$To,
-    [string]$Subject = "Defender XDR - Weekly Threat Report",
+    [string]$Subject = "Defender XDR - Reporte Semanal de Amenazas",
 
     [string]$ProxyUrl,
     [int]$TimeoutSec = 120,
@@ -70,18 +70,18 @@ param(
     [switch]$TestMode
 )
 
-# --- CONFIGURATION ---
+# --- CONFIGURACIÓN ---
 $ErrorActionPreference = "Continue"
 $ApiBaseUrl = "https://api.security.microsoft.com/api"
 $Scope = "https://api.security.microsoft.com/.default"
 $Authority = "https://login.microsoftonline.com/$TenantId"
 
-# Constants
+# Constantes
 $MAX_RETRIES = 3
 $RETRY_DELAY_BASE = 2
 $MIN_FAILURES_SPRAY = 10
 $MIN_ALERTS_RISKY_HOST = 3
-# Security: Token cache uses DPAPI-protected Export-Clixml (current user only)
+# Seguridad: La caché de tokens usa Export-Clixml protegido por DPAPI (solo usuario actual)
 $TOKEN_CACHE_FILE = "$env:TEMP\DefenderXDR_TokenCache.xml"
 $KPI_CACHE_FILE = "$env:TEMP\DefenderXDR_KPICache.json"
 
@@ -89,7 +89,7 @@ if ($ProxyUrl) {
     [System.Net.WebRequest]::DefaultWebProxy = New-Object System.Net.WebProxy($ProxyUrl)
 }
 
-# --- CREDENTIAL MASKING (Homogeneous with Daily Report) ---
+# --- ENMASCARAMIENTO DE CREDENCIALES (Homogéneo con el Reporte Diario) ---
 function Mask-String {
     param([string]$Value, [int]$VisibleChars = 4)
     if ([string]::IsNullOrEmpty($Value)) { return '****' }
@@ -102,7 +102,7 @@ $MaskedClientId  = Mask-String $ClientId
 $MaskedSecret    = if ($ClientSecret) { '********' } else { '(not set)' }
 $MaskedThumbprint = if ($CertThumbprint) { Mask-String $CertThumbprint } else { '(not set)' }
 
-# --- LOGGING FUNCTION ---
+# --- FUNCIÓN DE LOGGING ---
 function Write-Log {
     param(
         [Parameter(Mandatory=$true)]
@@ -114,7 +114,7 @@ function Write-Log {
     $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $LogEntry = "[$Timestamp] [$Level] $Message"
     
-    # Console output with colors
+    # Salida de consola con colores
     $Color = switch($Level) {
         'ERROR' { 'Red' }
         'WARN'  { 'Yellow' }
@@ -123,7 +123,7 @@ function Write-Log {
     }
     Write-Host $LogEntry -ForegroundColor $Color
     
-    # File output
+    # Salida a archivo
     try {
         $LogDir = Split-Path $LogPath -Parent
         if (-not (Test-Path $LogDir)) { 
@@ -131,33 +131,33 @@ function Write-Log {
         }
         Add-Content -Path $LogPath -Value $LogEntry -Encoding UTF8 -ErrorAction SilentlyContinue
     } catch {
-        # Silent fail on logging to avoid breaking script
+        # Fallo silencioso en logging para evitar romper el script
     }
 }
 
-# --- SECURITY POSTURE: Log masked credentials at startup ---
-Write-Log "=== Security Context ===" -Level INFO
+# --- POSTURA DE SEGURIDAD: Registrar credenciales enmascaradas al inicio ---
+Write-Log "=== Contexto de Seguridad ===" -Level INFO
 Write-Log "  Tenant ID   : $MaskedTenantId" -Level INFO
 Write-Log "  Client ID   : $MaskedClientId" -Level INFO
-Write-Log "  Secret      : $MaskedSecret" -Level INFO
-Write-Log "  Cert Thumb  : $MaskedThumbprint" -Level INFO
-Write-Log "  Auth Mode   : $AuthMode" -Level INFO
+Write-Log "  Secreto     : $MaskedSecret" -Level INFO
+Write-Log "  Huella Cert : $MaskedThumbprint" -Level INFO
+Write-Log "  Modo Auth   : $AuthMode" -Level INFO
 Write-Log "========================" -Level INFO
 
-# --- AUTHENTICATION ---
+# --- AUTENTICACIÓN ---
 function New-AuthToken {
-    Write-Log "Authenticating via $AuthMode..." -Level INFO
+    Write-Log "Autenticando vía $AuthMode..." -Level INFO
     
-    # Check token cache
+    # Verificar caché de token
     if ((Test-Path $TOKEN_CACHE_FILE)) {
         try {
             $CachedToken = Import-Clixml -Path $TOKEN_CACHE_FILE -ErrorAction Stop
             if ($CachedToken.Expiry -gt (Get-Date).AddMinutes(5)) {
-                Write-Log "Using cached token (valid until $($CachedToken.Expiry))" -Level DEBUG
+                Write-Log "Usando token en caché (válido hasta $($CachedToken.Expiry))" -Level DEBUG
                 return $CachedToken.Token
             }
         } catch {
-            Write-Log "Token cache invalid, re-authenticating" -Level WARN
+            Write-Log "Caché de token inválido, re-autenticando" -Level WARN
         }
     }
     
@@ -165,7 +165,7 @@ function New-AuthToken {
         $Token = $null
         
         if ($AuthMode -eq 'Secret') {
-            if (-not $ClientSecret) { throw "ClientSecret is required for Secret auth." }
+            if (-not $ClientSecret) { throw "ClientSecret es requerido para autenticación por Secreto." }
             
             $Body = @{
                 grant_type    = "client_credentials"
@@ -177,24 +177,24 @@ function New-AuthToken {
             $Token = $Response.access_token
             $ExpiresIn = $Response.expires_in
             
-            # Security: Clear plain-text secret from memory immediately
+            # Seguridad: Limpiar secreto en texto plano de la memoria inmediatamente
             $PlainSecret = $null
             [System.GC]::Collect()
         }
         elseif ($AuthMode -eq 'Certificate') {
-            # Basic implementation assuming certificate is in CurrentUser\My
-            if (-not $CertThumbprint) { throw "CertThumbprint is required for Certificate auth." }
+            # Implementación básica asumiendo que el certificado está en CurrentUser\My
+            if (-not $CertThumbprint) { throw "CertThumbprint es requerido para autenticación por Certificado." }
             $Cert = Get-Item "Cert:\CurrentUser\My\$CertThumbprint"
             
-            # Create JWT Client Assertion (Simplified for PS without external modules)
-            # NOTE: For production without modules, Secret is preferred. 
-            # Fallback to MSAL.PS or Az if available for Cert, otherwise throw.
+            # Crear Aserción de Cliente JWT (Simplificado para PS sin módulos externos)
+            # NOTA: Para producción sin módulos, se prefiere Secreto.
+            # Recurrir a MSAL.PS o Az si está disponible para Cert, de lo contrario lanzar error.
             if (Get-Module -ListAvailable -Name "MSAL.PS") {
                 Import-Module MSAL.PS
                 $Token = Get-MsalToken -ClientId $ClientId -TenantId $TenantId -ClientCertificate $Cert -Scopes $Scope
                 return $Token.AccessToken
             }
-            throw "Certificate auth requires MSAL.PS module or manual JWT construction. Please use Secret or DeviceCode."
+            throw "La autenticación por certificado requiere el módulo MSAL.PS o construcción manual de JWT. Por favor use Secret o DeviceCode."
         }
         elseif ($AuthMode -eq 'DeviceCode') {
             $CodeReq = Invoke-RestMethod -Method Post -Uri "$Authority/oauth2/v2.0/devicecode" -Body @{
@@ -202,7 +202,7 @@ function New-AuthToken {
                 scope     = $Scope
             }
             
-            Write-Log "To sign in, open $($CodeReq.verification_uri) and enter code: $($CodeReq.user_code)" -Level WARN
+            Write-Log "Para iniciar sesión, abra $($CodeReq.verification_uri) e ingrese el código: $($CodeReq.user_code)" -Level WARN
             
             $Expires = (Get-Date).AddSeconds($CodeReq.expires_in)
             $MaxAttempts = [math]::Ceiling($CodeReq.expires_in / 5)
@@ -231,38 +231,38 @@ function New-AuthToken {
                     }
                 }
             }
-            if (-not $Token) { throw "Device code flow timed out after $Attempt attempts." }
+            if (-not $Token) { throw "El flujo de código de dispositivo expiró después de $Attempt intentos." }
         }
         elseif ($AuthMode -eq 'Interactive') {
-            # Requires Az or Mg module
+            # Requiere módulo Az o Mg
             if (Get-Module -ListAvailable -Name "Az.Accounts") {
                 Connect-AzAccount -Tenant $TenantId -ErrorAction Stop | Out-Null
                 $Token = (Get-AzAccessToken -ResourceUrl "https://api.security.microsoft.com").Token
-                $ExpiresIn = 3600 # Default Az token expiry
+                $ExpiresIn = 3600 # Expiración predeterminada de token Az
             } else {
-                throw "Interactive auth requires 'Az.Accounts' module."
+                throw "La autenticación interactiva requiere el módulo 'Az.Accounts'."
             }
         }
         
-        # Cache the token
+        # Caché del token
         if ($Token) {
             $CacheObj = @{
                 Token = $Token
                 Expiry = (Get-Date).AddSeconds($ExpiresIn - 300) # 5 min buffer
             }
             Export-Clixml -Path $TOKEN_CACHE_FILE -InputObject $CacheObj -Force -ErrorAction SilentlyContinue
-            Write-Log "Token cached successfully" -Level DEBUG
+            Write-Log "Token almacenado en caché exitosamente" -Level DEBUG
         }
         
         return $Token
     }
     catch {
-        Write-Log "Authentication failed: $($_.Exception.Message)" -Level ERROR
+        Write-Log "Autenticación fallida: $($_.Exception.Message)" -Level ERROR
         throw
     }
 }
 
-# --- API EXECUTOR ---
+# --- EJECUTOR DE API ---
 function Invoke-DefenderAhQuery {
     param(
         [string]$Token,
@@ -271,7 +271,7 @@ function Invoke-DefenderAhQuery {
     )
 
     if ($TestMode) {
-        Write-Log "TEST MODE: Returning mock data for '$Name'" -Level DEBUG
+        Write-Log "MODO PRUEBA: Retornando datos simulados para '$Name'" -Level DEBUG
         return @{
             Name = $Name
             Results = @(@{ MockData = "Test"; Count = 0 })
@@ -285,7 +285,7 @@ function Invoke-DefenderAhQuery {
         "Content-Type"  = "application/json"
     }
     
-    # Inject TimeWindow - Using parameterized approach for better KQL handling
+    # Inyectar TimeWindow - Usando enfoque parametrizado para mejor manejo de KQL
     $FinalQuery = $Query -replace "ago\(TimeWindowDays\*d\)", "ago($($TimeWindowDays)d)"
     $Body = @{ Query = $FinalQuery } | ConvertTo-Json -Compress
 
@@ -297,7 +297,7 @@ function Invoke-DefenderAhQuery {
             $Response = Invoke-RestMethod -Method Post -Uri $Uri -Headers $Headers -Body $Body -TimeoutSec $TimeoutSec -ErrorAction Stop
             $Sw.Stop()
             
-            Write-Log "Query '$Name' completed in $($Sw.ElapsedMilliseconds)ms - Rows: $($Response.Results.Count)" -Level DEBUG
+            Write-Log "Consulta '$Name' completada en $($Sw.ElapsedMilliseconds)ms - Filas: $($Response.Results.Count)" -Level DEBUG
             
             return @{
                 Name = $Name
@@ -313,22 +313,22 @@ function Invoke-DefenderAhQuery {
             if ($StatusCode -eq 429 -or $StatusCode -ge 500) {
                 $Retries++
                 $Wait = [math]::Pow($RETRY_DELAY_BASE, $Retries)
-                Write-Log "API Error $StatusCode for '$Name'. Retry $Retries/$MAX_RETRIES in $Wait seconds" -Level WARN
+                Write-Log "Error API $StatusCode para '$Name'. Reintento $Retries/$MAX_RETRIES en $Wait segundos" -Level WARN
                 Start-Sleep -Seconds $Wait
             }
             else {
-                Write-Log "Query '$Name' failed: $($_.Exception.Message)" -Level ERROR
+                Write-Log "Consulta '$Name' falló: $($_.Exception.Message)" -Level ERROR
                 if ($FailFast) { throw $_ }
                 return @{ Name = $Name; Results = @(); Error = $_.Exception.Message; Duration = 0 }
             }
         }
     } while ($Retries -lt $MAX_RETRIES)
 
-    Write-Log "Query '$Name' exceeded max retries" -Level ERROR
+    Write-Log "Consulta '$Name' excedió el máximo de reintentos" -Level ERROR
     return @{ Name = $Name; Results = @(); Error = "Max retries exceeded"; Duration = 0 }
 }
 
-# --- KQL QUERIES ---
+# --- CONSULTAS KQL ---
 $Queries = @{
     # MDO
     "MDO_Trend" = @"
@@ -417,20 +417,20 @@ CloudAppEvents
 "@
 }
 
-# --- MAIN EXECUTION ---
-Write-Log "Starting Weekly Defender XDR Report Generation" -Level INFO
-Write-Log "Time Window: Last $TimeWindowDays days" -Level INFO
+# --- EJECUCIÓN PRINCIPAL ---
+Write-Log "Iniciando Generación del Reporte Semanal Defender XDR" -Level INFO
+Write-Log "Ventana de Tiempo: Últimos $TimeWindowDays días" -Level INFO
 
 try {
-    # 1. Authenticate
+    # 1. Autenticar
     $Token = New-AuthToken
-    if (-not $Token) { throw "Authentication failed - no token received" }
+    if (-not $Token) { throw "Autenticación fallida - no se recibió token" }
 
-    # 2. Execute Queries (Parallel if PS 7+ and flag enabled)
+    # 2. Ejecutar Consultas (Paralelo si es PS 7+ y la bandera está habilitada)
     $Data = @{}
     
     if ($UseParallel -and $PSVersionTable.PSVersion.Major -ge 7) {
-        Write-Log "Executing queries in parallel..." -Level INFO
+        Write-Log "Ejecutando consultas en paralelo..." -Level INFO
         
         $Results = $Queries.GetEnumerator() | ForEach-Object -Parallel {
             $Query = $_.Value
@@ -444,7 +444,7 @@ try {
             $MAX_RETRIES = $using:MAX_RETRIES
             $RETRY_DELAY_BASE = $using:RETRY_DELAY_BASE
             
-            # Execute query (reuse function logic)
+            # Ejecutar consulta (reutilizar lógica de función)
             if ($TestMode) {
                 return @{ Name = $Name; Results = @(@{ MockData = "Test" }); Error = $null }
             }
@@ -481,27 +481,27 @@ try {
         foreach ($Result in $Results) {
             $Data[$Result.Name] = $Result.Results
             if ($Result.Error) {
-                Write-Log "Query '$($Result.Name)' had error: $($Result.Error)" -Level WARN
+                Write-Log "Consulta '$($Result.Name)' tuvo error: $($Result.Error)" -Level WARN
             }
         }
     }
     else {
-        Write-Log "Executing queries sequentially..." -Level INFO
+        Write-Log "Ejecutando consultas secuencialmente..." -Level INFO
         foreach ($Key in $Queries.Keys) {
             $Result = Invoke-DefenderAhQuery -Token $Token -Query $Queries[$Key] -Name $Key
             $Data[$Key] = $Result.Results
         }
     }
     
-    # Validate data
+    # Validar datos
     $TotalRows = ($Data.Values | Measure-Object -Property Count -Sum).Sum
-    Write-Log "Total rows retrieved: $TotalRows" -Level INFO
+    Write-Log "Total de filas recuperadas: $TotalRows" -Level INFO
     
     if ($TotalRows -eq 0) {
-        Write-Log "Warning: No data retrieved from any query" -Level WARN
+        Write-Log "Advertencia: No se recuperaron datos de ninguna consulta" -Level WARN
     }
 
-    # 3. Calculate KPIs
+    # 3. Calcular KPIs
     $KPI_MDO_Phish = ($Data["MDO_Trend"] | Measure-Object -Property Phish -Sum).Sum
     $KPI_MDO_Malware = ($Data["MDO_Trend"] | Measure-Object -Property Malware -Sum).Sum
     $KPI_MDE_Alerts = ($Data["MDE_Severity"] | Measure-Object -Property Count -Sum).Sum
@@ -509,15 +509,15 @@ try {
     $KPI_MDI_Spray = $Data["MDI_Spray"].Count
     $KPI_MDA_OAuth = ($Data["MDA_OAuth"] | Measure-Object -Property Consents -Sum).Sum
 
-    # Null safety
+    # Seguridad contra nulos
     if (-not $KPI_MDO_Phish) { $KPI_MDO_Phish = 0 }
     if (-not $KPI_MDO_Malware) { $KPI_MDO_Malware = 0 }
     if (-not $KPI_MDE_Alerts) { $KPI_MDE_Alerts = 0 }
     if (-not $KPI_MDA_OAuth) { $KPI_MDA_OAuth = 0 }
     
-    Write-Log "KPIs calculated: Phish=$KPI_MDO_Phish, Malware=$KPI_MDO_Malware, Alerts=$KPI_MDE_Alerts" -Level INFO
+    Write-Log "KPIs calculados: Phish=$KPI_MDO_Phish, Malware=$KPI_MDO_Malware, Alertas=$KPI_MDE_Alerts" -Level INFO
     
-    # Compare with previous period
+    # Comparar con periodo anterior
     $PrevKPIs = $null
     $KPIChanges = @{}
     if (Test-Path $KPI_CACHE_FILE) {
@@ -528,13 +528,13 @@ try {
                 Malware = if ($PrevKPIs.Malware -gt 0) { [math]::Round((($KPI_MDO_Malware - $PrevKPIs.Malware) / $PrevKPIs.Malware) * 100, 1) } else { 0 }
                 Alerts = if ($PrevKPIs.Alerts -gt 0) { [math]::Round((($KPI_MDE_Alerts - $PrevKPIs.Alerts) / $PrevKPIs.Alerts) * 100, 1) } else { 0 }
             }
-            Write-Log "Trend vs previous: Phish $($KPIChanges.Phish)%, Malware $($KPIChanges.Malware)%, Alerts $($KPIChanges.Alerts)%" -Level INFO
+            Write-Log "Tendencia vs anterior: Phish $($KPIChanges.Phish)%, Malware $($KPIChanges.Malware)%, Alertas $($KPIChanges.Alerts)%" -Level INFO
         } catch {
-            Write-Log "Could not load previous KPIs for comparison" -Level DEBUG
+            Write-Log "No se pudieron cargar KPIs anteriores para comparación" -Level DEBUG
         }
     }
     
-    # Save current KPIs for next run
+    # Guardar KPIs actuales para la próxima ejecución
     $CurrentKPIs = @{
         Phish = $KPI_MDO_Phish
         Malware = $KPI_MDO_Malware
@@ -544,28 +544,28 @@ try {
     }
     $CurrentKPIs | ConvertTo-Json | Out-File $KPI_CACHE_FILE -Encoding UTF8 -Force
 
-    # --- STATUS CALCULATION (CISO View) ---
-    $GlobalStatus = if ($KPI_MDE_RiskyHosts -gt 0 -or $KPI_MDO_Phish -gt 50) { "Critical" } elseif ($KPI_MDE_Alerts -gt 20) { "Warning" } else { "Healthy" }
-    $StatusColor = switch ($GlobalStatus) { "Critical" { "#d13438" } "Warning" { "#ffaa44" } "Healthy" { "#107c10" } }
+    # --- CÁLCULO DE ESTADO (Vista CISO) ---
+    $GlobalStatus = if ($KPI_MDE_RiskyHosts -gt 0 -or $KPI_MDO_Phish -gt 50) { "Crítico" } elseif ($KPI_MDE_Alerts -gt 20) { "Advertencia" } else { "Saludable" }
+    $StatusColor = switch ($GlobalStatus) { "Crítico" { "#d13438" } "Advertencia" { "#ffaa44" } "Saludable" { "#107c10" } }
     
-    # Tenant ID already masked at script startup via Mask-String function
+    # Tenant ID ya enmascarado al inicio del script vía función Mask-String
 
-# 4. Generate HTML
+# 4. Generar HTML
 function New-HtmlTable {
     param($Rows, $Cols)
-    if (-not $Rows -or $Rows.Count -eq 0) { return "<tr><td colspan='$($Cols.Count)' style='text-align:center; color:#888; padding:15px;'>No data available for this period.</td></tr>" }
+    if (-not $Rows -or $Rows.Count -eq 0) { return "<tr><td colspan='$($Cols.Count)' style='text-align:center; color:#888; padding:15px;'>No hay datos disponibles para este periodo.</td></tr>" }
     $Html = ""
     foreach ($Row in $Rows) {
         $Html += "<tr>"
         foreach ($Col in $Cols) {
             $Val = $Row.$Col
             
-            # UI/UX: Deep Links & Formatting
+            # UI/UX: Enlaces Profundos y Formato
             if ($Col -eq "DeviceName" -and $Row.DeviceId) {
-                $Val = "<a href='https://security.microsoft.com/machines/$($Row.DeviceId)' target='_blank' title='View Device in Defender'>$Val</a>"
+                $Val = "<a href='https://security.microsoft.com/machines/$($Row.DeviceId)' target='_blank' title='Ver Dispositivo en Defender'>$Val</a>"
             }
             elseif ($Col -in @("AccountUpn", "RecipientEmailAddress") -and $Val) {
-                $Val = "<a href='https://security.microsoft.com/users/sec/UserPage?user=$Val' target='_blank' title='View User in Defender'>$Val</a>"
+                $Val = "<a href='https://security.microsoft.com/users/sec/UserPage?user=$Val' target='_blank' title='Ver Usuario en Defender'>$Val</a>"
             }
             elseif ($Val -is [DateTime]) { $Val = $Val.ToString("yyyy-MM-dd HH:mm") }
             
@@ -581,7 +581,7 @@ $HtmlContent = @"
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Defender XDR - Weekly Threat Report</title>
+    <title>Defender XDR - Reporte Semanal de Amenazas</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #323130; margin: 0; padding: 20px; }
         .container { max-width: 1200px; margin: 0 auto; background: #fff; padding: 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 8px; }
@@ -633,126 +633,126 @@ $HtmlContent = @"
     <div class="container">
         <div class="header">
             <div>
-                <h1>Defender XDR – Weekly Threat Report</h1>
-                <div style="margin-top:5px; color:#605e5c;">Weekly Security Operations & Threat Protection</div>
+                <h1>Defender XDR – Reporte Semanal de Amenazas</h1>
+                <div style="margin-top:5px; color:#605e5c;">Operaciones de Seguridad Semanal y Protección contra Amenazas</div>
             </div>
             <div class="meta">
                 <div class="status-badge" style="background-color: $StatusColor; display:inline-block; margin-bottom:10px;">$GlobalStatus</div><br>
-                <strong>Tenant:</strong> $MaskedTenantId<br>
-                <strong>Generated:</strong> $(Get-Date -Format "yyyy-MM-dd HH:mm")<br>
-                <strong>Period:</strong> Last $TimeWindowDays Days
+                <strong>Inquilino:</strong> $MaskedTenantId<br>
+                <strong>Generado:</strong> $(Get-Date -Format "yyyy-MM-dd HH:mm")<br>
+                <strong>Periodo:</strong> Últimos $TimeWindowDays Días
             </div>
         </div>
 
         <div class="summary">
-            <h3>Executive Summary</h3>
+            <h3>Resumen Ejecutivo</h3>
             <ul>
-                <li><strong>$KPI_MDO_Phish</strong> phishing emails and <strong>$KPI_MDO_Malware</strong> malware attempts detected this week.</li>
-                <li><strong>$KPI_MDE_Alerts</strong> total endpoint alerts recorded; <strong>$KPI_MDE_RiskyHosts</strong> hosts require immediate attention (Multi-Alert/High Sev).</li>
-                <li><strong>$KPI_MDI_Spray</strong> identities showed signs of password spray or brute force attacks.</li>
-                <li><strong>$KPI_MDA_OAuth</strong> new OAuth consents granted to applications.</li>
+                <li><strong>$KPI_MDO_Phish</strong> correos de phishing y <strong>$KPI_MDO_Malware</strong> intentos de malware detectados esta semana.</li>
+                <li><strong>$KPI_MDE_Alerts</strong> alertas totales de endpoint registradas; <strong>$KPI_MDE_RiskyHosts</strong> hosts requieren atención inmediata (Múltiples Alertas/Alta Sev).</li>
+                <li><strong>$KPI_MDI_Spray</strong> identidades mostraron signos de ataques de password spray o fuerza bruta.</li>
+                <li><strong>$KPI_MDA_OAuth</strong> nuevos consentimientos OAuth otorgados a aplicaciones.</li>
             </ul>
         </div>
 
         <div class="kpi-grid">
             <div class="card $(if($KPI_MDE_Alerts -eq 0){'success'})">
                 <div class="card-val">$KPI_MDE_Alerts</div>
-                <div class="card-label">Total Endpoint Alerts</div>
+                <div class="card-label">Total de Alertas de Endpoint</div>
             </div>
             <div class="card $(if($KPI_MDO_Phish -eq 0){'success'}else{'danger'})">
                 <div class="card-val">$KPI_MDO_Phish</div>
-                <div class="card-label">Phishing Attempts</div>
+                <div class="card-label">Intentos de Phishing</div>
             </div>
             <div class="card $(if($KPI_MDE_RiskyHosts -eq 0){'success'}else{'danger'})">
                 <div class="card-val">$KPI_MDE_RiskyHosts</div>
-                <div class="card-label">Critical Hosts (≥3 Alerts)</div>
+                <div class="card-label">Hosts Críticos (≥3 Alertas)</div>
             </div>
             <div class="card $(if($KPI_MDI_Spray -eq 0){'success'}else{'danger'})">
                 <div class="card-val">$KPI_MDI_Spray</div>
-                <div class="card-label">Identity Spray Attacks</div>
+                <div class="card-label">Ataques de Spray de Identidad</div>
             </div>
             <div class="card $(if($KPI_MDA_OAuth -eq 0){'success'})">
                 <div class="card-val">$KPI_MDA_OAuth</div>
-                <div class="card-label">New OAuth Consents</div>
+                <div class="card-label">Nuevos Consentimientos OAuth</div>
             </div>
         </div>
 
         <!-- MDO -->
-        <h2>MDO: Email & Collaboration</h2>
+        <h2>MDO: Correo y Colaboración</h2>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
             <div>
-                <h3>Top Active Campaigns</h3>
+                <h3>Principales Campañas Activas</h3>
                 <table>
-                    <thead><tr><th>Subject</th><th>Sender Domain</th><th>Count</th><th>Targets</th></tr></thead>
+                    <thead><tr><th>Asunto</th><th>Dominio Remitente</th><th>Conteo</th><th>Objetivos</th></tr></thead>
                     <tbody>$(New-HtmlTable $Data["MDO_Campaigns"] @("Subject","SenderFromDomain","Count","Targets"))</tbody>
                 </table>
             </div>
             <div>
-                <h3>Top Targeted Users</h3>
+                <h3>Usuarios Más Atacados</h3>
                 <table>
-                    <thead><tr><th>User Email</th><th>Attacks</th></tr></thead>
+                    <thead><tr><th>Correo Usuario</th><th>Ataques</th></tr></thead>
                     <tbody>$(New-HtmlTable $Data["MDO_TopUsers"] @("RecipientEmailAddress","Attacks"))</tbody>
                 </table>
             </div>
         </div>
 
         <!-- MDE -->
-        <h2>MDE: Endpoint Security</h2>
+        <h2>MDE: Seguridad de Endpoint</h2>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
             <div>
-                <h3>Alerts by Severity</h3>
+                <h3>Alertas por Severidad</h3>
                 <table>
-                    <thead><tr><th>Severity</th><th>Count</th></tr></thead>
+                    <thead><tr><th>Severidad</th><th>Conteo</th></tr></thead>
                     <tbody>$(New-HtmlTable $Data["MDE_Severity"] @("Severity","Count"))</tbody>
                 </table>
             </div>
             <div>
-                <h3>Hosts with Multiple High/Critical Alerts</h3>
+                <h3>Hosts con Múltiples Alertas Altas/Críticas</h3>
                 <table>
-                    <thead><tr><th>Device Name</th><th>Alert Count</th><th>Max Severity</th></tr></thead>
+                    <thead><tr><th>Nombre Dispositivo</th><th>Conteo Alertas</th><th>Max Severidad</th></tr></thead>
                     <tbody>$(New-HtmlTable $Data["MDE_HostsRisk"] @("DeviceName","AlertCount","MaxSev"))</tbody>
                 </table>
             </div>
         </div>
-        <h3>Device Health Status (Top 25)</h3>
+        <h3>Estado de Salud del Dispositivo (Top 25)</h3>
         <table>
-            <thead><tr><th>Device Name</th><th>OS</th><th>Health State</th><th>Last Seen</th></tr></thead>
+            <thead><tr><th>Nombre Dispositivo</th><th>SO</th><th>Estado Salud</th><th>Visto Por Última Vez</th></tr></thead>
             <tbody>$(New-HtmlTable $Data["MDE_Health"] @("DeviceName","OS","Health","LastSeen"))</tbody>
         </table>
 
         <!-- MDI -->
-        <h2>MDI: Identity Security</h2>
+        <h2>MDI: Seguridad de Identidad</h2>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
             <div>
-                <h3>Password Spray / Brute Force</h3>
+                <h3>Password Spray / Fuerza Bruta</h3>
                 <table>
-                    <thead><tr><th>Account</th><th>Location</th><th>Failures</th><th>IPs</th></tr></thead>
+                    <thead><tr><th>Cuenta</th><th>Ubicación</th><th>Fallos</th><th>IPs</th></tr></thead>
                     <tbody>$(New-HtmlTable $Data["MDI_Spray"] @("AccountUpn","Location","Failures","DistinctIPs"))</tbody>
                 </table>
             </div>
             <div>
-                <h3>Atypical Locations (Travel)</h3>
+                <h3>Ubicaciones Atípicas (Viajes)</h3>
                 <table>
-                    <thead><tr><th>Account</th><th>Countries</th><th>Last Seen</th></tr></thead>
+                    <thead><tr><th>Cuenta</th><th>Países</th><th>Visto Por Última Vez</th></tr></thead>
                     <tbody>$(New-HtmlTable $Data["MDI_Atypical"] @("AccountUpn","Countries","LastSeen"))</tbody>
                 </table>
             </div>
         </div>
 
         <!-- MDA -->
-        <h2>MDA: Cloud Apps & Shadow IT</h2>
+        <h2>MDA: Aplicaciones en la Nube y Shadow IT</h2>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
             <div>
-                <h3>New OAuth Consents</h3>
+                <h3>Nuevos Consentimientos OAuth</h3>
                 <table>
-                    <thead><tr><th>App Name</th><th>App ID</th><th>Consents</th><th>Users</th></tr></thead>
+                    <thead><tr><th>Nombre App</th><th>ID App</th><th>Consentimientos</th><th>Usuarios</th></tr></thead>
                     <tbody>$(New-HtmlTable $Data["MDA_OAuth"] @("Application","ApplicationId","Consents","Users"))</tbody>
                 </table>
             </div>
             <div>
-                <h3>New Apps Discovered (Shadow IT)</h3>
+                <h3>Nuevas Apps Descubiertas (Shadow IT)</h3>
                 <table>
-                    <thead><tr><th>Application</th><th>Events</th><th>Users</th></tr></thead>
+                    <thead><tr><th>Aplicación</th><th>Eventos</th><th>Usuarios</th></tr></thead>
                     <tbody>$(New-HtmlTable $Data["MDA_Apps"] @("Application","Events","Users"))</tbody>
                 </table>
             </div>
@@ -760,38 +760,38 @@ $HtmlContent = @"
 
         <!-- Recommendations -->
         <div class="checklist">
-            <h3>Weekly Operational Checklist</h3>
+            <h3>Lista de Verificación Operativa Semanal</h3>
             <ul>
-                <li><strong>MDO:</strong> Review top phishing campaigns and adjust Safe Links/Attachments policies. Check "Top Targeted Users" for potential compromise or training needs.</li>
-                <li><strong>MDE:</strong> Investigate hosts with ≥3 High/Critical alerts. Isolate devices if active threats are confirmed. Validate EDR sensor health.</li>
-                <li><strong>MDI:</strong> Review accounts with high failure rates (Spray) and enforce MFA or password resets. Investigate atypical travel patterns.</li>
-                <li><strong>MDA:</strong> Audit new OAuth consents. Revoke permissions for unverified or suspicious applications. Review Shadow IT usage.</li>
+                <li><strong>MDO:</strong> Revisar las principales campañas de phishing y ajustar políticas de Safe Links/Attachments. Verificar "Usuarios Más Atacados" para posible compromiso o necesidades de capacitación.</li>
+                <li><strong>MDE:</strong> Investigar hosts con ≥3 alertas Altas/Críticas. Aislar dispositivos si se confirman amenazas activas. Validar la salud del sensor EDR.</li>
+                <li><strong>MDI:</strong> Revisar cuentas con altas tasas de fallos (Spray) y forzar MFA o restablecimiento de contraseñas. Investigar patrones de viaje atípicos.</li>
+                <li><strong>MDA:</strong> Auditar nuevos consentimientos OAuth. Revocar permisos para aplicaciones no verificadas o sospechosas. Revisar el uso de Shadow IT.</li>
             </ul>
         </div>
 
         <div class="footer">
-            Source: Defender XDR – Advanced Hunting & Reporting (Weekly Ops) | Generated at $(Get-Date -Format "HH:mm")
+            Fuente: Defender XDR – Advanced Hunting & Reporting (Ops Semanal) | Generado a las $(Get-Date -Format "HH:mm")
         </div>
     </div>
 </body>
 </html>
 "@
 
-    # 5. Save Report
+    # 5. Guardar Reporte
     try {
         $Dir = Split-Path $OutputPath -Parent
         if (-not (Test-Path $Dir)) { 
             New-Item -ItemType Directory -Path $Dir -Force | Out-Null 
-            Write-Log "Created output directory: $Dir" -Level DEBUG
+            Write-Log "Directorio de salida creado: $Dir" -Level DEBUG
         }
         
-        # Use explicit UTF8 encoding (without BOM) for HTML
+        # Usar codificación UTF8 explícita (sin BOM) para HTML
         $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
         [System.IO.File]::WriteAllText($OutputPath, $HtmlContent, $Utf8NoBom)
         
-        Write-Log "Report saved to: $OutputPath" -Level INFO
+        Write-Log "Reporte guardado en: $OutputPath" -Level INFO
         
-        # Export CSV if requested
+        # Exportar CSV si se solicita
         if ($ExportCsv) {
             $CsvDir = Join-Path $Dir "CSV_Export"
             if (-not (Test-Path $CsvDir)) { New-Item -ItemType Directory -Path $CsvDir -Force | Out-Null }
@@ -800,56 +800,56 @@ $HtmlContent = @"
                 if ($Data[$Key].Count -gt 0) {
                     $CsvPath = Join-Path $CsvDir "$Key.csv"
                     $Data[$Key] | Export-Csv -Path $CsvPath -NoTypeInformation -Encoding UTF8
-                    Write-Log "Exported CSV: $CsvPath" -Level DEBUG
+                    Write-Log "CSV Exportado: $CsvPath" -Level DEBUG
                 }
             }
-            Write-Log "CSV files exported to: $CsvDir" -Level INFO
+            Write-Log "Archivos CSV exportados a: $CsvDir" -Level INFO
         }
     }
     catch {
-        Write-Log "Failed to save report: $($_.Exception.Message)" -Level ERROR
+        Write-Log "Fallo al guardar el reporte: $($_.Exception.Message)" -Level ERROR
         throw
     }
 
-    # 6. Send Email (Optional)
+    # 6. Enviar Correo (Opcional)
     if ($SendMail) {
         if ($SmtpServer -and $To) {
             try {
-                Write-Log "Sending email to $To via $SmtpServer" -Level INFO
+                Write-Log "Enviando correo a $To vía $SmtpServer" -Level INFO
                 Send-MailMessage -SmtpServer $SmtpServer -From "DefenderReport@$env:COMPUTERNAME" -To $To -Subject $Subject -Body $HtmlContent -BodyAsHtml -Priority High -Encoding ([System.Text.Encoding]::UTF8)
-                Write-Log "Email sent successfully" -Level INFO
+                Write-Log "Correo enviado exitosamente" -Level INFO
             }
             catch {
-                Write-Log "Failed to send email: $($_.Exception.Message)" -Level ERROR
+                Write-Log "Fallo al enviar correo: $($_.Exception.Message)" -Level ERROR
             }
         } else {
-            Write-Log "Email skipped. Missing SmtpServer or To parameter" -Level WARN
+            Write-Log "Correo omitido. Falta parámetro SmtpServer o To" -Level WARN
         }
     }
 
-    Write-Log "Weekly Defender XDR Report generation completed successfully" -Level INFO
+    Write-Log "Generación del Reporte Semanal Defender XDR completada exitosamente" -Level INFO
 }
 catch {
-    Write-Log "Script execution failed: $($_.Exception.Message)" -Level ERROR
-    Write-Log "Stack Trace: $($_.ScriptStackTrace)" -Level DEBUG
+    Write-Log "Ejecución del script fallida: $($_.Exception.Message)" -Level ERROR
+    Write-Log "Traza de Pila: $($_.ScriptStackTrace)" -Level DEBUG
     throw
 }
 finally {
-    # Cleanup sensitive data from memory
+    # Limpieza de datos sensibles de la memoria
     if ($Token) { Clear-Variable -Name Token -ErrorAction SilentlyContinue }
     if ($ClientSecret) { Clear-Variable -Name ClientSecret -ErrorAction SilentlyContinue }
     if ($PlainSecret) { Clear-Variable -Name PlainSecret -ErrorAction SilentlyContinue }
-    # Remove token cache file on exit for security
+    # Eliminar archivo de caché de token al salir por seguridad
     if (Test-Path $TOKEN_CACHE_FILE) {
         Remove-Item $TOKEN_CACHE_FILE -Force -ErrorAction SilentlyContinue
-        Write-Log "Token cache cleaned up" -Level DEBUG
+        Write-Log "Caché de token limpiada" -Level DEBUG
     }
     [System.GC]::Collect()
 }
 
-# --- APPENDIX: MANUAL QUERIES ---
+# --- APÉNDICE: CONSULTAS MANUALES ---
 <#
-    APPENDIX: KQL Queries for Manual Execution in Defender Portal
+    APÉNDICE: Consultas KQL para Ejecución Manual en el Portal de Defender
     
     // MDO: Trend
     EmailEvents | where Timestamp > ago(7d) | summarize Count=count() by bin(Timestamp, 1d), ThreatTypes
