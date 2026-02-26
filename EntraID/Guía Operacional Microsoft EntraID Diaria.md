@@ -31,8 +31,7 @@ Portal Microsoft Entra
 `Protección > Identity Protection`
 
 ### Paso 2 – Usuarios en Riesgo
-URL directa:  
-https://entra.microsoft.com/#view/Microsoft_AAD_IAM/IdentityProtectionUsersBlade
+URL directa:  https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskyUsers
 
 ### Paso 3 – Filtros recomendados
 - Nivel de riesgo: **Alto, Medio**
@@ -56,8 +55,7 @@ Revisar:
 - Confirmar actividad con el usuario
 - Marcar como **Remediated** si fue mitigado
 
-Referencia:  
-https://learn.microsoft.com/entra/id-protection/concept-identity-protection-risks
+Referencia:  https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskySignIns
 
 ---
 
