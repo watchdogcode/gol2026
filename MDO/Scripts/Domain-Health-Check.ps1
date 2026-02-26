@@ -265,6 +265,12 @@ if ($DHCSpfRecord -match 'include:') {
                 TTL  = $incResult.TTL
                 SPF  = $incResult.SPF
             }
+        } else {
+            $spfIncludes += [pscustomobject]@{
+                Name = $incDomain
+                TTL  = 'N/A'
+                SPF  = 'TXT record not found or inaccessible'
+            }
         }
     }
 }
@@ -403,6 +409,7 @@ $html = @"
                     <li><strong>Reduce SPF record length (max 255 chars)</strong> - <a href="https://www.rfc-editor.org/rfc/rfc7208" target="_blank">RFC 7208</a></li>
                     <li><strong>SPF Record Syntax</strong> - <a href="http://www.open-spf.org/SPF_Record_Syntax/" target="_blank">open-spf.org</a></li>
                     <li><strong>Implement DKIM record</strong> - <a href="https://dkim.org/" target="_blank">dkim.org</a></li>
+                    <li><strong>List of DKIM selectors</strong> - <a href="https://www.syskeo.com/en/resources/dkim" target="_blank">syskeo.com</a></li>
                     <li><strong>Upgrade DMARC policy from 'none' to 'reject'</strong> - <a href="https://www.rfc-editor.org/rfc/rfc7489.html" target="_blank">RFC 7489</a></li>
                     <li><strong>DMARC Record Syntax: Every Tag and Parameter Explained</strong> - <a href="https://dmarccreator.com/resources/dmarc-record-syntax-tags" target="_blank">dmarccreator.com</a></li>
                     <li><strong>Implement MTA-STS</strong> - <a href="https://learn.microsoft.com/en-us/purview/enhancing-mail-flow-with-mta-sts" target="_blank">Microsoft Configuration Guide</a></li>
