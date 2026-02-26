@@ -437,30 +437,7 @@ $html = @"
                 </div>
             </div>
         </div>
-
-        <!-- Common DKIM Selectors Reference -->
-        <div class="card shadow-sm mt-4 mb-4">
-            <div class="card-header text-white" style="background-color: #0078d4;">&#128270; Common DKIM Selectors Reference</div>
-            <div class="card-body p-0">
-                <table class="table table-sm table-striped mb-0">
-                    <thead class="table-light"><tr><th class="ps-4">Selector</th><th>Vendor / Provider</th></tr></thead>
-                    <tbody>
-                        <tr><td class="ps-4">selector1 / selector2</td><td>Microsoft 365</td></tr>
-                        <tr><td class="ps-4">google</td><td>Google Workspace</td></tr>
-                        <tr><td class="ps-4">google1 / google2</td><td>Google Workspace (Rotation)</td></tr>
-                        <tr><td class="ps-4">key1 / key2</td><td>Everlytic</td></tr>
-                        <tr><td class="ps-4">k1 / k2</td><td>Mailchimp / Mandrill</td></tr>
-                        <tr><td class="ps-4">dkim</td><td>Hetzner</td></tr>
-                        <tr><td class="ps-4">s1 / s2</td><td>SendGrid</td></tr>
-                        <tr><td class="ps-4">mg</td><td>Mailgun</td></tr>
-                        <tr><td class="ps-4">selector1 / selector2 / s1 / s2</td><td>Amazon SES</td></tr>
-                        <tr><td class="ps-4">pp / proofpoint</td><td>Proofpoint</td></tr>
-                        <tr><td class="ps-4">mimecast</td><td>Mimecast</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
+     
         <!-- Footer -->
         <div class="text-center py-4"><p>Internal Tools 2026</p></div>
 
