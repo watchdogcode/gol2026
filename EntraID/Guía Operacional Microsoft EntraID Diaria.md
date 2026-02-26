@@ -26,9 +26,9 @@ Detectar accesos anómalos o fallos que puedan impactar la continuidad del negoc
 
 ### Revisión de Usuarios con Riesgo (Alto / Medio)
 
-** Paso 1 – Acceso **
+** Paso 1 – Acceso 
 Portal Microsoft Entra  
-`Protección > Identity Protection`
+`Protección > Identity Protection`**
 
 ** Paso 2 – Usuarios en Riesgo **
 URL directa:  https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskyUsers
