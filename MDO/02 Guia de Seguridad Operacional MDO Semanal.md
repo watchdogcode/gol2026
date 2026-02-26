@@ -164,7 +164,7 @@ Para cada usuario:
 
 ---
 
-# Revisar Campañas de Malware y Phishing (Campaigns – MDO P2)
+# Revisar Campañas de Malware y Phishing
 
 ## Acceso a Campaigns
 
