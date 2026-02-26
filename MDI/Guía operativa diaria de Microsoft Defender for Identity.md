@@ -4,8 +4,6 @@ La guía diaria de MDI asegura que las amenazas a identidades se detecten y cont
 
 ---
 
-## Daily operational guide – Microsoft Defender for Identity
-
 Guía oficial:
 https://learn.microsoft.com/en-us/defender-for-identity/ops-guide/ops-guide-daily
 
@@ -18,8 +16,6 @@ https://learn.microsoft.com/en-us/defender-for-identity/ops-guide/ops-guide-dail
 - Health issues (Global / Sensor)
 
 ---
-
-# TAREAS DIARIAS
 
 ## Revisar ITDR Dashboard (Identities > Dashboard)
 
