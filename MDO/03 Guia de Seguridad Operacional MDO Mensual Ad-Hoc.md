@@ -4,7 +4,7 @@ Esta guía establece los procedimientos semanales para analizar tendencias, iden
 
 ---
 
-## 1. 🛠️ Acceso a las Herramientas de Hunting
+## Acceso a las Herramientas de Hunting
 
 Utilizarás dos portales principales para la investigación:
 
@@ -18,7 +18,7 @@ Utilizarás dos portales principales para la investigación:
 
 ---
 
-## 2. 🔍 Realizar Cacería Manual de Amenazas
+## Realizar Cacería Manual de Amenazas
 
 ### Buscar Indicadores de Compromiso (IoCs)
 En **Threat Explorer** puedes:
@@ -34,7 +34,7 @@ En **Advanced Hunting**, ejecuta consultas KQL para identificar:
 
 ---
 
-## 3. 📡 Utilizar Threat Trackers
+## Utilizar Threat Trackers
 
 Usa **Threat Trackers** para monitorear:
 *   Campañas de malware emergentes.
@@ -45,7 +45,7 @@ Usa **Threat Trackers** para monitorear:
 
 ---
 
-## 4. 🤝 Compartir y Reutilizar Consultas
+## Compartir y Reutilizar Consultas
 
 Para mejorar la eficiencia del equipo de seguridad:
 *   Comparte consultas KQL usadas frecuentemente.
@@ -54,7 +54,7 @@ Para mejorar la eficiencia del equipo de seguridad:
 
 ---
 
-## 5. 🚨 Crear Reglas de Detección Personalizadas
+## Crear Reglas de Detección Personalizadas
 
 Convierte tus hallazgos de hunting manual en alertas automáticas.
 
@@ -66,7 +66,7 @@ Convierte tus hallazgos de hunting manual en alertas automáticas.
 
 ---
 
-## 6. 🤖 Revisión y Remediación con AIR
+## Revisión y Remediación con AIR
 
 Si el hunting revela actividad sospechosa:
 *   Activa alertas de **Automated Investigation and Response (AIR)**.
@@ -74,7 +74,7 @@ Si el hunting revela actividad sospechosa:
 
 ---
 
-# 🛡️ Gestión de Spoofing e Impersonation
+# Gestión de Spoofing e Impersonation
 
 Procedimientos para revisar y ajustar las políticas de inteligencia contra suplantación.
 
@@ -124,7 +124,7 @@ Microsoft 365 detecta automáticamente remitentes que parecen ser de tu organiza
 
 # Borrar Correos Sospechosos en Exchange Online (Ad-Hoc)
 
-## 🔍 Opción A (RECOMENDADA): Portal Microsoft 365 Defender
+## Opción A (RECOMENDADA): Portal Microsoft 365 Defender
 
 ### Prerrequisitos
 - Rol: Security Administrator / Compliance Administrator / Global Administrator
@@ -147,7 +147,7 @@ Microsoft 365 detecta automáticamente remitentes que parecen ser de tu organiza
 
 ---
 
-## 🔍 Opción B: PowerShell (Compliance Search) 
+## Opción B: PowerShell (Compliance Search) 
 ### Útil para IR avanzada, scripting o automatización
 
 ### Conectar
