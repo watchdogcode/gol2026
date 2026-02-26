@@ -231,6 +231,100 @@ Puedes validar SPF, DKIM, DMARC y MTA-STS con el siguiente script:
 
 [Domain-Health-Check.ps1](https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/Scripts/Domain-Health-Check.ps1)
 
+# ¿Qué es un “parked domain”?
+
+Un **dominio aparcado** es un dominio que:
+- No tiene servicios activos (web, correo, aplicaciones).
+- Apunta a una página genérica del proveedor (hosting o registrador).
+- No tiene configuraciones explícitas de **DNS**, **seguridad** o **correo**.
+
+> En la práctica: el dominio existe, pero **no se controla realmente a nivel operativo**.
+
+---
+
+## ¿Qué hacer en lugar de usar un “parked domain”?
+
+Aunque **no vayas a usar activamente el dominio**, se recomienda configurarlo de forma mínima y defensiva.
+
+### Configuración mínima recomendada
+
+#### SPF (dominio no usado para correo)
+```dns
+v=spf1 -all
+```
+
+#### DMARC (configuración más segura)
+```dns
+v=DMARC1; p=reject; adkim=s; aspf=s; rua=mailto:dmarc@tudominio.com
+```
+
+### ¿Qué logra esta configuración?
+- Rechaza todo correo que falle **SPF** o **DKIM**.
+- Protege completamente contra **spoofing**.
+- Envía **reportes agregados** de autenticación (rua).
+
+---
+
+## Riesgo de abuso para phishing y suplantación
+
+Un dominio aparcado normalmente:
+- No tiene **SPF**, **DKIM** ni **DMARC** configurados.
+- No rechaza correo por diseño.
+- Puede ser usado por atacantes para **suplantar tu marca**.
+
+### Impacto real
+- Phishing usando tu dominio.
+- Fraude a clientes y proveedores.
+- Daño reputacional inmediato.
+
+> Muchos ataques utilizan dominios "olvidados" porque **nadie monitorea su uso**.
+
+---
+
+## Reputación de dominio y problemas futuros de correo
+
+Si un dominio aparcado:
+- Aparece en campañas de spam.
+- No tiene políticas DMARC restrictivas.
+- No mantiene un historial de envío limpio.
+
+Cuando después quieras usarlo:
+- Los correos irán a **SPAM**.
+- Habrá bloqueos en Microsoft, Google, Proofpoint, entre otros.
+- Será necesario **reconstruir la reputación desde cero**.
+
+> Es mucho más barato prevenir que recuperar la reputación de un dominio.
+
+---
+
+## Falta total de control de seguridad (DNS y ownership)
+
+Un dominio aparcado suele:
+- Usar DNS del registrador.
+- No tener registros explícitos (**CAA**, **DNSSEC**, **MX controlado**).
+- Depender de configuraciones genéricas compartidas.
+
+### Riesgos asociados
+- Cambios no auditados.
+- Mayor facilidad para **DNS hijacking**.
+- Falta de trazabilidad durante incidentes.
+
+---
+
+## Riesgo de “Domain Shadow IT”
+
+En organizaciones grandes es común:
+- Comprar dominios “por si acaso”.
+- Olvidarlos.
+- No asignar un **owner** responsable.
+
+### Resultado
+- Nadie monitorea el dominio.
+- Nadie recibe alertas.
+- Nadie revisa logs.
+
+> Esto es **Shadow IT de identidad y marca**, uno de los riesgos más ignorados en seguridad.
+
 # Reglas básicas de flujo de correo – Microsoft 365
 
 A continuación encontrará reglas básicas de flujo de correo que son **altamente recomendadas** agregar para mejorar la postura de seguridad de Microsoft 365.
