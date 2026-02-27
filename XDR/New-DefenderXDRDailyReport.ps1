@@ -92,21 +92,83 @@ function Get-M365Token {
             return $TokenReq.access_token
         }
         elseif ($AuthMode -in @("Interactive", "DeviceCode")) {
-            # Intentar usar módulos Az o Mg si están disponibles para flujos interactivos
+            # --- Opción 1: Az.Accounts (recomendado) ---
             if (Get-Module -ListAvailable -Name "Az.Accounts") {
-                Write-Log "Usando Az.Accounts para token interactivo..."
+                Write-Log "Usando Az.Accounts para autenticación $AuthMode..."
+
+                # Verificar si existe un contexto activo; conectar si no
+                $AzContext = Get-AzContext -ErrorAction SilentlyContinue
+                if (-not $AzContext) {
+                    Write-Log "No hay sesión activa de Azure. Iniciando conexión ($AuthMode)..."
+                    if ($AuthMode -eq "DeviceCode") {
+                        Connect-AzAccount -UseDeviceAuthentication -ErrorAction Stop | Out-Null
+                    } else {
+                        Connect-AzAccount -ErrorAction Stop | Out-Null
+                    }
+                }
+
                 $TokenData = Get-AzAccessToken -ResourceUrl $ResourceUrl -ErrorAction Stop
+
+                # Compatibilidad: Az.Accounts >= 3.0 devuelve Token como SecureString
+                if ($TokenData.Token -is [System.Security.SecureString]) {
+                    return $TokenData.Token | ConvertFrom-SecureString -AsPlainText
+                }
                 return $TokenData.Token
             }
-            elseif (Get-Module -ListAvailable -Name "Microsoft.Graph.Authentication") {
-                Write-Log "Usando Microsoft.Graph para token interactivo..."
-                # Conectar si no hay conexión activa
-                if (-not (Get-MgContext)) { Connect-MgGraph -Scopes "AdvancedHunting.Read.All" -NoWelcome }
-                $TokenData = Get-MgAccessToken -ResourceUrl $ResourceUrl -ErrorAction Stop
-                return $TokenData
-            }
+            # --- Opción 2: Device Code manual vía REST (sin dependencias de módulos) ---
             else {
-                throw "No se encontraron los módulos 'Az.Accounts' o 'Microsoft.Graph.Authentication'. Requeridos para autenticación Interactive/DeviceCode."
+                Write-Log "Módulo 'Az.Accounts' no encontrado. Usando flujo Device Code vía REST..." -Level WARN
+
+                if (-not $ClientId -or -not $TenantId) {
+                    throw "Se requieren ClientId y TenantId para autenticación sin Az.Accounts. Instale el módulo: Install-Module Az.Accounts -Scope CurrentUser"
+                }
+
+                # Solicitar código de dispositivo
+                $DeviceCodeBody = @{
+                    client_id = $ClientId
+                    scope     = "$ResourceUrl/.default offline_access"
+                }
+                $DeviceCodeReq = Invoke-RestMethod -Method Post `
+                    -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/devicecode" `
+                    -Body $DeviceCodeBody -ErrorAction Stop
+
+                Write-Log "=== AUTENTICACIÓN REQUERIDA ===" -Level WARN
+                Write-Log $DeviceCodeReq.message -Level WARN
+
+                # Sondear hasta obtener token o expirar
+                $Interval = [int]$DeviceCodeReq.interval
+                $ExpiresIn = [int]$DeviceCodeReq.expires_in
+                $Elapsed = 0
+
+                while ($Elapsed -lt $ExpiresIn) {
+                    Start-Sleep -Seconds $Interval
+                    $Elapsed += $Interval
+
+                    try {
+                        $PollBody = @{
+                            grant_type  = "urn:ietf:params:oauth:grant-type:device_code"
+                            client_id   = $ClientId
+                            device_code = $DeviceCodeReq.device_code
+                        }
+                        $TokenReq = Invoke-RestMethod -Method Post `
+                            -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token" `
+                            -Body $PollBody -ErrorAction Stop
+
+                        Write-Log "Token obtenido exitosamente vía Device Code."
+                        return $TokenReq.access_token
+                    }
+                    catch {
+                        $ErrBody = $null
+                        try { $ErrBody = $_.ErrorDetails.Message | ConvertFrom-Json } catch {}
+                        if ($ErrBody.error -eq "authorization_pending") { continue }
+                        elseif ($ErrBody.error -eq "expired_token") {
+                            throw "El código de dispositivo ha expirado. Ejecute el script nuevamente."
+                        }
+                        else { throw $_ }
+                    }
+                }
+
+                throw "Tiempo de espera agotado para la autenticación Device Code."
             }
         }
     }
@@ -421,6 +483,88 @@ $HtmlContent = @"
         .activities li a:hover { text-decoration: underline; }
         
         .footer { text-align: center; margin-top: 50px; color: #8a8886; font-size: 0.85em; padding-bottom: 20px; }
+
+        /* Tareas Operativas */
+        .ops-section { margin-bottom: 30px; }
+        .ops-group {
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .ops-group-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 20px;
+            font-weight: 600;
+            font-size: 1em;
+            color: #fff;
+            letter-spacing: 0.3px;
+        }
+        .ops-group-header.mdo  { background: linear-gradient(135deg, #0078d4, #005a9e); }
+        .ops-group-header.mdi  { background: linear-gradient(135deg, #e97a00, #c25e00); }
+        .ops-group-header.entra { background: linear-gradient(135deg, #107c10, #0b5e0b); }
+        .ops-group-header .icon { font-size: 1.2em; }
+        .ops-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.7em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            line-height: 1.6;
+        }
+        .ops-badge.daily   { background: rgba(255,255,255,0.25); color: #fff; }
+        .ops-table { width: 100%; border-collapse: collapse; font-size: 0.92em; }
+        .ops-table th {
+            background-color: #f8f9fa;
+            color: #605e5c;
+            text-align: left;
+            padding: 10px 16px;
+            font-weight: 600;
+            font-size: 0.8em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid var(--border-color);
+        }
+        .ops-table td {
+            padding: 11px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: middle;
+        }
+        .ops-table tr:last-child td { border-bottom: none; }
+        .ops-table tr:hover { background-color: #fafbfc; }
+        .ops-task-name {
+            font-family: 'Segoe UI Semibold', 'Segoe UI', sans-serif;
+            font-weight: 600;
+            color: var(--text-color);
+            font-size: 0.93em;
+        }
+        .ops-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 14px;
+            border-radius: 5px;
+            font-size: 0.82em;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.15s ease;
+        }
+        .ops-btn.portal {
+            background: #0078d4;
+            color: #fff;
+        }
+        .ops-btn.portal:hover { background: #005a9e; }
+        .ops-btn.doc {
+            background: #f3f2f1;
+            color: #323130;
+            border: 1px solid #d2d0ce;
+        }
+        .ops-btn.doc:hover { background: #e1dfdd; }
     </style>
 </head>
 <body>
@@ -454,6 +598,28 @@ $HtmlContent = @"
             <div class="kpi-card alert">
                 <div class="kpi-val">$Kpi_NewOAuth</div>
                 <div class="kpi-label">Nuevos Consentimientos OAuth</div>
+            </div>
+        </div>
+
+        <!-- ═══ Tareas Operativas MDO (Daily) ═══ -->
+        <div class="ops-section">
+            <div class="ops-group">
+                <div class="ops-group-header mdo">
+                    <span class="icon">&#x1f4e7;</span> Tareas Operativas - Microsoft Defender for Office 365
+                    <span class="ops-badge daily">7 Diarias</span>
+                </div>
+                <table class="ops-table">
+                    <thead><tr><th style="width:50%">Tarea</th><th style="width:25%">Portal</th><th style="width:25%">Documentación</th></tr></thead>
+                    <tbody>
+                        <tr><td class="ops-task-name">Revisar alertas activas</td><td><a class="ops-btn portal" href="https://security.microsoft.com/alerts" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/01%20Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#monitoreo-de-alertas" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Monitoreo de Incidentes</td><td><a class="ops-btn portal" href="https://security.microsoft.com/incidents" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/01%20Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#monitoreo-de-incidentes" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Triage de Mensajes de Teams Reportados por Usuarios</td><td><a class="ops-btn portal" href="https://admin.teams.microsoft.com/policies/messaging?view=reportedsafety" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/01%20Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#triage-de-mensajes-de-teams-reportados-por-usuarios" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisar y Actuar sobre los AIRs</td><td><a class="ops-btn portal" href="https://security.microsoft.com/action-center/pending" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/01%20Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-y-actuar-sobre-los-airs" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisar las Tendencias de Detección de Correo en MDO</td><td><a class="ops-btn portal" href="https://security.microsoft.com/reports/TPSAggregateReportATP" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/01%20Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-las-tendencias-de-detecci%C3%B3n-de-correo-en-microsoft-defender-for-office-365" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisar Campañas de Phishing y Malware Entregados</td><td><a class="ops-btn portal" href="https://security.microsoft.com/threatexplorerv3" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/01%20Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-campa%C3%B1as-de-phishing-y-malware-que-resultaron-en-correos-entregados" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisión de Top Targeted Users</td><td><a class="ops-btn portal" href="https://security.microsoft.com/threatexplorerv3" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/01%20Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisi%C3%B3n-de-top-targeted-users" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -540,6 +706,47 @@ $HtmlContent = @"
             </ul>
         </div>
         
+        <!-- Tareas Operativas -->
+        <h2>Tareas Operativas</h2>
+        <div class="ops-section">
+
+            <!-- ═══ MDI ═══ -->
+            <div class="ops-group">
+                <div class="ops-group-header mdi">
+                    <span class="icon">&#x1f6e1;</span> Microsoft Defender for Identity
+                    <span class="ops-badge daily">5 Diarias</span>
+                </div>
+                <table class="ops-table">
+                    <thead><tr><th style="width:50%">Tarea</th><th style="width:25%">Portal</th><th style="width:25%">Documentación</th></tr></thead>
+                    <tbody>
+                        <tr><td class="ops-task-name">Revisar ITDR Dashboard</td><td><a class="ops-btn portal" href="https://security.microsoft.com/identities/dashboard" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-itdr-dashboard-identities--dashboard" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Triage de Incidentes por Prioridad</td><td><a class="ops-btn portal" href="https://security.microsoft.com/incidents" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#triage-de-incidentes-por-prioridad-incidents--alerts" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Configurar Tuning para Benign False Positives</td><td><a class="ops-btn portal" href="https://security.microsoft.com/advanced-hunting" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#configurar-tuning-para-benign--false-positives-advanced-hunting" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Proactive hunting diario o semanal</td><td><a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#proactive-hunting-diario-o-semanal-seg%C3%BAn-madurez" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisar Health Issues Global y Sensor</td><td><a class="ops-btn portal" href="https://security.microsoft.com/identities/health-issues" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-health-issues-global-y-sensor" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- ═══ EntraID ═══ -->
+            <div class="ops-group">
+                <div class="ops-group-header entra">
+                    <span class="icon">&#x1f510;</span> Microsoft Entra ID
+                    <span class="ops-badge daily">4 Diarias</span>
+                </div>
+                <table class="ops-table">
+                    <thead><tr><th style="width:50%">Tarea</th><th style="width:25%">Portal</th><th style="width:25%">Documentación</th></tr></thead>
+                    <tbody>
+                        <tr><td class="ops-task-name">Monitorear eventos de inicio de sesión y autenticación</td><td><a class="ops-btn portal" href="https://entra.microsoft.com/#view/Microsoft_AAD_IAM/SignInLogsList.ReactView/timeRangeType/last24hours/showApplicationSignIns~/true" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#monitorear-eventos-de-inicio-de-sesi%C3%B3n-y-autenticaci%C3%B3n" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisión de Usuarios con Riesgo Alto Medio</td><td><a class="ops-btn portal" href="https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskyUsers" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisi%C3%B3n-de-usuarios-con-riesgo-alto--medio" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisión de Inicios de Sesión con Riesgo</td><td><a class="ops-btn portal" href="https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskySignIns" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisi%C3%B3n-de-inicios-de-sesi%C3%B3n-con-riesgo" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisar alertas de Microsoft Entra Connect Health</td><td><a class="ops-btn portal" href="https://entra.microsoft.com/#view/Microsoft_AAD_Connect_Health/ConnectHealthMenuBlade/~/overview" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisar-alertas-de-microsoft-entra-connect-health-entornos-h%C3%ADbridos" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+
         <div class="footer">
             Generado por Operaciones de Seguridad Automatizadas | Microsoft 365 Defender XDR
         </div>

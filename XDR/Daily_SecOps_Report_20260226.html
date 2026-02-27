@@ -114,13 +114,105 @@
         .activities li a:hover { text-decoration: underline; }
         
         .footer { text-align: center; margin-top: 50px; color: #8a8886; font-size: 0.85em; padding-bottom: 20px; }
+
+        /* Tareas Operativas */
+        .ops-section { margin-bottom: 30px; }
+        .ops-group {
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .ops-group-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 20px;
+            font-weight: 600;
+            font-size: 1em;
+            color: #fff;
+            letter-spacing: 0.3px;
+        }
+        .ops-group-header.mdo  { background: linear-gradient(135deg, #0078d4, #005a9e); }
+        .ops-group-header.mdi  { background: linear-gradient(135deg, #e97a00, #c25e00); }
+        .ops-group-header.entra { background: linear-gradient(135deg, #107c10, #0b5e0b); }
+        .ops-group-header .icon { font-size: 1.2em; }
+        .ops-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.7em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            line-height: 1.6;
+        }
+        .ops-badge.daily   { background: rgba(255,255,255,0.25); color: #fff; }
+        .ops-badge.weekly  { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.9); border: 1px solid rgba(255,255,255,0.3); }
+        .ops-table { width: 100%; border-collapse: collapse; font-size: 0.92em; }
+        .ops-table th {
+            background-color: #f8f9fa;
+            color: #605e5c;
+            text-align: left;
+            padding: 10px 16px;
+            font-weight: 600;
+            font-size: 0.8em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid var(--border-color);
+        }
+        .ops-table td {
+            padding: 11px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: middle;
+        }
+        .ops-table tr:last-child td { border-bottom: none; }
+        .ops-table tr:hover { background-color: #fafbfc; }
+        .ops-task-name {
+            font-family: 'Segoe UI Semibold', 'Segoe UI', sans-serif;
+            font-weight: 600;
+            color: var(--text-color);
+            font-size: 0.93em;
+        }
+        .ops-freq {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            font-weight: 600;
+        }
+        .ops-freq.daily  { background: #e6f2ff; color: #0078d4; }
+        .ops-freq.weekly { background: #fff4e6; color: #e97a00; }
+        .ops-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 14px;
+            border-radius: 5px;
+            font-size: 0.82em;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.15s ease;
+        }
+        .ops-btn.portal {
+            background: #0078d4;
+            color: #fff;
+        }
+        .ops-btn.portal:hover { background: #005a9e; }
+        .ops-btn.doc {
+            background: #f3f2f1;
+            color: #323130;
+            border: 1px solid #d2d0ce;
+        }
+        .ops-btn.doc:hover { background: #e1dfdd; }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>Reporte Diario de Operaciones de Seguridad</h1>
         <div class="meta">
-            <div><strong>Período:</strong> 2026-02-25 11:20 - 2026-02-26 11:20</div>
+            <div><strong>Período:</strong> 2026-02-25 22:58 - 2026-02-26 22:58</div>
             <div style="font-size: 0.85em; margin-top: 4px;">Tenant ID: ********************************8c2b</div>
         </div>
     </div>
@@ -157,8 +249,8 @@
             <ul>
                 <li><a href="https://security.microsoft.com/incidents">Monitorear incidentes y alertas de correo electrónico y colaboración.</a>
                     <div style="margin-top:8px; padding:10px; background:#f8f9fa; border-left:3px solid #0078d4; font-family:Consolas, monospace; font-size:0.85em; color:#333;">
-                        <div style="font-weight:bold; color:#0078d4; margin-bottom:5px;">💡 KQL Recomendado: Adjuntos Sospechosos Entregados (Análisis)</div>
-                        <div style="white-space:pre-wrap;">EmailAttachmentInfo | where Timestamp > ago(24h) | join kind=inner (EmailEvents | where DeliveryAction == 'Delivered') on NetworkMessageId | where FileType in ('exe', 'ps1', 'vbs', 'iso', 'js') | project Timestamp, FileName, RecipientEmailAddress</div>
+                        <div style="font-weight:bold; color:#0078d4; margin-bottom:5px;">💡 KQL Recomendado: Principales Campañas Activas (Vista de Campañas)</div>
+                        <div style="white-space:pre-wrap;">EmailEvents | where Timestamp > ago(24h) | where isnotempty(CampaignId) | summarize Events=count(), Targets=dcount(RecipientEmailAddress) by CampaignId, Subject | top 5 by Events desc</div>
                     </div>
                 </li>
                 <li><a href="https://security.microsoft.com/campaigns">Evaluar campañas de phishing y malware que fueron entregadas.</a></li>
@@ -233,6 +325,78 @@
             </ul>
         </div>
         
+        <!-- Tareas Operativas -->
+        <h2>Tareas Operativas</h2>
+        <div class="ops-section">
+
+            <!-- ═══ MDO ═══ -->
+            <div class="ops-group">
+                <div class="ops-group-header mdo">
+                    <span class="icon">&#x1f4e7;</span> Microsoft Defender for Office 365
+                    <span class="ops-badge daily">7 Diarias</span>
+                    <span class="ops-badge weekly">3 Semanales</span>
+                </div>
+                <table class="ops-table">
+                    <thead><tr><th style="width:42%">Tarea</th><th style="width:14%">Frecuencia</th><th style="width:22%">Portal</th><th style="width:22%">Documentación</th></tr></thead>
+                    <tbody>
+                        <tr><td class="ops-task-name">Revisar_alertas_activas</td><td><span class="ops-freq daily">Diaria</span></td><td><a class="ops-btn portal" href="https://security.microsoft.com/alerts" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/01%20Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#monitoreo-de-alertas" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Monitoreo_de_Incidentes</td><td><span class="ops-freq daily">Diaria</span></td><td><a class="ops-btn portal" href="https://security.microsoft.com/incidents" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/01%20Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#monitoreo-de-incidentes" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Triage_de_Mensajes_de_Teams_Reportados_por_Usuarios</td><td><span class="ops-freq daily">Diaria</span></td><td><a class="ops-btn portal" href="https://admin.teams.microsoft.com/policies/messaging?view=reportedsafety" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/01%20Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#triage-de-mensajes-de-teams-reportados-por-usuarios" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisar_y_Actuar_sobre_los_AIRs</td><td><span class="ops-freq daily">Diaria</span></td><td><a class="ops-btn portal" href="https://security.microsoft.com/action-center/pending" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/01%20Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-y-actuar-sobre-los-airs" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisar_las_Tendencias_de_Detección_de_Correo_en_MDO</td><td><span class="ops-freq daily">Diaria</span></td><td><a class="ops-btn portal" href="https://security.microsoft.com/reports/TPSAggregateReportATP" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/01%20Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-las-tendencias-de-detecci%C3%B3n-de-correo-en-microsoft-defender-for-office-365" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisar_Campañas_de_Phishing_y_Malware_Entregados</td><td><span class="ops-freq daily">Diaria</span></td><td><a class="ops-btn portal" href="https://security.microsoft.com/threatexplorerv3" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/01%20Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-campa%C3%B1as-de-phishing-y-malware-que-resultaron-en-correos-entregados" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisión_de_Top_Targeted_Users</td><td><span class="ops-freq daily">Diaria</span></td><td><a class="ops-btn portal" href="https://security.microsoft.com/threatexplorerv3" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/01%20Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisi%C3%B3n-de-top-targeted-users" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisar_Tendencias_de_Detección_de_Correo_en_MDO</td><td><span class="ops-freq weekly">Semanal</span></td><td><a class="ops-btn portal" href="https://security.microsoft.com/emailandcollabreport" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/02%20Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md#revisar-tendencias-de-detecci%C3%B3n-de-correo-en-microsoft-defender-for-office-365" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Identificar_Usuarios_Más_Atacados_por_Malware_y_Phishing</td><td><span class="ops-freq weekly">Semanal</span></td><td><a class="ops-btn portal" href="https://security.microsoft.com/emailandcollabreport" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/02%20Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md#identificar-usuarios-m%C3%A1s-atacados-por-malware-y-phishing" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisar_Campañas_de_Malware_y_Phishing</td><td><span class="ops-freq weekly">Semanal</span></td><td><a class="ops-btn portal" href="https://security.microsoft.com/threatexplorerv3" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/02%20Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md#revisar-campa%C3%B1as-de-malware-y-phishing-campaigns--mdo-p2" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- ═══ MDI ═══ -->
+            <div class="ops-group">
+                <div class="ops-group-header mdi">
+                    <span class="icon">&#x1f6e1;</span> Microsoft Defender for Identity
+                    <span class="ops-badge daily">5 Diarias</span>
+                    <span class="ops-badge weekly">2 Semanales</span>
+                </div>
+                <table class="ops-table">
+                    <thead><tr><th style="width:42%">Tarea</th><th style="width:14%">Frecuencia</th><th style="width:22%">Portal</th><th style="width:22%">Documentación</th></tr></thead>
+                    <tbody>
+                        <tr><td class="ops-task-name">Revisar_ITDR_Dashboard</td><td><span class="ops-freq daily">Diaria</span></td><td><a class="ops-btn portal" href="https://security.microsoft.com/identities/dashboard" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-itdr-dashboard-identities--dashboard" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Triage_de_Incidentes_por_Prioridad</td><td><span class="ops-freq daily">Diaria</span></td><td><a class="ops-btn portal" href="https://security.microsoft.com/incidents" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#triage-de-incidentes-por-prioridad-incidents--alerts" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Configurar_Tuning_para_Benign_False_Positives</td><td><span class="ops-freq daily">Diaria</span></td><td><a class="ops-btn portal" href="https://security.microsoft.com/advanced-hunting" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#configurar-tuning-para-benign--false-positives-advanced-hunting" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Proactive_hunting_diario_o_semanal</td><td><span class="ops-freq daily">Diaria</span></td><td><a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#proactive-hunting-diario-o-semanal-seg%C3%BAn-madurez" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisar_Health_Issues_Global_y_Sensor</td><td><span class="ops-freq daily">Diaria</span></td><td><a class="ops-btn portal" href="https://security.microsoft.com/identities/health-issues" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-health-issues-global-y-sensor" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisar_recomendaciones_de_Secure_Score</td><td><span class="ops-freq weekly">Semanal</span></td><td><a class="ops-btn portal" href="https://security.microsoft.com/securescore" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20semanal%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-recomendaciones-de-secure-score-por-producto" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisar_y_responder_a_amenazas_emergentes</td><td><span class="ops-freq weekly">Semanal</span></td><td><a class="ops-btn portal" href="https://security.microsoft.com/advanced-hunting" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20semanal%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-y-responder-a-amenazas-emergentes-custom-detections" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- ═══ EntraID ═══ -->
+            <div class="ops-group">
+                <div class="ops-group-header entra">
+                    <span class="icon">&#x1f510;</span> Microsoft Entra ID
+                    <span class="ops-badge daily">4 Diarias</span>
+                    <span class="ops-badge weekly">3 Semanales</span>
+                </div>
+                <table class="ops-table">
+                    <thead><tr><th style="width:42%">Tarea</th><th style="width:14%">Frecuencia</th><th style="width:22%">Portal</th><th style="width:22%">Documentación</th></tr></thead>
+                    <tbody>
+                        <tr><td class="ops-task-name">Monitorear_eventos_de_inicio_de_sesión_y_autenticación</td><td><span class="ops-freq daily">Diaria</span></td><td><a class="ops-btn portal" href="https://entra.microsoft.com/#view/Microsoft_AAD_IAM/SignInLogsList.ReactView/timeRangeType/last24hours/showApplicationSignIns~/true" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#monitorear-eventos-de-inicio-de-sesi%C3%B3n-y-autenticaci%C3%B3n" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisión_de_Usuarios_con_Riesgo_Alto_Medio</td><td><span class="ops-freq daily">Diaria</span></td><td><a class="ops-btn portal" href="https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskyUsers" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisi%C3%B3n-de-usuarios-con-riesgo-alto--medio" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisión_de_Inicios_de_Sesión_con_Riesgo</td><td><span class="ops-freq daily">Diaria</span></td><td><a class="ops-btn portal" href="https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskySignIns" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisi%C3%B3n-de-inicios-de-sesi%C3%B3n-con-riesgo" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisar_alertas_de_Microsoft_Entra_Connect_Health</td><td><span class="ops-freq daily">Diaria</span></td><td><a class="ops-btn portal" href="https://entra.microsoft.com/#view/Microsoft_AAD_Connect_Health/ConnectHealthMenuBlade/~/overview" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisar-alertas-de-microsoft-entra-connect-health-entornos-h%C3%ADbridos" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisión_de_cambios_administrativos</td><td><span class="ops-freq weekly">Semanal</span></td><td><a class="ops-btn portal" href="https://entra.microsoft.com/#view/Microsoft_AAD_IAM/AuditLogList.ReactView" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/EntraID/Gu%C3%ADa%20Operacional%20EntraID%20Tareas%20Semanales.md#revisi%C3%B3n-de-cambios-administrativos" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Seguimiento_del_Identity_Secure_Score</td><td><span class="ops-freq weekly">Semanal</span></td><td><a class="ops-btn portal" href="https://entra.microsoft.com/#view/Microsoft_AAD_IAM/EntraRecommendationsIdentitySecureScore.ReactView" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/EntraID/Gu%C3%ADa%20Operacional%20EntraID%20Tareas%20Semanales.md#seguimiento-del-identity-secure-score" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisión_de_errores_de_sincronización_antiguos</td><td><span class="ops-freq weekly">Semanal</span></td><td><a class="ops-btn portal" href="https://entra.microsoft.com/#view/Microsoft_AAD_Connect_Provisioning/CrossTenantSynchronizationConfiguration.ReactView" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/EntraID/Gu%C3%ADa%20Operacional%20EntraID%20Tareas%20Semanales.md#revisi%C3%B3n-de-errores-de-sincronizaci%C3%B3n-antiguos" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+
         <div class="footer">
             Generado por Operaciones de Seguridad Automatizadas | Microsoft 365 Defender XDR
         </div>
