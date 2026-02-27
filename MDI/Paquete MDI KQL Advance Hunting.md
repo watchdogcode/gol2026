@@ -4,12 +4,10 @@
 - Si una tabla no existe en tu tenant (depende de licenciamiento/ingesta), usa la alternativa indicada en cada query.
 - Para convertir una query en **Custom Detection**, Microsoft recomienda basarla en **Advanced Hunting** y ejecutarla regularmente.
 
+**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
 ---
 
-## Hunting base (MDI/XDR) — incidentes/alertas relacionadas con identidad
-
-### Alertas que provienen de Defender for Identity (últimos X días)
-
+## 1. Alertas de Microsoft Defender for Identity (últimos X días)
 ```kql
 let TimeRange = 7d;
 AlertInfo
@@ -19,8 +17,9 @@ AlertInfo
 | order by Timestamp desc
 ```
 
-### Incidentes que incluyen evidencias de identidad (vista rápida)
+---
 
+## 2. Incidentes con evidencias de identidad (vista rápida)
 ```kql
 let TimeRange = 7d;
 IncidentInfo
@@ -29,37 +28,131 @@ IncidentInfo
 | order by Timestamp desc
 ```
 
-## Accesos anómalos y abuso de credenciales
+---
 
-### Password spraying
-
+## 3. Password spraying – múltiples fallos por cuenta
 ```kql
 let TimeRange = 1d;
 let FailureThreshold = 15;
 IdentityLogonEvents
 | where Timestamp >= ago(TimeRange)
 | where ActionType in ("LogonFailed", "InvalidPassword", "UserLoginFailed", "Failure")
-| summarize FailedLogons=count(), SrcIPs=dcount(IPAddress), IPs=make_set(IPAddress, 20)
-    by AccountUpn, AccountName, AccountDomain
+| summarize FailedLogons = count(), SrcIPs = dcount(IPAddress) by AccountUpn, AccountName, AccountDomain
 | where FailedLogons >= FailureThreshold and SrcIPs >= 3
 | order by FailedLogons desc
 ```
 
-## Custom Detection – Cuenta privilegiada con múltiples fallos
+---
 
+## 4. Cuentas privilegiadas con múltiples fallos de autenticación
 ```kql
 let TimeRange = 1d;
 let FailureThreshold = 8;
 IdentityLogonEvents
 | where Timestamp >= ago(TimeRange)
 | where ActionType has "Fail"
-| summarize Failures=count() by AccountUpn, AccountName
+| summarize Failures = count() by AccountUpn, AccountName
 | where Failures >= FailureThreshold
-| join kind=leftouter (
-    IdentityAccountInfo
-    | where IsPrivileged == true
-    | project AccountUpn, IsPrivileged
-) on AccountUpn
+| join kind=leftouter IdentityAccountInfo on AccountUpn
 | where IsPrivileged == true
+| project AccountUpn, AccountName, Failures, IsPrivileged
 | order by Failures desc
 ```
+
+---
+
+## 5. Enumeración LDAP / SAM-R anómala
+```kql
+let TimeRange = 1d;
+IdentityQueryEvents
+| where Timestamp >= ago(TimeRange)
+| where ActionType in ("SamR query", "Ldap query")
+| summarize QueryCount = count() by DeviceName, AccountUpn, bin(Timestamp, 1h)
+| where QueryCount > 500
+| order by QueryCount desc
+```
+
+---
+
+## 6. Enumeración de objetos AD (usuarios / grupos)
+```kql
+let TimeRange = 7d;
+IdentityQueryEvents
+| where Timestamp >= ago(TimeRange)
+| summarize Events = count(), SrcIPs = dcount(IPAddress) by AccountUpn, AccountName, AccountDomain
+| order by Events desc
+```
+
+---
+
+## 7. Lateral movement – logons exitosos en múltiples equipos
+```kql
+let Lookback = 1d;
+let Window = 1h;
+let MinDevices = 6;
+IdentityLogonEvents
+| where Timestamp >= ago(Lookback)
+| where ActionType in ("LogonSuccess", "LogonAttempted")
+| summarize Devices = dcount(DeviceName), DeviceList = make_set(DeviceName, 25), TotalLogons = count() 
+    by AccountUpn, AccountName, AccountDomain, bin(Timestamp, Window)
+| where Devices >= MinDevices
+| order by Devices desc
+```
+
+---
+
+## 8. sAMAccountName spoofing / noPac
+```kql
+let TimeRange = 7d;
+IdentityDirectoryEvents
+| where Timestamp >= ago(TimeRange)
+| where ActionType contains "Account"
+| extend OldSamAccount = tostring(parse_json(AdditionalFields).OldValue)
+| extend NewSamAccount = tostring(parse_json(AdditionalFields).NewValue)
+| where OldSamAccount != NewSamAccount and NewSamAccount endswith "$"
+| project Timestamp, AccountUpn, TargetAccountUpn, OldSamAccount, NewSamAccount, DeviceName
+| order by Timestamp desc
+```
+
+---
+
+## 9. Cambios de UPN sospechosos
+```kql
+let TimeRange = 7d;
+IdentityDirectoryEvents
+| where Timestamp >= ago(TimeRange)
+| where ActionType has_any ("UPN", "User principal name", "UserPrincipalName")
+| project Timestamp, AccountUpn, TargetAccountUpn, ActionType, AdditionalFields, DeviceName
+| order by Timestamp desc
+```
+
+---
+
+## 10. Actividad PowerShell en Domain Controllers
+```kql
+let TimeRange = 7d;
+IdentityDirectoryEvents
+| where Timestamp >= ago(TimeRange)
+| where ActionType has "PowerShell"
+| project Timestamp, AccountUpn, ActionType, AdditionalFields, DeviceName, DestinationDeviceName
+| order by Timestamp desc
+```
+
+---
+
+## 11. DNS tunneling / exfiltración
+```kql
+let TimeRange = 1d;
+DeviceNetworkEvents
+| where Timestamp >= ago(TimeRange)
+| where RemotePort == 53
+| summarize DNSQueries = count(), DistinctDomains = dcount(RemoteUrl) 
+    by DeviceName, InitiatingProcessAccountName
+| where DNSQueries > 1000 or DistinctDomains > 500
+| order by DNSQueries desc
+```
+
+---
+
+**Total de queries únicas**: 11  
+**Listo para**: Hunting diario/semanal, Custom Detections, ITDR, SOC Runbooks
