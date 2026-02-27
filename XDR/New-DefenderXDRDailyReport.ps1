@@ -92,21 +92,83 @@ function Get-M365Token {
             return $TokenReq.access_token
         }
         elseif ($AuthMode -in @("Interactive", "DeviceCode")) {
-            # Intentar usar módulos Az o Mg si están disponibles para flujos interactivos
+            # --- Opción 1: Az.Accounts (recomendado) ---
             if (Get-Module -ListAvailable -Name "Az.Accounts") {
-                Write-Log "Usando Az.Accounts para token interactivo..."
+                Write-Log "Usando Az.Accounts para autenticación $AuthMode..."
+
+                # Verificar si existe un contexto activo; conectar si no
+                $AzContext = Get-AzContext -ErrorAction SilentlyContinue
+                if (-not $AzContext) {
+                    Write-Log "No hay sesión activa de Azure. Iniciando conexión ($AuthMode)..."
+                    if ($AuthMode -eq "DeviceCode") {
+                        Connect-AzAccount -UseDeviceAuthentication -ErrorAction Stop | Out-Null
+                    } else {
+                        Connect-AzAccount -ErrorAction Stop | Out-Null
+                    }
+                }
+
                 $TokenData = Get-AzAccessToken -ResourceUrl $ResourceUrl -ErrorAction Stop
+
+                # Compatibilidad: Az.Accounts >= 3.0 devuelve Token como SecureString
+                if ($TokenData.Token -is [System.Security.SecureString]) {
+                    return $TokenData.Token | ConvertFrom-SecureString -AsPlainText
+                }
                 return $TokenData.Token
             }
-            elseif (Get-Module -ListAvailable -Name "Microsoft.Graph.Authentication") {
-                Write-Log "Usando Microsoft.Graph para token interactivo..."
-                # Conectar si no hay conexión activa
-                if (-not (Get-MgContext)) { Connect-MgGraph -Scopes "AdvancedHunting.Read.All" -NoWelcome }
-                $TokenData = Get-MgAccessToken -ResourceUrl $ResourceUrl -ErrorAction Stop
-                return $TokenData
-            }
+            # --- Opción 2: Device Code manual vía REST (sin dependencias de módulos) ---
             else {
-                throw "No se encontraron los módulos 'Az.Accounts' o 'Microsoft.Graph.Authentication'. Requeridos para autenticación Interactive/DeviceCode."
+                Write-Log "Módulo 'Az.Accounts' no encontrado. Usando flujo Device Code vía REST..." -Level WARN
+
+                if (-not $ClientId -or -not $TenantId) {
+                    throw "Se requieren ClientId y TenantId para autenticación sin Az.Accounts. Instale el módulo: Install-Module Az.Accounts -Scope CurrentUser"
+                }
+
+                # Solicitar código de dispositivo
+                $DeviceCodeBody = @{
+                    client_id = $ClientId
+                    scope     = "$ResourceUrl/.default offline_access"
+                }
+                $DeviceCodeReq = Invoke-RestMethod -Method Post `
+                    -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/devicecode" `
+                    -Body $DeviceCodeBody -ErrorAction Stop
+
+                Write-Log "=== AUTENTICACIÓN REQUERIDA ===" -Level WARN
+                Write-Log $DeviceCodeReq.message -Level WARN
+
+                # Sondear hasta obtener token o expirar
+                $Interval = [int]$DeviceCodeReq.interval
+                $ExpiresIn = [int]$DeviceCodeReq.expires_in
+                $Elapsed = 0
+
+                while ($Elapsed -lt $ExpiresIn) {
+                    Start-Sleep -Seconds $Interval
+                    $Elapsed += $Interval
+
+                    try {
+                        $PollBody = @{
+                            grant_type  = "urn:ietf:params:oauth:grant-type:device_code"
+                            client_id   = $ClientId
+                            device_code = $DeviceCodeReq.device_code
+                        }
+                        $TokenReq = Invoke-RestMethod -Method Post `
+                            -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token" `
+                            -Body $PollBody -ErrorAction Stop
+
+                        Write-Log "Token obtenido exitosamente vía Device Code."
+                        return $TokenReq.access_token
+                    }
+                    catch {
+                        $ErrBody = $null
+                        try { $ErrBody = $_.ErrorDetails.Message | ConvertFrom-Json } catch {}
+                        if ($ErrBody.error -eq "authorization_pending") { continue }
+                        elseif ($ErrBody.error -eq "expired_token") {
+                            throw "El código de dispositivo ha expirado. Ejecute el script nuevamente."
+                        }
+                        else { throw $_ }
+                    }
+                }
+
+                throw "Tiempo de espera agotado para la autenticación Device Code."
             }
         }
     }
