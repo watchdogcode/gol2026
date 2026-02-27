@@ -5,47 +5,19 @@
 - Para convertir una query en **Custom Detection**, Microsoft recomienda basarla en **Advanced Hunting** y ejecutarla regularmente.
 
 ---
+## Detección: Cuentas privilegiadas con múltiples fallos de autenticación
 
-## Hunting base (MDI/XDR) — incidentes/alertas relacionadas con identidad
+**Objetivo**  
+Detectar abuso de credenciales contra cuentas privilegiadas (admins, operadores, service accounts críticas).
 
-### Alertas que provienen de Defender for Identity (últimos X días)
+**Escenarios cubiertos**
+- Password spraying dirigido a administradores
+- Ataques de fuerza bruta contra cuentas privilegiadas
+- Uso indebido de credenciales filtradas
 
-```kql
-let TimeRange = 7d;
-AlertInfo
-| where Timestamp >= ago(TimeRange)
-| where ServiceSource has_any ("MicrosoftDefenderForIdentity", "Defender for Identity", "MDI")
-| project Timestamp, AlertId, Title, Severity, Category, ServiceSource, DetectionSource, ProviderName
-| order by Timestamp desc
-```
+---
 
-### Incidentes que incluyen evidencias de identidad (vista rápida)
-
-```kql
-let TimeRange = 7d;
-IncidentInfo
-| where Timestamp >= ago(TimeRange)
-| project Timestamp, IncidentId, Title, Severity, Status, Classification, Determination
-| order by Timestamp desc
-```
-
-## Accesos anómalos y abuso de credenciales
-
-### Password spraying
-
-```kql
-let TimeRange = 1d;
-let FailureThreshold = 15;
-IdentityLogonEvents
-| where Timestamp >= ago(TimeRange)
-| where ActionType in ("LogonFailed", "InvalidPassword", "UserLoginFailed", "Failure")
-| summarize FailedLogons=count(), SrcIPs=dcount(IPAddress), IPs=make_set(IPAddress, 20)
-    by AccountUpn, AccountName, AccountDomain
-| where FailedLogons >= FailureThreshold and SrcIPs >= 3
-| order by FailedLogons desc
-```
-
-## Custom Detection – Cuenta privilegiada con múltiples fallos
+## Query KQL (Advanced Hunting – Microsoft Defender for Identity)
 
 ```kql
 let TimeRange = 1d;
@@ -53,13 +25,51 @@ let FailureThreshold = 8;
 IdentityLogonEvents
 | where Timestamp >= ago(TimeRange)
 | where ActionType has "Fail"
-| summarize Failures=count() by AccountUpn, AccountName
+| summarize Failures = count() by AccountUpn, AccountName
 | where Failures >= FailureThreshold
-| join kind=leftouter (
-    IdentityAccountInfo
-    | where IsPrivileged == true
-    | project AccountUpn, IsPrivileged
-) on AccountUpn
+| join kind=leftouter IdentityAccountInfo on AccountUpn
 | where IsPrivileged == true
+| project AccountUpn, AccountName, Failures, IsPrivileged
 | order by Failures desc
 ```
+
+---
+
+## Tablas utilizadas
+- IdentityLogonEvents
+- IdentityAccountInfo
+
+---
+
+## Uso recomendado
+- **Tipo**: Custom Detection Rule (Defender XDR)
+- **Cadencia**: Diaria o semanal
+- **Marco**: ITDR (Identity Threat Detection & Response)
+
+---
+
+## Acciones sugeridas
+- Validar si la cuenta es:
+  - Administrador humano
+  - Cuenta de servicio
+- Correlacionar con:
+  - Horarios inusuales
+  - Alertas MDI asociadas
+- Acciones de respuesta:
+  - Reset de credenciales
+  - Forzar MFA
+  - Revisar exclusiones / tuning
+
+---
+
+## Clasificación esperada
+- **True Positive**: Ataque activo contra cuentas privilegiadas
+- **Benign / False Positive**: Scripts o procesos mal configurados
+
+---
+
+## Integración operativa
+- Incluir en guía operacional **diaria / semanal MDI**
+- Unificar en librería de detecciones MDI
+- Base para documentación de detecciones personalizadas
+
