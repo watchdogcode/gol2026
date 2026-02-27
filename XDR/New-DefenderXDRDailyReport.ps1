@@ -338,15 +338,323 @@ $Kpi_HighRiskUsers = $Data["MDI_HighRiskUsers"].Count
 $Kpi_NewOAuth = ($Data["MDA_OAuth"] | Measure-Object -Property Consents -Sum).Sum
 if (-not $Kpi_NewOAuth) { $Kpi_NewOAuth = 0 }
 
-# --- SELECCIÓN ALEATORIA DE KQL DIARIO ---
-$MdoDailyQueries = @(
-    @{ Title="Alertas MDO de Alta Severidad (Cola de Incidentes)"; Query="AlertInfo | where Timestamp > ago(24h) | where ServiceSource == 'MicrosoftDefenderForOffice365' and Severity == 'High' | summarize Count=count() by Title" },
-    @{ Title="Phishing/Malware Entregado (Falsos Negativos)"; Query="EmailEvents | where Timestamp > ago(24h) | where DeliveryAction == 'Delivered' and ThreatTypes has_any ('Phish','Malware') | project Timestamp, Subject, SenderFromAddress, RecipientEmailAddress, ThreatTypes" },
-    @{ Title="Principales Campañas Activas (Vista de Campañas)"; Query="EmailEvents | where Timestamp > ago(24h) | where isnotempty(CampaignId) | summarize Events=count(), Targets=dcount(RecipientEmailAddress) by CampaignId, Subject | top 5 by Events desc" },
-    @{ Title="Actividad ZAP (Investigación Automatizada)"; Query="EmailPostDeliveryEvents | where Timestamp > ago(24h) | where ActionType has 'ZAP' | summarize Count=count() by ActionTrigger, ActionResult" },
-    @{ Title="Adjuntos Sospechosos Entregados (Análisis)"; Query="EmailAttachmentInfo | where Timestamp > ago(24h) | join kind=inner (EmailEvents | where DeliveryAction == 'Delivered') on NetworkMessageId | where FileType in ('exe', 'ps1', 'vbs', 'iso', 'js') | project Timestamp, FileName, RecipientEmailAddress" }
+# --- CATÁLOGO COMPLETO DE KQL (MDO Advanced Hunting) ---
+# Fuente: https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/04%20Paquete%20MDO%20KQL%20Advance%20Hunting.md
+$MdoKqlCatalog = @(
+    # ── Spoofing y Autenticación ──
+    @{ Id=1;  Category="Spoofing y Autenticación"; Title="Spoofing: From (Header) ≠ MailFrom (Envelope)"; Query=@"
+let lookback = 7d;
+EmailEvents
+| where Timestamp >= ago(lookback)
+| where isempty(SenderFromDomain) == false and isempty(SenderMailFromDomain) == false
+| where SenderFromDomain != SenderMailFromDomain
+| project Timestamp, NetworkMessageId, SenderFromAddress, SenderFromDomain, SenderMailFromAddress, SenderMailFromDomain, RecipientEmailAddress, Subject, DeliveryAction, ThreatTypes
+| order by Timestamp desc
+"@ },
+    @{ Id=2;  Category="Spoofing y Autenticación"; Title="Spoofing: Header From interno vs MailFrom externo"; Query=@"
+let lookback = 7d;
+let orgDomains = dynamic(["contoso.com","contoso.mx"]); // <-- Cambia por tus dominios
+EmailEvents
+| where Timestamp >= ago(lookback)
+| where SenderFromDomain in (orgDomains)
+| where SenderMailFromDomain !in (orgDomains)
+| project Timestamp, NetworkMessageId, SenderFromAddress, SenderFromDomain, SenderMailFromAddress, SenderMailFromDomain, RecipientEmailAddress, Subject, DeliveryAction, ThreatTypes
+| order by Timestamp desc
+"@ },
+    @{ Id=3;  Category="Spoofing y Autenticación"; Title="Spoofing: Fallos de Autenticación (SPF/DKIM/DMARC)"; Query=@"
+let lookback = 7d;
+EmailEvents
+| where Timestamp >= ago(lookback)
+| extend Auth = parse_json(AuthenticationDetails)
+| extend SPF = tostring(Auth.SPF), DKIM = tostring(Auth.DKIM), DMARC = tostring(Auth.DMARC)
+| where SPF has_any ("fail","softfail","temperror","permerror") or DKIM has_any ("fail","none","temperror","permerror") or DMARC has_any ("fail","none","temperror","permerror")
+| project Timestamp, NetworkMessageId, SenderFromAddress, SenderFromDomain, SenderMailFromAddress, SenderMailFromDomain, SPF, DKIM, DMARC, RecipientEmailAddress, Subject, DeliveryAction, ThreatTypes
+| order by Timestamp desc
+"@ },
+    @{ Id=4;  Category="Spoofing y Autenticación"; Title="Spoofing: Análisis de Campañas"; Query=@"
+let lookback = 7d;
+EmailEvents
+| where Timestamp >= ago(lookback)
+| where SenderFromDomain != SenderMailFromDomain
+| summarize Msgs = count(), Recipients = dcount(RecipientEmailAddress), Subjects = make_set(Subject, 10), FirstSeen = min(Timestamp), LastSeen = max(Timestamp) by SenderFromDomain, SenderMailFromDomain, SenderFromAddress
+| order by Msgs desc, Recipients desc
+"@ },
+    # ── Impersonation & Brand Protection ──
+    @{ Id=5;  Category="Impersonation y Brand Protection"; Title="Impersonation: Dominios Typosquat (Levenshtein)"; Query=@"
+let lookback = 14d;
+let protectedDomains = dynamic(["contoso.com","fabrikam.com"]); // <-- dominios a proteger
+EmailEvents
+| where Timestamp >= ago(lookback)
+| where SenderFromDomain !in (protectedDomains)
+| mv-expand pd = protectedDomains
+| extend Distance = levenshtein_distance(SenderFromDomain, tostring(pd))
+| where Distance between (1 .. 2)
+| summarize Msgs = count(), Recipients = dcount(RecipientEmailAddress), FirstSeen = min(Timestamp), LastSeen = max(Timestamp), ExampleFrom = any(SenderFromAddress) by SenderFromDomain, ProtectedDomain=tostring(pd), Distance
+| order by Distance asc, Msgs desc
+"@ },
+    @{ Id=6;  Category="Impersonation y Brand Protection"; Title="Impersonation: Homoglyph / Punycode"; Query=@"
+let lookback = 30d;
+EmailEvents
+| where Timestamp >= ago(lookback)
+| where SenderFromDomain has "xn--" or SenderFromDomain matches regex @"[^\u0000-\u007F]"
+| summarize Msgs=count(), Recipients=dcount(RecipientEmailAddress), FirstSeen=min(Timestamp), LastSeen=max(Timestamp), ExampleFrom=any(SenderFromAddress), Subjects=make_set(Subject, 5) by SenderFromDomain
+| order by Msgs desc
+"@ },
+    @{ Id=7;  Category="Impersonation y Brand Protection"; Title="Impersonation: Usuario VIP"; Query=@"
+let lookback = 14d;
+let vipUsers = dynamic(["ceo@contoso.com","cfo@contoso.com","payments@contoso.com"]);
+EmailEvents
+| where Timestamp >= ago(lookback)
+| extend FromAddr = tolower(SenderFromAddress), FromAlias = tostring(split(tolower(SenderFromAddress),"@")[0])
+| mv-expand vip = vipUsers
+| extend VipAlias = tostring(split(tolower(tostring(vip)),"@")[0])
+| extend Dist = levenshtein_distance(FromAlias, VipAlias)
+| where Dist between (1 .. 2) and FromAddr != tolower(tostring(vip))
+| summarize Msgs=count(), Recipients=dcount(RecipientEmailAddress), FirstSeen=min(Timestamp), LastSeen=max(Timestamp), ExampleFrom=any(SenderFromAddress), Subjects=make_set(Subject, 5) by ImpersonatingAlias=FromAlias, VipImpersonated=tostring(vip), Dist, SenderFromDomain
+| order by Dist asc, Msgs desc
+"@ },
+    @{ Id=8;  Category="Impersonation y Brand Protection"; Title="Impersonation: Dominios Look-alike (Heurística Simple)"; Query=@"
+let Lookback = 30d;
+let brand = "contoso.com";
+EmailEvents
+| where Timestamp > ago(Lookback)
+| extend FromDomain = tostring(split(SenderFromAddress,"@")[1])
+| where FromDomain != brand
+| extend Dist = abs(strlen(FromDomain) - strlen(brand))
+| where Dist <= 3
+| where FromDomain contains "cont0so" or FromDomain contains "c0ntoso" or FromDomain contains "contoso-sec" or FromDomain contains "contoso-support"
+| summarize count(), Victims=dcount(RecipientEmailAddress) by FromDomain
+| order by count_ desc
+"@ },
+    # ── Phishing, BEC & Ingeniería Social ──
+    @{ Id=9;  Category="Phishing, BEC e Ingeniería Social"; Title="BEC: Señales de Urgencia y Pagos"; Query=@"
+let lookback = 7d;
+let becKeywords = dynamic(["urgent","wire","payment","invoice","transfer","bank","remittance","pago","transferencia","factura","urgente"]);
+EmailEvents
+| where Timestamp >= ago(lookback)
+| where SenderFromDomain != SenderMailFromDomain or SenderFromDomain has "xn--"
+| where Subject has_any (becKeywords)
+| project Timestamp, NetworkMessageId, SenderFromAddress, SenderFromDomain, SenderMailFromAddress, SenderMailFromDomain, RecipientEmailAddress, Subject, DeliveryAction, ThreatTypes
+| order by Timestamp desc
+"@ },
+    @{ Id=10; Category="Phishing, BEC e Ingeniería Social"; Title="Spear-phishing a VIPs"; Query=@"
+let Lookback = 14d;
+let vip_list = dynamic(["ceo@contoso.com","cfo@contoso.com","board.alias@contoso.com"]);
+EmailEvents
+| where Timestamp > ago(Lookback)
+| where RecipientEmailAddress in (vip_list)
+| where DeliveryLocation in ("Inbox","Folder","JunkFolder")
+| extend AuthFail = not( AuthenticationDetails has "dmarc=pass" and AuthenticationDetails has "spf=pass" )
+| summarize Total=count(), DistinctSenders=dcount(SenderFromAddress), WithAuthIssues=countif(AuthFail), HighConfidencePhish=countif(ThreatTypes has "Phish" and DetectionMethods has "ZAP" or DetectionMethods has "PhishFilter") by RecipientEmailAddress
+| order by HighConfidencePhish desc, WithAuthIssues desc
+"@ },
+    @{ Id=11; Category="Phishing, BEC e Ingeniería Social"; Title="BEC Ligero: Reply-To Mismatch"; Query=@"
+let Lookback = 14d;
+EmailEvents
+| where Timestamp > ago(Lookback)
+| where DeliveryLocation in ("Inbox","Folder")
+| extend ReplyToDomain = tostring(parse_json(AdditionalFields).ReplyToDomain)
+| extend FromDomain = tostring(split(SenderFromAddress,"@")[1])
+| where isnotempty(ReplyToDomain) and ReplyToDomain != FromDomain
+| summarize count(), DistinctSenders=dcount(SenderFromAddress) by ReplyToDomain, FromDomain
+| order by count_ desc
+"@ },
+    @{ Id=12; Category="Phishing, BEC e Ingeniería Social"; Title="Técnica Quasi-QRCode / Image Only"; Query=@"
+let Lookback = 14d;
+let delivered_images = EmailEvents
+    | where Timestamp > ago(Lookback)
+    | where DeliveryLocation in ("Inbox","Folder")
+    | join kind=leftanti (EmailUrlInfo | where Timestamp > ago(Lookback) | project NetworkMessageId) on NetworkMessageId
+    | join kind=inner (EmailAttachmentInfo | where Timestamp > ago(Lookback)
+        | where tolower(FileType) has "image" or FileName matches regex @"\.(png|jpg|jpeg|gif)$") on NetworkMessageId
+    | project NetworkMessageId, RecipientEmailAddress, SenderFromAddress, Subject, Timestamp;
+delivered_images
+| join kind=leftsemi (UrlClickEvents | where Timestamp > ago(Lookback) | project RecipientEmailAddress, Timestamp) on RecipientEmailAddress
+| summarize MensajesImagenes=count(), DistinctRecipients=dcount(RecipientEmailAddress)
+"@ },
+    @{ Id=13; Category="Phishing, BEC e Ingeniería Social"; Title="Kits de Phishing (Formularios)"; Query=@"
+let Lookback = 14d;
+let form_kits = dynamic(["forms.co","formcrafts.com","typeform.com","smartsheet.com","airtable.com","notion.site","google.com/forms","formulario.link"]);
+EmailUrlInfo
+| where Timestamp > ago(Lookback)
+| where UrlDomain has_any (form_kits)
+| summarize count(), Victims=dcount(RecipientEmailAddress) by UrlDomain
+| order by count_ desc
+"@ },
+    # ── Análisis de URLs & Adjuntos ──
+    @{ Id=14; Category="Análisis de URLs y Adjuntos"; Title="Pivot por URLs Sospechosas"; Query=@"
+let lookback = 7d;
+let suspicious = EmailEvents
+| where Timestamp >= ago(lookback)
+| where SenderFromDomain != SenderMailFromDomain
+| project NetworkMessageId, Timestamp, SenderFromAddress, SenderFromDomain, RecipientEmailAddress, Subject;
+suspicious
+| join kind=inner (
+    EmailUrlInfo
+    | where Timestamp >= ago(lookback)
+    | project NetworkMessageId, Url, UrlDomain
+) on NetworkMessageId
+| summarize UrlCount=count(), Recipients=dcount(RecipientEmailAddress), Examples=make_set(Url, 10) by SenderFromDomain, SenderFromAddress, Subject
+| order by UrlCount desc
+"@ },
+    @{ Id=15; Category="Análisis de URLs y Adjuntos"; Title="URLs de Bajo Rédito / TLDs de Riesgo"; Query=@"
+let Lookback = 14d;
+let risky_tlds = dynamic([".top",".xyz",".click",".monster",".fit",".rest",".lol",".casa"]);
+let delivered_urls = EmailEvents
+    | where Timestamp > ago(Lookback)
+    | where DeliveryLocation in ("Inbox","Folder","JunkFolder")
+    | join kind=inner (EmailUrlInfo | where Timestamp > ago(Lookback)) on NetworkMessageId
+    | extend Tld = tostring(extract(@"(\.[A-Za-z0-9\-]{2,})$", 1, UrlDomain))
+    | where Tld in (risky_tlds)
+    | project Timestamp, RecipientEmailAddress, SenderFromAddress, Url, UrlDomain, NetworkMessageId;
+delivered_urls
+| join kind=leftsemi (UrlClickEvents | where Timestamp > ago(Lookback) | project NetworkMessageId) on NetworkMessageId
+| summarize Clics=count() by UrlDomain
+| order by Clics desc
+"@ },
+    @{ Id=16; Category="Análisis de URLs y Adjuntos"; Title="Campaña Activa: Múltiples Clics en misma URL"; Query=@"
+let Lookback = 7d;
+UrlClickEvents
+| where Timestamp > ago(Lookback)
+| summarize DistinctVictims=dcount(RecipientEmailAddress), FirstClick=min(Timestamp), LastClick=max(Timestamp) by Url
+| where DistinctVictims >= 3
+| order by DistinctVictims desc, LastClick desc
+"@ },
+    @{ Id=17; Category="Análisis de URLs y Adjuntos"; Title="Bloqueos de Safe Links"; Query=@"
+let Lookback = 14d;
+UrlClickEvents
+| where Timestamp > ago(Lookback)
+| where ClickVerdict in ("Blocked","BlockedBySafeLinks")
+| summarize BlockedClicks=count(), Victims=dcount(RecipientEmailAddress) by UrlDomain
+| order by BlockedClicks desc
+"@ },
+    @{ Id=18; Category="Análisis de URLs y Adjuntos"; Title="Adjuntos de Riesgo (Ejecutables/Scripts)"; Query=@"
+let Lookback = 14d;
+let risky_ext = dynamic([".html",".htm",".hta",".js",".vbs",".wsf",".lnk",".iso",".img",".dll",".exe",".ps1",".bat",".cmd",".jar"]);
+EmailAttachmentInfo
+| where Timestamp > ago(Lookback)
+| extend Ext = tolower(tostring(extract(@"\.[^.]+$", 0, FileName)))
+| where Ext in (risky_ext)
+| join kind=inner (EmailEvents | where DeliveryLocation in ("Inbox","Folder","JunkFolder")) on NetworkMessageId
+| summarize count(), DistinctRecipients=dcount(RecipientEmailAddress) by Ext, SenderFromAddress
+| order by count_ desc
+"@ },
+    @{ Id=19; Category="Análisis de URLs y Adjuntos"; Title="Adjuntos HTML/HTA con Data URI"; Query=@"
+let Lookback = 14d;
+EmailAttachmentInfo
+| where Timestamp > ago(Lookback)
+| where tolower(FileName) matches regex @"\.(html|htm|hta)$"
+| join kind=inner (EmailEvents) on NetworkMessageId
+| join kind=leftouter (EmailUrlInfo) on NetworkMessageId
+| extend IsDataUri = iif(isnotempty(Url) and Url startswith "data:text/html", true, false)
+| summarize Total=count(), DataUri=countif(IsDataUri) by SenderFromAddress
+| order by DataUri desc, Total desc
+"@ },
+    # ── Detección de Anomalías & Comportamiento ──
+    @{ Id=20; Category="Detección de Anomalías y Comportamiento"; Title="Dominio del Remitente Recién Visto"; Query=@"
+let Lookback = 14d;
+let Baseline = 45d;
+let recent = EmailEvents
+  | where Timestamp > ago(Lookback)
+  | extend SenderDomain = tostring(split(SenderFromAddress, "@")[1])
+  | summarize FirstSeen=min(Timestamp), LastSeen=max(Timestamp), Cnt=count() by SenderDomain;
+let historical = EmailEvents
+  | where Timestamp between (ago(Baseline) .. ago(Lookback))
+  | extend SenderDomain = tostring(split(SenderFromAddress, "@")[1])
+  | summarize PrevCnt=count() by SenderDomain;
+recent
+| join kind=leftouter (historical) on SenderDomain
+| where isnull(PrevCnt) or PrevCnt == 0
+| order by Cnt desc, LastSeen desc
+"@ },
+    @{ Id=21; Category="Detección de Anomalías y Comportamiento"; Title="Usuarios con Alto Volumen de Reportes"; Query=@"
+let Lookback = 30d;
+CloudAppEvents
+| where Timestamp > ago(Lookback)
+| where ActionType == "UserSubmission"
+| summarize Reports=count() by UserId
+| order by Reports desc
+"@ },
+    @{ Id=22; Category="Detección de Anomalías y Comportamiento"; Title="Top Targets (Pareto de Riesgo)"; Query=@"
+let Lookback = 30d;
+let delivered_threats = EmailEvents
+  | where Timestamp > ago(Lookback)
+  | where ThreatTypes has_any ("Phish","Malware","CredentialPhish");
+let clicked = UrlClickEvents
+  | where Timestamp > ago(Lookback)
+  | summarize Clicks=count() by RecipientEmailAddress;
+delivered_threats
+| summarize Delivered=count(), DistinctSenders=dcount(SenderFromAddress) by RecipientEmailAddress
+| join kind=leftouter clicked on RecipientEmailAddress
+| extend Clicks = coalesce(Clicks, 0)
+| order by Delivered desc, Clicks desc
+"@ },
+    @{ Id=23; Category="Detección de Anomalías y Comportamiento"; Title="Reglas de Bandeja de Entrada Post-Compromiso"; Query=@"
+let Lookback = 7d;
+EmailEvents
+| where Timestamp > ago(Lookback)
+| where ActionType == "InboxRuleCreated" or ActionType == "InboxRuleUpdated"
+| extend Rule = parse_json(AdditionalDetails)
+| extend FwdTo = tostring(Rule.ForwardTo)
+| where isnotempty(FwdTo) and not(FwdTo endswith "@contoso.com")
+| project Timestamp, AccountUpn, FwdTo, SenderFromAddress, IPAddress, Subject
+| order by Timestamp desc
+"@ },
+    @{ Id=24; Category="Detección de Anomalías y Comportamiento"; Title="Clics desde Ubicaciones Atípicas"; Query=@"
+let Lookback = 14d;
+let baseline = UrlClickEvents
+  | where Timestamp between (ago(60d) .. ago(Lookback))
+  | summarize BaselineCountries=make_set(RecipientCountry) by RecipientEmailAddress;
+UrlClickEvents
+| where Timestamp > ago(Lookback)
+| join kind=leftouter baseline on RecipientEmailAddress
+| extend Known=set_has_element(BaselineCountries, RecipientCountry)
+| where Known == false
+| summarize Clicks=count() by RecipientEmailAddress, RecipientCountry
+| order by Clicks desc
+"@ },
+    @{ Id=25; Category="Detección de Anomalías y Comportamiento"; Title="Top Campañas Activas"; Query=@"
+let Lookback = 7d;
+EmailEvents
+| where Timestamp > ago(Lookback)
+| where DeliveryLocation in ("Inbox","Folder","JunkFolder")
+| summarize Msgs=count(), Victims=dcount(RecipientEmailAddress), Senders=dcount(SenderFromAddress) by SenderFromDomain, Subject
+| order by Msgs desc
+"@ },
+    # ── Efectividad de Defensa & Post-Delivery ──
+    @{ Id=26; Category="Efectividad de Defensa y Post-Delivery"; Title="Mensajes Remediados Post-Entrega (ZAP)"; Query=@"
+let lookback = 7d;
+EmailPostDeliveryEvents
+| where Timestamp >= ago(lookback)
+| where ActionType in ("ZAP","Quarantine","SoftDelete","HardDelete")
+| project Timestamp, NetworkMessageId, ActionType, ActionResult, RecipientEmailAddress
+| order by Timestamp desc
+"@ },
+    @{ Id=27; Category="Efectividad de Defensa y Post-Delivery"; Title="Evasión Inicial + ZAP Posterior"; Query=@"
+let Lookback = 14d;
+EmailPostDeliveryEvents
+| where Timestamp > ago(Lookback)
+| where ActionType in ("SoftDelete","MoveToQuarantine","ZAP")
+| join kind=inner (
+    EmailEvents
+    | where Timestamp > ago(Lookback)
+    | where DetectionMethods !has "PhishFilter" and ThreatTypes == ""
+) on NetworkMessageId
+| project Timestamp, ActionType, RecipientEmailAddress, SenderFromAddress, Subject, NetworkMessageId
+| order by Timestamp desc
+"@ },
+    @{ Id=28; Category="Efectividad de Defensa y Post-Delivery"; Title="Bypass por Allow/Override"; Query=@"
+let Lookback = 30d;
+EmailEvents
+| where Timestamp > ago(Lookback)
+| where OrgLevelAction in ("Allow","DeliverToInbox") or (DetectionMethods has "UserOverride" or DetectionMethods has "AdminOverride")
+| summarize Total=count(), DistinctSenders=dcount(SenderFromAddress) by OrgLevelAction, DetectionMethods
+| order by Total desc
+"@ }
 )
-$SelectedMdoQuery = $MdoDailyQueries | Get-Random
+
+# Seleccionar un KQL aleatorio del catálogo completo
+$SelectedKql = $MdoKqlCatalog | Get-Random
 
 # 4. Generar HTML
 function ConvertTo-HtmlTable {
@@ -623,38 +931,23 @@ $HtmlContent = @"
             </div>
         </div>
 
-        <!-- Sección MDO -->
-        <h2>MDO: Correo Electrónico y Colaboración</h2>
-        <div class="activities">
-            <h4>Actividades Diarias</h4>
-            <ul>
-                <li><a href="https://security.microsoft.com/incidents">Monitorear incidentes y alertas de correo electrónico y colaboración.</a>
-                    <div style="margin-top:8px; padding:10px; background:#f8f9fa; border-left:3px solid #0078d4; font-family:Consolas, monospace; font-size:0.85em; color:#333;">
-                        <div style="font-weight:bold; color:#0078d4; margin-bottom:5px;">💡 KQL Recomendado: $($SelectedMdoQuery.Title)</div>
-                        <div style="white-space:pre-wrap;">$($SelectedMdoQuery.Query)</div>
-                    </div>
-                </li>
-                <li><a href="https://security.microsoft.com/campaigns">Evaluar campañas de phishing y malware que fueron entregadas.</a></li>
-                <li><a href="https://security.microsoft.com/action-center/pending">Revisar acciones automatizadas pendientes o incompletas (AIR).</a></li>
-                <li><a href="https://security.microsoft.com/submissions">Clasificar mensajes sospechosos reportados por usuarios.</a></li>
-                <li><a href="https://security.microsoft.com/alerts">Gestionar alertas con clasificación y remediaciones necesarias.</a></li>
-            </ul>
-        </div>
-        
-        <h3>Principales Campañas de Phishing Entregadas</h3>
-        <div class="table-container">
-            <table>
-                <thead><tr><th>Asunto</th><th>Dominio del Remitente</th><th>Eventos</th><th>Objetivos</th></tr></thead>
-                <tbody>$(ConvertTo-HtmlTable $Data["MDO_Campaigns"] @("Subject","SenderFromDomain","Events","Targets"))</tbody>
-            </table>
-        </div>
-        
-        <h3>Usuarios Más Atacados (Phishing)</h3>
-        <div class="table-container">
-            <table>
-                <thead><tr><th>Destinatario</th><th>Intentos</th></tr></thead>
-                <tbody>$(ConvertTo-HtmlTable $Data["MDO_TopUsers"] @("RecipientEmailAddress","Attempts"))</tbody>
-            </table>
+        <!-- Recomendación de KQL diario -->
+        <div class="ops-group" style="margin-top: 20px;">
+            <div class="ops-group-header mdo">
+                <span class="icon">&#x1f50d;</span> Recomendación de KQL diario
+                <span class="ops-badge daily">#$($SelectedKql.Id) de 28</span>
+            </div>
+            <div style="padding: 20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <span style="background:#e6f2ff; color:#0078d4; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">$($SelectedKql.Category)</span>
+                </div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">$($SelectedKql.Title)</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedKql.Query)</div>
+                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
+                    <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/04%20Paquete%20MDO%20KQL%20Advance%20Hunting.md" target="_blank">&#x1f4d6; Ver Catálogo Completo (28 KQL)</a>
+                </div>
+            </div>
         </div>
 
         <!-- Sección MDE -->
