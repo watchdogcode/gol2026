@@ -260,9 +260,26 @@ EmailEvents
 
     "MDE_AlertsBySev" = @"
 AlertInfo
-| where Timestamp >= ago(24h) and ServiceSource == "MicrosoftDefenderForEndpoint"
+| where Timestamp >= ago(24h)
+| where ServiceSource has "Endpoint"
 | summarize Count=count() by Severity
 | order by Count desc
+"@
+
+    "XDR_AllAlerts" = @"
+AlertInfo
+| where Timestamp >= ago(24h)
+| summarize Count=count() by ServiceSource, Severity
+| order by Count desc
+"@
+
+    "XDR_Incidents" = @"
+AlertInfo
+| where Timestamp >= ago(24h)
+| join kind=leftouter (AlertEvidence | where Timestamp >= ago(24h) | summarize Entities=dcount(EntityType), DevicesAffected=dcount(DeviceId) by AlertId) on AlertId
+| project Timestamp, AlertId, Title, Severity, ServiceSource, Category, Entities=coalesce(Entities, 0), DevicesAffected=coalesce(DevicesAffected, 0)
+| order by Timestamp desc
+| take 25
 "@
 
     "MDI_HighRiskUsers" = @"
@@ -327,8 +344,11 @@ foreach ($Key in $Queries.Keys) {
 }
 
 # 3. Calcular KPIs
-$Kpi_TotalAlerts = ($Data["MDE_AlertsBySev"] | Measure-Object -Property Count -Sum).Sum
+$Kpi_TotalAlerts = ($Data["XDR_AllAlerts"] | Measure-Object -Property Count -Sum).Sum
 if (-not $Kpi_TotalAlerts) { $Kpi_TotalAlerts = 0 }
+
+$Kpi_IncidentCount = $Data["XDR_Incidents"].Count
+if (-not $Kpi_IncidentCount) { $Kpi_IncidentCount = 0 }
 
 $Kpi_PhishDelivered = ($Data["MDO_Campaigns"] | Measure-Object -Property Events -Sum).Sum
 if (-not $Kpi_PhishDelivered) { $Kpi_PhishDelivered = 0 }
@@ -662,7 +682,7 @@ $MdeKqlCatalog = @(
 let TimeRange = 7d;
 AlertInfo
 | where Timestamp >= ago(TimeRange)
-| where ServiceSource == "MicrosoftDefenderForEndpoint"
+| where ServiceSource has "Endpoint"
 | summarize Count=count() by Severity, Category
 | order by Count desc
 "@ },
@@ -670,7 +690,7 @@ AlertInfo
 let TimeRange = 7d;
 AlertInfo
 | where Timestamp >= ago(TimeRange)
-| where ServiceSource == "MicrosoftDefenderForEndpoint"
+| where ServiceSource has "Endpoint"
 | summarize Count=count(), Devices=dcount(AlertId) by Title, Severity, Category
 | top 10 by Count desc
 "@ },
@@ -774,7 +794,7 @@ $MdiKqlCatalog = @(
 let TimeRange = 7d;
 AlertInfo
 | where Timestamp >= ago(TimeRange)
-| where ServiceSource has_any ("MicrosoftDefenderForIdentity", "Defender for Identity", "MDI")
+| where ServiceSource has_any ("Microsoft Defender for Identity", "MicrosoftDefenderForIdentity", "Defender for Identity", "MDI")
 | project Timestamp, AlertId, Title, Severity, Category, ServiceSource, DetectionSource, ProviderName
 | order by Timestamp desc
 "@ },
@@ -1477,9 +1497,13 @@ $HtmlContent = @"
     <div class="container">
         <!-- KPIs -->
         <div class="kpi-grid">
-            <div class="kpi-card alert">
+            <div class="kpi-card $(if($Kpi_TotalAlerts -gt 0){'danger'}else{'alert'})">
                 <div class="kpi-val">$Kpi_TotalAlerts</div>
-                <div class="kpi-label">Total Alertas (MDE)</div>
+                <div class="kpi-label">Total Alertas XDR</div>
+            </div>
+            <div class="kpi-card $(if($Kpi_IncidentCount -gt 0){'danger'}else{'alert'})">
+                <div class="kpi-val">$Kpi_IncidentCount</div>
+                <div class="kpi-label">Incidentes Activos</div>
             </div>
             <div class="kpi-card $(if($Kpi_PhishDelivered -gt 0){'danger'}else{'alert'})">
                 <div class="kpi-val">$Kpi_PhishDelivered</div>
@@ -1541,11 +1565,33 @@ $HtmlContent = @"
         </div>
 
         <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- ═══ SECCIÓN XDR: Alertas e Incidentes Consolidados ═══ -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+
+        <h2>XDR: Alertas e Incidentes Consolidados</h2>
+
+        <h3>Alertas por Servicio y Severidad</h3>
+        <div class="table-container">
+            <table>
+                <thead><tr><th>Servicio</th><th>Severidad</th><th>Cantidad</th></tr></thead>
+                <tbody>$(ConvertTo-HtmlTable $Data["XDR_AllAlerts"] @("ServiceSource","Severity","Count"))</tbody>
+            </table>
+        </div>
+
+        <h3>Top 25 Alertas Recientes</h3>
+        <div class="table-container">
+            <table>
+                <thead><tr><th>Hora</th><th>Alerta</th><th>Severidad</th><th>Servicio</th><th>Categoría</th><th>Entidades</th><th>Dispositivos</th></tr></thead>
+                <tbody>$(ConvertTo-HtmlTable $Data["XDR_Incidents"] @("Timestamp","Title","Severity","ServiceSource","Category","Entities","DevicesAffected"))</tbody>
+            </table>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
         <!-- ═══ SECCIÓN MDE: Seguridad de Endpoints ═══ -->
         <!-- ═══════════════════════════════════════════════════════ -->
 
         <h2>MDE: Seguridad de Endpoints</h2>
-        <h3>Alertas por Severidad</h3>
+        <h3>Alertas MDE por Severidad</h3>
         <div class="table-container">
             <table>
                 <thead><tr><th>Severidad</th><th>Cantidad</th></tr></thead>
