@@ -135,8 +135,10 @@
             letter-spacing: 0.3px;
         }
         .ops-group-header.mdo  { background: linear-gradient(135deg, #0078d4, #005a9e); }
+        .ops-group-header.mde  { background: linear-gradient(135deg, #d83b01, #a52a00); }
         .ops-group-header.mdi  { background: linear-gradient(135deg, #e97a00, #c25e00); }
         .ops-group-header.entra { background: linear-gradient(135deg, #107c10, #0b5e0b); }
+        .ops-group-header.mda  { background: linear-gradient(135deg, #8764b8, #6b4fa0); }
         .ops-group-header .icon { font-size: 1.2em; }
         .ops-badge {
             display: inline-block;
@@ -202,7 +204,7 @@
     <div class="header">
         <h1>Reporte Diario de Operaciones de Seguridad</h1>
         <div class="meta">
-            <div><strong>Período:</strong> 2026-02-26 09:25 - 2026-02-27 09:25</div>
+            <div><strong>Período:</strong> 2026-02-26 19:06 - 2026-02-27 19:06</div>
             <div style="font-size: 0.85em; margin-top: 4px;">Tenant ID: ********************************8c2b</div>
         </div>
     </div>
@@ -254,23 +256,24 @@
             </div>
         </div>
 
-        <!-- Recomendación de KQL diario -->
+        <!-- Recomendación de KQL diario – MDO -->
         <div class="ops-group" style="margin-top: 20px;">
             <div class="ops-group-header mdo">
-                <span class="icon">&#x1f50d;</span> Recomendación de KQL diario
-                <span class="ops-badge daily">#16 de 28</span>
+                <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDO
+                <span class="ops-badge daily">#1 de 28</span>
             </div>
             <div style="padding: 20px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <span style="background:#e6f2ff; color:#0078d4; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Análisis de URLs y Adjuntos</span>
+                    <span style="background:#e6f2ff; color:#0078d4; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Spoofing y Autenticación</span>
                 </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Campaña Activa: Múltiples Clics en misma URL</h3>
-                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let Lookback = 7d;
-UrlClickEvents
-| where Timestamp > ago(Lookback)
-| summarize DistinctVictims=dcount(RecipientEmailAddress), FirstClick=min(Timestamp), LastClick=max(Timestamp) by Url
-| where DistinctVictims >= 3
-| order by DistinctVictims desc, LastClick desc</div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Spoofing: From (Header) ≠ MailFrom (Envelope)</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let lookback = 7d;
+EmailEvents
+| where Timestamp >= ago(lookback)
+| where isempty(SenderFromDomain) == false and isempty(SenderMailFromDomain) == false
+| where SenderFromDomain != SenderMailFromDomain
+| project Timestamp, NetworkMessageId, SenderFromAddress, SenderFromDomain, SenderMailFromAddress, SenderMailFromDomain, RecipientEmailAddress, Subject, DeliveryAction, ThreatTypes
+| order by Timestamp desc</div>
                 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
                     <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
                     <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/04%20Paquete%20MDO%20KQL%20Advance%20Hunting.md" target="_blank">&#x1f4d6; Ver Catálogo Completo (28 KQL)</a>
@@ -278,7 +281,10 @@ UrlClickEvents
             </div>
         </div>
 
-        <!-- Sección MDE -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- ═══ SECCIÓN MDE: Seguridad de Endpoints ═══ -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+
         <h2>MDE: Seguridad de Endpoints</h2>
         <h3>Alertas por Severidad</h3>
         <div class="table-container">
@@ -288,8 +294,56 @@ UrlClickEvents
             </table>
         </div>
 
-        <!-- Sección MDI -->
+        <!-- Recomendación de KQL diario – MDE -->
+        <div class="ops-group" style="margin-top: 20px;">
+            <div class="ops-group-header mde">
+                <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDE
+                <span class="ops-badge daily">#7 de 12</span>
+            </div>
+            <div style="padding: 20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <span style="background:#fce4ec; color:#d83b01; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Conexiones de Red</span>
+                </div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">DNS Tunneling / Exfiltración DNS</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let TimeRange = 1d;
+DeviceNetworkEvents
+| where Timestamp >= ago(TimeRange)
+| where RemotePort == 53
+| summarize DNSQueries=count(), DistinctDomains=dcount(RemoteUrl) by DeviceName, InitiatingProcessAccountName
+| where DNSQueries > 1000 or DistinctDomains > 500
+| order by DNSQueries desc</div>
+                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- ═══ SECCIÓN MDI: Seguridad de Identidades ═══ -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+
         <h2>MDI: Seguridad de Identidades</h2>
+
+        <!-- Tareas Operativas MDI -->
+        <div class="ops-section">
+            <div class="ops-group">
+                <div class="ops-group-header mdi">
+                    <span class="icon">&#x1f6e1;</span> Tareas Operativas - Microsoft Defender for Identity
+                    <span class="ops-badge daily">5 Diarias</span>
+                </div>
+                <table class="ops-table">
+                    <thead><tr><th style="width:50%">Tarea</th><th style="width:25%">Portal</th><th style="width:25%">Documentación</th></tr></thead>
+                    <tbody>
+                        <tr><td class="ops-task-name">Revisar ITDR Dashboard</td><td><a class="ops-btn portal" href="https://security.microsoft.com/identities/dashboard" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-itdr-dashboard-identities--dashboard" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Triage de Incidentes por Prioridad</td><td><a class="ops-btn portal" href="https://security.microsoft.com/incidents" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#triage-de-incidentes-por-prioridad-incidents--alerts" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Configurar Tuning para Benign False Positives</td><td><a class="ops-btn portal" href="https://security.microsoft.com/advanced-hunting" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#configurar-tuning-para-benign--false-positives-advanced-hunting" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Proactive hunting diario o semanal</td><td><a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#proactive-hunting-diario-o-semanal-seg%C3%BAn-madurez" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisar Health Issues Global y Sensor</td><td><a class="ops-btn portal" href="https://security.microsoft.com/identities/health-issues" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-health-issues-global-y-sensor" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <h3>Potencial de éxito de Ataque de Fuerza Bruta</h3>
         <div class="table-container">
             <table>
@@ -306,53 +360,46 @@ UrlClickEvents
             </table>
         </div>
 
-        <!-- Sección MDA -->
-        <h2>MDA: Aplicaciones en la Nube y Shadow IT</h2>
-        <h3>Nuevos Consentimientos OAuth</h3>
-        <div class="table-container">
-            <table>
-                <thead><tr><th>Aplicación</th><th>AppId</th><th>Consentimientos</th><th>Usuarios</th></tr></thead>
-                <tbody><tr><td colspan='4' style='text-align:center; color:#666;'>No se encontraron datos en el período</td></tr></tbody>
-            </table>
-        </div>
-
-        <!-- Recomendaciones -->
-        <h2>Recomendaciones y Acciones Diarias</h2>
-        <div class="recs">
-            <ul>
-                <li><strong>MDO:</strong> Revisar las campañas de phishing y validar la efectividad de ZAP. Verificar los usuarios más atacados para capacitación de concientización.</li>
-                <li><strong>MDI:</strong> Investigar los <b>0</b> usuarios con inicios de sesión de alto riesgo. Restablecer contraseñas o aplicar MFA en sesiones riesgosas.</li>
-                <li><strong>MDI:</strong> Analizar las <b>0</b> cuentas con éxito de fuerza bruta. Restablecer contraseñas y aplicar MFA si no está configurado.</li>
-                <li><strong>MDA:</strong> Auditar los <b>0</b> nuevos consentimientos OAuth. Revocar permisos de publicadores sospechosos o no verificados.</li>
-            </ul>
-        </div>
-        
-        <!-- Tareas Operativas -->
-        <h2>Tareas Operativas</h2>
-        <div class="ops-section">
-
-            <!-- ═══ MDI ═══ -->
-            <div class="ops-group">
-                <div class="ops-group-header mdi">
-                    <span class="icon">&#x1f6e1;</span> Microsoft Defender for Identity
-                    <span class="ops-badge daily">5 Diarias</span>
-                </div>
-                <table class="ops-table">
-                    <thead><tr><th style="width:50%">Tarea</th><th style="width:25%">Portal</th><th style="width:25%">Documentación</th></tr></thead>
-                    <tbody>
-                        <tr><td class="ops-task-name">Revisar ITDR Dashboard</td><td><a class="ops-btn portal" href="https://security.microsoft.com/identities/dashboard" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-itdr-dashboard-identities--dashboard" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                        <tr><td class="ops-task-name">Triage de Incidentes por Prioridad</td><td><a class="ops-btn portal" href="https://security.microsoft.com/incidents" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#triage-de-incidentes-por-prioridad-incidents--alerts" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                        <tr><td class="ops-task-name">Configurar Tuning para Benign False Positives</td><td><a class="ops-btn portal" href="https://security.microsoft.com/advanced-hunting" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#configurar-tuning-para-benign--false-positives-advanced-hunting" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                        <tr><td class="ops-task-name">Proactive hunting diario o semanal</td><td><a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#proactive-hunting-diario-o-semanal-seg%C3%BAn-madurez" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                        <tr><td class="ops-task-name">Revisar Health Issues Global y Sensor</td><td><a class="ops-btn portal" href="https://security.microsoft.com/identities/health-issues" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-health-issues-global-y-sensor" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                    </tbody>
-                </table>
+        <!-- Recomendación de KQL diario – MDI -->
+        <div class="ops-group" style="margin-top: 20px;">
+            <div class="ops-group-header mdi">
+                <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDI
+                <span class="ops-badge daily">#4 de 11</span>
             </div>
+            <div style="padding: 20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <span style="background:#fff3e0; color:#e97a00; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Fuerza Bruta y Spray</span>
+                </div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Cuentas Privilegiadas con Múltiples Fallos</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let TimeRange = 1d;
+let FailureThreshold = 8;
+IdentityLogonEvents
+| where Timestamp >= ago(TimeRange)
+| where ActionType has "Fail"
+| summarize Failures=count() by AccountUpn, AccountName
+| where Failures >= FailureThreshold
+| join kind=leftouter IdentityAccountInfo on AccountUpn
+| where IsPrivileged == true
+| project AccountUpn, AccountName, Failures, IsPrivileged
+| order by Failures desc</div>
+                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
+                    <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md" target="_blank">&#x1f4d6; Ver Catálogo Completo (11 KQL)</a>
+                </div>
+            </div>
+        </div>
 
-            <!-- ═══ EntraID ═══ -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- ═══ SECCIÓN Entra ID: Gobernanza de Identidades ═══ -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+
+        <h2>Entra ID: Gobernanza de Identidades</h2>
+
+        <!-- Tareas Operativas EntraID -->
+        <div class="ops-section">
             <div class="ops-group">
                 <div class="ops-group-header entra">
-                    <span class="icon">&#x1f510;</span> Microsoft Entra ID
+                    <span class="icon">&#x1f510;</span> Tareas Operativas - Microsoft Entra ID
                     <span class="ops-badge daily">4 Diarias</span>
                 </div>
                 <table class="ops-table">
@@ -365,7 +412,84 @@ UrlClickEvents
                     </tbody>
                 </table>
             </div>
+        </div>
 
+        <!-- Recomendación de KQL diario – Entra ID -->
+        <div class="ops-group" style="margin-top: 20px;">
+            <div class="ops-group-header entra">
+                <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – Entra ID
+                <span class="ops-badge daily">#3 de 26</span>
+            </div>
+            <div style="padding: 20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <span style="background:#e8f5e9; color:#107c10; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Detección de Usuarios</span>
+                </div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Password Spraying (una IP a Muchos Usuarios)</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let Lookback = 1d;
+let MinUsers = 15;
+let MinFailures = 50;
+EntraIdSignInEvents
+| where Timestamp >= ago(Lookback)
+| where ErrorCode != 0
+| summarize Failures=count(), Users=dcount(AccountUpn), SampleUsers=make_set(AccountUpn, 20) by IPAddress, Country
+| where Users >= MinUsers and Failures >= MinFailures
+| order by Users desc, Failures desc</div>
+                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
+                    <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/EntraID/Paquete%20KQL%20Queries%20EntraID%20Advanced%20Hunting.md" target="_blank">&#x1f4d6; Ver Catálogo Completo (26 KQL)</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- ═══ SECCIÓN MDA: Aplicaciones en la Nube ═══ -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+
+        <h2>MDA: Aplicaciones en la Nube y Shadow IT</h2>
+
+        <h3>Nuevos Consentimientos OAuth</h3>
+        <div class="table-container">
+            <table>
+                <thead><tr><th>Aplicación</th><th>AppId</th><th>Consentimientos</th><th>Usuarios</th></tr></thead>
+                <tbody><tr><td colspan='4' style='text-align:center; color:#666;'>No se encontraron datos en el período</td></tr></tbody>
+            </table>
+        </div>
+
+        <!-- Recomendación de KQL diario – MDA -->
+        <div class="ops-group" style="margin-top: 20px;">
+            <div class="ops-group-header mda">
+                <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDA
+                <span class="ops-badge daily">#5 de 10</span>
+            </div>
+            <div style="padding: 20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <span style="background:#ede7f6; color:#8764b8; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Operaciones Administrativas</span>
+                </div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Operaciones Admin en Aplicaciones Cloud</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let TimeRange = 7d;
+CloudAppEvents
+| where Timestamp >= ago(TimeRange)
+| where IsAdminOperation == true
+| summarize Events=count(), IPs=make_set(IPAddress, 20) by Application, ActionType, AccountDisplayName
+| order by Events desc</div>
+                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- ═══ Recomendaciones y Acciones ═══ -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+
+        <h2>Recomendaciones y Acciones Diarias</h2>
+        <div class="recs">
+            <ul>
+                <li><strong>MDO:</strong> Revisar las campañas de phishing y validar la efectividad de ZAP. Verificar los usuarios más atacados para capacitación de concientización.</li>
+                <li><strong>MDI:</strong> Investigar los <b>0</b> usuarios con inicios de sesión de alto riesgo. Restablecer contraseñas o aplicar MFA en sesiones riesgosas.</li>
+                <li><strong>MDI:</strong> Analizar las <b>0</b> cuentas con éxito de fuerza bruta. Restablecer contraseñas y aplicar MFA si no está configurado.</li>
+                <li><strong>MDA:</strong> Auditar los <b>0</b> nuevos consentimientos OAuth. Revocar permisos de publicadores sospechosos o no verificados.</li>
+            </ul>
         </div>
 
         <div class="footer">

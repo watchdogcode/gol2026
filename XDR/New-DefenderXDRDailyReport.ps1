@@ -653,8 +653,596 @@ EmailEvents
 "@ }
 )
 
-# Seleccionar un KQL aleatorio del catálogo completo
-$SelectedKql = $MdoKqlCatalog | Get-Random
+# Seleccionar un KQL aleatorio del catálogo MDO
+$SelectedMdoKql = $MdoKqlCatalog | Get-Random
+
+# --- CATÁLOGO KQL: MDE (Advanced Hunting – Endpoint Security) ---
+$MdeKqlCatalog = @(
+    @{ Id=1; Category="Alertas y Severidad"; Title="Alertas MDE por Severidad y Categoría"; Query=@"
+let TimeRange = 7d;
+AlertInfo
+| where Timestamp >= ago(TimeRange)
+| where ServiceSource == "MicrosoftDefenderForEndpoint"
+| summarize Count=count() by Severity, Category
+| order by Count desc
+"@ },
+    @{ Id=2; Category="Alertas y Severidad"; Title="Top 10 Alertas Repetitivas MDE"; Query=@"
+let TimeRange = 7d;
+AlertInfo
+| where Timestamp >= ago(TimeRange)
+| where ServiceSource == "MicrosoftDefenderForEndpoint"
+| summarize Count=count(), Devices=dcount(AlertId) by Title, Severity, Category
+| top 10 by Count desc
+"@ },
+    @{ Id=3; Category="Procesos Sospechosos"; Title="Ejecución de LOLBins (Living Off The Land)"; Query=@"
+let TimeRange = 7d;
+let lolbins = dynamic(["certutil.exe","mshta.exe","regsvr32.exe","rundll32.exe","wscript.exe","cscript.exe","msiexec.exe","bitsadmin.exe","forfiles.exe","pcalua.exe"]);
+DeviceProcessEvents
+| where Timestamp >= ago(TimeRange)
+| where FileName in~ (lolbins)
+| summarize Count=count(), Devices=dcount(DeviceName), Users=dcount(AccountName) by FileName, FolderPath
+| order by Count desc
+"@ },
+    @{ Id=4; Category="Procesos Sospechosos"; Title="Ejecuciones de PowerShell con Encoding/Bypass"; Query=@"
+let TimeRange = 7d;
+DeviceProcessEvents
+| where Timestamp >= ago(TimeRange)
+| where FileName =~ "powershell.exe" or FileName =~ "pwsh.exe"
+| where ProcessCommandLine has_any ("-enc","-encoded","-bypass","hidden","-nop","-w hidden","IEX","Invoke-Expression","downloadstring")
+| project Timestamp, DeviceName, AccountName, ProcessCommandLine, InitiatingProcessFileName
+| order by Timestamp desc
+"@ },
+    @{ Id=5; Category="Procesos Sospechosos"; Title="Creación de Tareas Programadas Sospechosas"; Query=@"
+let TimeRange = 7d;
+DeviceProcessEvents
+| where Timestamp >= ago(TimeRange)
+| where FileName =~ "schtasks.exe"
+| where ProcessCommandLine has "/create"
+| project Timestamp, DeviceName, AccountName, ProcessCommandLine, InitiatingProcessFileName, InitiatingProcessCommandLine
+| order by Timestamp desc
+"@ },
+    @{ Id=6; Category="Conexiones de Red"; Title="Conexiones Salientes a IPs Públicas Poco Comunes"; Query=@"
+let TimeRange = 7d;
+DeviceNetworkEvents
+| where Timestamp >= ago(TimeRange)
+| where RemoteIPType == "Public"
+| where ActionType == "ConnectionSuccess"
+| summarize Connections=count(), Devices=dcount(DeviceName) by RemoteIP, RemotePort, RemoteUrl
+| where Connections >= 5
+| order by Connections desc
+"@ },
+    @{ Id=7; Category="Conexiones de Red"; Title="DNS Tunneling / Exfiltración DNS"; Query=@"
+let TimeRange = 1d;
+DeviceNetworkEvents
+| where Timestamp >= ago(TimeRange)
+| where RemotePort == 53
+| summarize DNSQueries=count(), DistinctDomains=dcount(RemoteUrl) by DeviceName, InitiatingProcessAccountName
+| where DNSQueries > 1000 or DistinctDomains > 500
+| order by DNSQueries desc
+"@ },
+    @{ Id=8; Category="Movimiento Lateral"; Title="Logons Exitosos en Múltiples Dispositivos (1h)"; Query=@"
+let TimeRange = 1d;
+let Window = 1h;
+let MinDevices = 5;
+DeviceLogonEvents
+| where Timestamp >= ago(TimeRange)
+| where ActionType == "LogonSuccess"
+| where LogonType in ("Interactive","RemoteInteractive","Network")
+| summarize Devices=dcount(DeviceName), DeviceList=make_set(DeviceName, 20), Logons=count() by AccountName, AccountDomain, bin(Timestamp, Window)
+| where Devices >= MinDevices
+| order by Devices desc
+"@ },
+    @{ Id=9; Category="Ransomware y Archivos"; Title="Indicadores de Ransomware (Renombrado Masivo)"; Query=@"
+let TimeRange = 1d;
+DeviceFileEvents
+| where Timestamp >= ago(TimeRange)
+| where ActionType == "FileRenamed"
+| summarize FilesRenamed=count(), Extensions=make_set(extract(@"\.[^.]+$", 0, FileName), 20) by DeviceName, InitiatingProcessAccountName, InitiatingProcessFileName
+| where FilesRenamed > 100
+| order by FilesRenamed desc
+"@ },
+    @{ Id=10; Category="Vulnerabilidades"; Title="Vulnerabilidades Críticas por Dispositivo (TVM)"; Query=@"
+DeviceTvmSoftwareVulnerabilities
+| where VulnerabilitySeverityLevel == "Critical"
+| summarize CriticalVulns=count(), Software=make_set(SoftwareName, 20) by DeviceName
+| order by CriticalVulns desc
+| take 25
+"@ },
+    @{ Id=11; Category="Vulnerabilidades"; Title="Top CVEs Críticos Explotables"; Query=@"
+DeviceTvmSoftwareVulnerabilities
+| where VulnerabilitySeverityLevel == "Critical"
+| where IsExploitAvailable == true
+| summarize AffectedDevices=dcount(DeviceName), Software=make_set(SoftwareName, 10) by CveId
+| order by AffectedDevices desc
+| take 20
+"@ },
+    @{ Id=12; Category="Exposición de Dispositivos"; Title="Dispositivos con Exposición Alta o Media"; Query=@"
+DeviceInfo
+| summarize arg_max(Timestamp, *) by DeviceId
+| where ExposureLevel in ("High","Medium")
+| project DeviceName, OSPlatform, ExposureLevel, OnboardingStatus, Timestamp
+| order by ExposureLevel asc, Timestamp desc
+| take 50
+"@ }
+)
+$SelectedMdeKql = $MdeKqlCatalog | Get-Random
+
+# --- CATÁLOGO KQL: MDI (Advanced Hunting – Identity Threat Detection) ---
+# Fuente: https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md
+$MdiKqlCatalog = @(
+    @{ Id=1; Category="Alertas e Incidentes MDI"; Title="Alertas de Defender for Identity (últimos 7d)"; Query=@"
+let TimeRange = 7d;
+AlertInfo
+| where Timestamp >= ago(TimeRange)
+| where ServiceSource has_any ("MicrosoftDefenderForIdentity", "Defender for Identity", "MDI")
+| project Timestamp, AlertId, Title, Severity, Category, ServiceSource, DetectionSource, ProviderName
+| order by Timestamp desc
+"@ },
+    @{ Id=2; Category="Alertas e Incidentes MDI"; Title="Incidentes con Evidencias de Identidad"; Query=@"
+let TimeRange = 7d;
+IncidentInfo
+| where Timestamp >= ago(TimeRange)
+| project Timestamp, IncidentId, Title, Severity, Status, Classification, Determination
+| order by Timestamp desc
+"@ },
+    @{ Id=3; Category="Fuerza Bruta y Spray"; Title="Password Spraying – Múltiples Fallos por Cuenta"; Query=@"
+let TimeRange = 1d;
+let FailureThreshold = 15;
+IdentityLogonEvents
+| where Timestamp >= ago(TimeRange)
+| where ActionType in ("LogonFailed", "InvalidPassword", "UserLoginFailed", "Failure")
+| summarize FailedLogons=count(), SrcIPs=dcount(IPAddress) by AccountUpn, AccountName, AccountDomain
+| where FailedLogons >= FailureThreshold and SrcIPs >= 3
+| order by FailedLogons desc
+"@ },
+    @{ Id=4; Category="Fuerza Bruta y Spray"; Title="Cuentas Privilegiadas con Múltiples Fallos"; Query=@"
+let TimeRange = 1d;
+let FailureThreshold = 8;
+IdentityLogonEvents
+| where Timestamp >= ago(TimeRange)
+| where ActionType has "Fail"
+| summarize Failures=count() by AccountUpn, AccountName
+| where Failures >= FailureThreshold
+| join kind=leftouter IdentityAccountInfo on AccountUpn
+| where IsPrivileged == true
+| project AccountUpn, AccountName, Failures, IsPrivileged
+| order by Failures desc
+"@ },
+    @{ Id=5; Category="Reconocimiento LDAP/SAM-R"; Title="Enumeración LDAP / SAM-R Anómala"; Query=@"
+let TimeRange = 1d;
+IdentityQueryEvents
+| where Timestamp >= ago(TimeRange)
+| where ActionType in ("SamR query", "Ldap query")
+| summarize QueryCount=count() by DeviceName, AccountUpn, bin(Timestamp, 1h)
+| where QueryCount > 500
+| order by QueryCount desc
+"@ },
+    @{ Id=6; Category="Reconocimiento LDAP/SAM-R"; Title="Enumeración de Objetos AD (Usuarios/Grupos)"; Query=@"
+let TimeRange = 7d;
+IdentityQueryEvents
+| where Timestamp >= ago(TimeRange)
+| summarize Events=count(), SrcIPs=dcount(IPAddress) by AccountUpn, AccountName, AccountDomain
+| order by Events desc
+"@ },
+    @{ Id=7; Category="Movimiento Lateral"; Title="Logons Exitosos en Múltiples Equipos (1h)"; Query=@"
+let Lookback = 1d;
+let Window = 1h;
+let MinDevices = 6;
+IdentityLogonEvents
+| where Timestamp >= ago(Lookback)
+| where ActionType in ("LogonSuccess", "LogonAttempted")
+| summarize Devices=dcount(DeviceName), DeviceList=make_set(DeviceName, 25), TotalLogons=count() by AccountUpn, AccountName, AccountDomain, bin(Timestamp, Window)
+| where Devices >= MinDevices
+| order by Devices desc
+"@ },
+    @{ Id=8; Category="Persistencia y Escalación"; Title="sAMAccountName Spoofing / noPac"; Query=@"
+let TimeRange = 7d;
+IdentityDirectoryEvents
+| where Timestamp >= ago(TimeRange)
+| where ActionType contains "Account"
+| extend OldSamAccount = tostring(parse_json(AdditionalFields).OldValue)
+| extend NewSamAccount = tostring(parse_json(AdditionalFields).NewValue)
+| where OldSamAccount != NewSamAccount and NewSamAccount endswith "$"
+| project Timestamp, AccountUpn, TargetAccountUpn, OldSamAccount, NewSamAccount, DeviceName
+| order by Timestamp desc
+"@ },
+    @{ Id=9; Category="Persistencia y Escalación"; Title="Cambios de UPN Sospechosos"; Query=@"
+let TimeRange = 7d;
+IdentityDirectoryEvents
+| where Timestamp >= ago(TimeRange)
+| where ActionType has_any ("UPN", "User principal name", "UserPrincipalName")
+| project Timestamp, AccountUpn, TargetAccountUpn, ActionType, AdditionalFields, DeviceName
+| order by Timestamp desc
+"@ },
+    @{ Id=10; Category="Persistencia y Escalación"; Title="Actividad PowerShell en Domain Controllers"; Query=@"
+let TimeRange = 7d;
+IdentityDirectoryEvents
+| where Timestamp >= ago(TimeRange)
+| where ActionType has "PowerShell"
+| project Timestamp, AccountUpn, ActionType, AdditionalFields, DeviceName, DestinationDeviceName
+| order by Timestamp desc
+"@ },
+    @{ Id=11; Category="Exfiltración DNS"; Title="DNS Tunneling / Exfiltración"; Query=@"
+let TimeRange = 1d;
+DeviceNetworkEvents
+| where Timestamp >= ago(TimeRange)
+| where RemotePort == 53
+| summarize DNSQueries=count(), DistinctDomains=dcount(RemoteUrl) by DeviceName, InitiatingProcessAccountName
+| where DNSQueries > 1000 or DistinctDomains > 500
+| order by DNSQueries desc
+"@ }
+)
+$SelectedMdiKql = $MdiKqlCatalog | Get-Random
+
+# --- CATÁLOGO KQL: Entra ID (Advanced Hunting – Identity Governance) ---
+# Fuente: https://github.com/watchdogcode/gol2026/blob/V2.1/EntraID/Paquete%20KQL%20Queries%20EntraID%20Advanced%20Hunting.md
+$EntraKqlCatalog = @(
+    # ── A) Detección – Usuarios ──
+    @{ Id=1; Category="Detección de Usuarios"; Title="Top Fallos de Inicio de Sesión por Usuario"; Query=@"
+let Lookback = 1d;
+EntraIdSignInEvents
+| where Timestamp >= ago(Lookback)
+| where ErrorCode != 0
+| summarize Failures=count(), Apps=dcount(Application), IPs=dcount(IPAddress) by AccountUpn
+| order by Failures desc
+"@ },
+    @{ Id=2; Category="Detección de Usuarios"; Title="Top Fallos por IP (Brute Force / Spray)"; Query=@"
+let Lookback = 1d;
+EntraIdSignInEvents
+| where Timestamp >= ago(Lookback)
+| where ErrorCode != 0
+| summarize Failures=count(), Users=dcount(AccountUpn), Apps=dcount(Application) by IPAddress, Country
+| order by Users desc, Failures desc
+"@ },
+    @{ Id=3; Category="Detección de Usuarios"; Title="Password Spraying (una IP a Muchos Usuarios)"; Query=@"
+let Lookback = 1d;
+let MinUsers = 15;
+let MinFailures = 50;
+EntraIdSignInEvents
+| where Timestamp >= ago(Lookback)
+| where ErrorCode != 0
+| summarize Failures=count(), Users=dcount(AccountUpn), SampleUsers=make_set(AccountUpn, 20) by IPAddress, Country
+| where Users >= MinUsers and Failures >= MinFailures
+| order by Users desc, Failures desc
+"@ },
+    @{ Id=4; Category="Detección de Usuarios"; Title="Spray Distribuido (Muchas IPs a un Usuario)"; Query=@"
+let Lookback = 1d;
+let MinIPs = 10;
+let MinFailures = 30;
+EntraIdSignInEvents
+| where Timestamp >= ago(Lookback)
+| where ErrorCode != 0
+| summarize Failures=count(), IPs=dcount(IPAddress), SampleIPs=make_set(IPAddress, 20) by AccountUpn
+| where IPs >= MinIPs and Failures >= MinFailures
+| order by IPs desc, Failures desc
+"@ },
+    @{ Id=5; Category="Detección de Usuarios"; Title="Picos de Fallos por Ventana (Detección de Ráfagas)"; Query=@"
+let Lookback = 1d;
+let Window = 10m;
+let Spike = 30;
+EntraIdSignInEvents
+| where Timestamp >= ago(Lookback)
+| where ErrorCode != 0
+| summarize Failures=count() by IPAddress, AccountUpn, bin(Timestamp, Window)
+| where Failures >= Spike
+| order by Failures desc
+"@ },
+    @{ Id=6; Category="Detección de Riesgo"; Title="Sign-ins de Alto Riesgo (Medium/High)"; Query=@"
+let Lookback = 7d;
+EntraIdSignInEvents
+| where Timestamp >= ago(Lookback)
+| where RiskLevelAggregated in (50, 100)
+| project Timestamp, AccountUpn, RiskLevelAggregated, RiskState, RiskDetails, Application, ResourceDisplayName, IPAddress, Country
+| order by Timestamp desc
+"@ },
+    @{ Id=7; Category="Detección de Riesgo"; Title="Usuarios At Risk o Confirmed Compromised"; Query=@"
+let Lookback = 14d;
+EntraIdSignInEvents
+| where Timestamp >= ago(Lookback)
+| where RiskState in (4, 5)
+| project Timestamp, AccountUpn, RiskState, RiskDetails, Application, ResourceDisplayName, IPAddress, Country
+| order by Timestamp desc
+"@ },
+    @{ Id=8; Category="MFA y Conditional Access"; Title="Sign-in sin MFA Cuando se Esperaba MFA"; Query=@"
+let Lookback = 7d;
+EntraIdSignInEvents
+| where Timestamp >= ago(Lookback)
+| where AuthenticationRequirement == "singleFactorAuthentication"
+| summarize SignIns=count(), Apps=dcount(Application), Countries=dcount(Country) by AccountUpn
+| order by SignIns desc
+"@ },
+    @{ Id=9; Category="MFA y Conditional Access"; Title="MFA Requerido pero CA No Aplicado / Falló"; Query=@"
+let Lookback = 7d;
+EntraIdSignInEvents
+| where Timestamp >= ago(Lookback)
+| where AuthenticationRequirement == "multiFactorAuthentication"
+| where ConditionalAccessStatus in (1,2)
+| project Timestamp, AccountUpn, Application, ConditionalAccessStatus, ConditionalAccessPolicies, IPAddress, Country
+| order by Timestamp desc
+"@ },
+    @{ Id=10; Category="Anomalías Geográficas"; Title="Token Issuer ADFS (Entornos Híbridos)"; Query=@"
+let Lookback = 14d;
+EntraIdSignInEvents
+| where Timestamp >= ago(Lookback)
+| where TokenIssuerType == 1
+| summarize SignIns=count(), Users=dcount(AccountUpn), Apps=dcount(Application) by Application, ResourceDisplayName
+| order by SignIns desc
+"@ },
+    @{ Id=11; Category="Anomalías Geográficas"; Title="Sign-ins desde Países Nuevos por Usuario"; Query=@"
+let Lookback = 30d;
+let Recent = 2d;
+let historical = EntraIdSignInEvents
+| where Timestamp between (ago(Lookback) .. ago(Recent))
+| summarize KnownCountries=make_set(Country, 200) by AccountUpn;
+EntraIdSignInEvents
+| where Timestamp >= ago(Recent)
+| summarize RecentCountries=make_set(Country, 50), RecentIPs=make_set(IPAddress, 50) by AccountUpn
+| join kind=leftouter historical on AccountUpn
+| extend NewCountries = set_difference(RecentCountries, KnownCountries)
+| where array_length(NewCountries) > 0
+| project AccountUpn, NewCountries, RecentIPs
+| order by array_length(NewCountries) desc
+"@ },
+    @{ Id=12; Category="Anomalías Geográficas"; Title="Nuevos Dispositivos por Usuario"; Query=@"
+let Lookback = 30d;
+let Recent = 2d;
+let historical = EntraIdSignInEvents
+| where Timestamp between (ago(Lookback) .. ago(Recent))
+| summarize KnownDevices=make_set(EntraIdDeviceId, 500) by AccountUpn;
+EntraIdSignInEvents
+| where Timestamp >= ago(Recent)
+| summarize RecentDevices=make_set(EntraIdDeviceId, 100), SampleApps=make_set(Application, 20) by AccountUpn
+| join kind=leftouter historical on AccountUpn
+| extend NewDevices = set_difference(RecentDevices, KnownDevices)
+| where array_length(NewDevices) > 0
+| project AccountUpn, NewDevices, SampleApps
+"@ },
+    @{ Id=13; Category="Dispositivos y Compliance"; Title="Acceso desde Dispositivos No Gestionados"; Query=@"
+let Lookback = 7d;
+EntraIdSignInEvents
+| where Timestamp >= ago(Lookback)
+| where IsManaged == 0 or IsCompliant == 0
+| summarize SignIns=count(), Apps=dcount(Application), Countries=dcount(Country) by AccountUpn, IsManaged, IsCompliant
+| order by SignIns desc
+"@ },
+    @{ Id=14; Category="Dispositivos y Compliance"; Title="Invitados / Externos con Actividad"; Query=@"
+let Lookback = 14d;
+EntraIdSignInEvents
+| where Timestamp >= ago(Lookback)
+| where IsGuestUser == true or IsExternalUser == 1
+| summarize SignIns=count(), Apps=make_set(Application, 20), Countries=make_set(Country, 20) by AccountUpn
+| order by SignIns desc
+"@ },
+    # ── B) Workload Identities ──
+    @{ Id=15; Category="Workload Identities (SPN)"; Title="Fallos de Service Principals / Managed Identity"; Query=@"
+let Lookback = 7d;
+EntraIdSpnSignInEvents
+| where Timestamp >= ago(Lookback)
+| where ErrorCode != 0
+| summarize Failures=count(), IPs=dcount(IPAddress), Countries=dcount(Country) by ServicePrincipalName, ServicePrincipalId, IsManagedIdentity
+| order by Failures desc
+"@ },
+    @{ Id=16; Category="Workload Identities (SPN)"; Title="SPN con Muchas IPs (Posible Abuso / Token Theft)"; Query=@"
+let Lookback = 7d;
+let MinIPs = 10;
+EntraIdSpnSignInEvents
+| where Timestamp >= ago(Lookback)
+| summarize SignIns=count(), IPs=dcount(IPAddress), SampleIPs=make_set(IPAddress, 25) by ServicePrincipalName, ServicePrincipalId
+| where IPs >= MinIPs
+| order by IPs desc, SignIns desc
+"@ },
+    @{ Id=17; Category="Workload Identities (SPN)"; Title="Nuevos Países para un SPN (Baseline)"; Query=@"
+let Lookback = 30d;
+let Recent = 2d;
+let historical = EntraIdSpnSignInEvents
+| where Timestamp between (ago(Lookback) .. ago(Recent))
+| summarize KnownCountries=make_set(Country, 200) by ServicePrincipalId;
+EntraIdSpnSignInEvents
+| where Timestamp >= ago(Recent)
+| summarize RecentCountries=make_set(Country, 50), RecentIPs=make_set(IPAddress, 50) by ServicePrincipalId, ServicePrincipalName
+| join kind=leftouter historical on ServicePrincipalId
+| extend NewCountries = set_difference(RecentCountries, KnownCountries)
+| where array_length(NewCountries) > 0
+| project ServicePrincipalName, ServicePrincipalId, NewCountries, RecentIPs
+"@ },
+    # ── C) Abuso de Microsoft Graph ──
+    @{ Id=18; Category="Abuso de Microsoft Graph"; Title="Fallos 401/403 en Graph (Enumeración/Abuso)"; Query=@"
+let Lookback = 1d;
+GraphApiAuditEvents
+| where Timestamp >= ago(Lookback)
+| where ResponseStatusCode in ("401","403")
+| summarize Attempts=count(), URIs=make_set(RequestUri, 25) by AccountObjectId, ApplicationId, IPAddress, Scopes
+| order by Attempts desc
+"@ },
+    @{ Id=19; Category="Abuso de Microsoft Graph"; Title="Volumen Anómalo de Llamadas Graph"; Query=@"
+let Lookback = 1d;
+let Spike = 500;
+GraphApiAuditEvents
+| where Timestamp >= ago(Lookback)
+| summarize Requests=count(), DistinctUris=dcount(RequestUri) by AccountObjectId, ApplicationId
+| where Requests >= Spike
+| order by Requests desc
+"@ },
+    @{ Id=20; Category="Abuso de Microsoft Graph"; Title="Read-Heavy (Alto Ratio GET)"; Query=@"
+let Lookback = 1d;
+GraphApiAuditEvents
+| where Timestamp >= ago(Lookback)
+| summarize Total=count(), Gets=countif(RequestMethod == "GET"), Ratio=round(todouble(Gets)/todouble(Total), 3) by AccountObjectId, ApplicationId
+| where Total > 200 and Ratio > 0.9
+| order by Total desc
+"@ },
+    @{ Id=21; Category="Abuso de Microsoft Graph"; Title="Scopes Sensibles (Mail, Files, Directory)"; Query=@"
+let Lookback = 7d;
+let HighRiskScopes = dynamic(["Mail.Read","Mail.ReadWrite","Mail.ReadWrite.All","Files.Read","Files.ReadWrite","Files.ReadWrite.All","Sites.Read.All","Sites.ReadWrite.All","Directory.Read.All","Directory.ReadWrite.All","User.Read.All","Group.Read.All"]);
+GraphApiAuditEvents
+| where Timestamp >= ago(Lookback)
+| where Scopes has_any (HighRiskScopes)
+| summarize Requests=count(), IPs=dcount(IPAddress), URIs=make_set(RequestUri, 25) by AccountObjectId, ApplicationId, Scopes
+| order by Requests desc
+"@ },
+    # ── E) Investigación – Correlaciones ──
+    @{ Id=22; Category="Investigación y Correlación"; Title="Sign-ins de Alto Riesgo → Actividad Graph (±30 min)"; Query=@"
+let Lookback = 7d;
+let PivotWindow = 30m;
+let risky = EntraIdSignInEvents
+| where Timestamp >= ago(Lookback)
+| where RiskLevelAggregated in (50,100) or RiskState in (4,5)
+| project SignInTime=Timestamp, AccountUpn, AccountObjectId, IPAddress, Country, Application, CorrelationId;
+GraphApiAuditEvents
+| join kind=inner (risky) on AccountObjectId
+| where Timestamp between (SignInTime - PivotWindow .. SignInTime + PivotWindow)
+| project SignInTime, Timestamp, AccountUpn, ApplicationId, IPAddress, RequestMethod, RequestUri, Scopes, ResponseStatusCode
+| order by SignInTime desc, Timestamp desc
+"@ },
+    @{ Id=23; Category="Investigación y Correlación"; Title="Password Spraying → Éxitos Posteriores"; Query=@"
+let Lookback = 1d;
+let Window = 1h;
+let MinUsers = 15;
+let suspects = EntraIdSignInEvents
+| where Timestamp >= ago(Lookback)
+| where ErrorCode != 0
+| summarize Failures=count(), Users=dcount(AccountUpn) by IPAddress
+| where Users >= MinUsers
+| project IPAddress;
+EntraIdSignInEvents
+| where Timestamp >= ago(Lookback)
+| join kind=inner (suspects) on IPAddress
+| summarize Failures=countif(ErrorCode!=0), Success=countif(ErrorCode==0), Users=dcount(AccountUpn) by IPAddress, bin(Timestamp, Window)
+| order by Success desc
+"@ },
+    @{ Id=24; Category="Investigación y Correlación"; Title="CA No Aplicado → Qué Apps y Usuarios"; Query=@"
+let Lookback = 7d;
+EntraIdSignInEvents
+| where Timestamp >= ago(Lookback)
+| where ConditionalAccessStatus == 2
+| summarize Events=count(), Users=dcount(AccountUpn) by Application, ResourceDisplayName
+| order by Events desc
+"@ },
+    # ── G) Eventos de Gestión de Entra ──
+    @{ Id=25; Category="Gestión Administrativa Entra"; Title="Top Acciones Administrativas de Entra ID"; Query=@"
+let Lookback = 14d;
+let AppName = "Azure Active Directory";
+CloudAppEvents
+| where Timestamp >= ago(Lookback)
+| where Application == AppName
+| where IsAdminOperation == true
+| summarize Events=count(), Actors=make_set(AccountDisplayName, 20), IPs=make_set(IPAddress, 20) by ActionType
+| order by Events desc
+"@ },
+    @{ Id=26; Category="Gestión Administrativa Entra"; Title="Acciones de Consent / Permission / Role"; Query=@"
+let Lookback = 30d;
+let AppName = "Azure Active Directory";
+CloudAppEvents
+| where Timestamp >= ago(Lookback)
+| where Application == AppName
+| where ActionType has_any ("consent", "permission", "role", "grant", "app")
+| project Timestamp, ActionType, AccountDisplayName, AccountObjectId, IPAddress, CountryCode, RawEventData, AdditionalFields
+| order by Timestamp desc
+"@ }
+)
+$SelectedEntraKql = $EntraKqlCatalog | Get-Random
+
+# --- CATÁLOGO KQL: MDA (Advanced Hunting – Cloud App Security) ---
+$MdaKqlCatalog = @(
+    @{ Id=1; Category="OAuth y Consentimientos"; Title="Nuevos Consentimientos OAuth (Últimos 7d)"; Query=@"
+let TimeRange = 7d;
+CloudAppEvents
+| where Timestamp >= ago(TimeRange)
+| where ActionType in ("Consent to application","Grant consent")
+| summarize Consents=count(), Users=dcount(AccountId) by Application, ApplicationId
+| top 20 by Consents desc
+"@ },
+    @{ Id=2; Category="OAuth y Consentimientos"; Title="Apps OAuth con Permisos de Alto Riesgo"; Query=@"
+let TimeRange = 30d;
+CloudAppEvents
+| where Timestamp >= ago(TimeRange)
+| where ActionType has_any ("consent","permission","grant")
+| where RawEventData has_any ("Mail.ReadWrite","Files.ReadWrite.All","Directory.ReadWrite.All","Sites.ReadWrite.All")
+| project Timestamp, ActionType, Application, AccountDisplayName, RawEventData
+| order by Timestamp desc
+"@ },
+    @{ Id=3; Category="Shadow IT"; Title="Top Aplicaciones Cloud por Actividad"; Query=@"
+let TimeRange = 7d;
+CloudAppEvents
+| where Timestamp >= ago(TimeRange)
+| summarize Events=count(), Users=dcount(AccountId) by Application
+| top 25 by Events desc
+"@ },
+    @{ Id=4; Category="Shadow IT"; Title="Aplicaciones Nuevas (Primera Vez Vistas en 7d)"; Query=@"
+let Lookback = 7d;
+let Baseline = 60d;
+let recent = CloudAppEvents
+| where Timestamp >= ago(Lookback)
+| summarize FirstSeen=min(Timestamp), Events=count() by Application;
+let historical = CloudAppEvents
+| where Timestamp between (ago(Baseline) .. ago(Lookback))
+| summarize PrevEvents=count() by Application;
+recent
+| join kind=leftanti historical on Application
+| order by Events desc
+"@ },
+    @{ Id=5; Category="Operaciones Administrativas"; Title="Operaciones Admin en Aplicaciones Cloud"; Query=@"
+let TimeRange = 7d;
+CloudAppEvents
+| where Timestamp >= ago(TimeRange)
+| where IsAdminOperation == true
+| summarize Events=count(), IPs=make_set(IPAddress, 20) by Application, ActionType, AccountDisplayName
+| order by Events desc
+"@ },
+    @{ Id=6; Category="Operaciones Administrativas"; Title="Acciones de Eliminación Masiva"; Query=@"
+let TimeRange = 7d;
+CloudAppEvents
+| where Timestamp >= ago(TimeRange)
+| where ActionType has_any ("Delete","Remove","Purge")
+| summarize Deletions=count(), Users=dcount(AccountId) by Application, ActionType
+| where Deletions > 10
+| order by Deletions desc
+"@ },
+    @{ Id=7; Category="Descarga y Exfiltración"; Title="Descargas Masivas desde Cloud Apps"; Query=@"
+let TimeRange = 7d;
+CloudAppEvents
+| where Timestamp >= ago(TimeRange)
+| where ActionType has_any ("Download","FileDownloaded","Export")
+| summarize Downloads=count(), Apps=dcount(Application) by AccountDisplayName, AccountObjectId
+| where Downloads > 50
+| order by Downloads desc
+"@ },
+    @{ Id=8; Category="Descarga y Exfiltración"; Title="Compartir Archivos con Externos"; Query=@"
+let TimeRange = 14d;
+CloudAppEvents
+| where Timestamp >= ago(TimeRange)
+| where ActionType has_any ("SharingSet","SharingInvitationCreated","Anonymous")
+| summarize Shares=count(), Apps=dcount(Application) by AccountDisplayName, AccountObjectId
+| where Shares > 20
+| order by Shares desc
+"@ },
+    @{ Id=9; Category="Anomalías de Acceso"; Title="Actividad desde Países Poco Comunes"; Query=@"
+let TimeRange = 7d;
+let Baseline = 60d;
+let known = CloudAppEvents
+| where Timestamp between (ago(Baseline) .. ago(TimeRange))
+| summarize KnownCountries=make_set(CountryCode, 200) by AccountId;
+CloudAppEvents
+| where Timestamp >= ago(TimeRange)
+| summarize RecentCountries=make_set(CountryCode, 50), Events=count() by AccountId, AccountDisplayName
+| join kind=leftouter known on AccountId
+| extend NewCountries = set_difference(RecentCountries, KnownCountries)
+| where array_length(NewCountries) > 0
+| project AccountDisplayName, NewCountries, Events
+| order by array_length(NewCountries) desc
+"@ },
+    @{ Id=10; Category="Anomalías de Acceso"; Title="Viaje Imposible (Actividad en 2+ Países en <2h)"; Query=@"
+let TimeRange = 1d;
+let Window = 2h;
+CloudAppEvents
+| where Timestamp >= ago(TimeRange)
+| summarize Countries=make_set(CountryCode, 10), MinTime=min(Timestamp), MaxTime=max(Timestamp) by AccountId, AccountDisplayName, bin(Timestamp, Window)
+| where array_length(Countries) >= 2
+| project AccountDisplayName, Countries, MinTime, MaxTime
+| order by MaxTime desc
+"@ }
+)
+$SelectedMdaKql = $MdaKqlCatalog | Get-Random
 
 # 4. Generar HTML
 function ConvertTo-HtmlTable {
@@ -812,8 +1400,10 @@ $HtmlContent = @"
             letter-spacing: 0.3px;
         }
         .ops-group-header.mdo  { background: linear-gradient(135deg, #0078d4, #005a9e); }
+        .ops-group-header.mde  { background: linear-gradient(135deg, #d83b01, #a52a00); }
         .ops-group-header.mdi  { background: linear-gradient(135deg, #e97a00, #c25e00); }
         .ops-group-header.entra { background: linear-gradient(135deg, #107c10, #0b5e0b); }
+        .ops-group-header.mda  { background: linear-gradient(135deg, #8764b8, #6b4fa0); }
         .ops-group-header .icon { font-size: 1.2em; }
         .ops-badge {
             display: inline-block;
@@ -931,18 +1521,18 @@ $HtmlContent = @"
             </div>
         </div>
 
-        <!-- Recomendación de KQL diario -->
+        <!-- Recomendación de KQL diario – MDO -->
         <div class="ops-group" style="margin-top: 20px;">
             <div class="ops-group-header mdo">
-                <span class="icon">&#x1f50d;</span> Recomendación de KQL diario
-                <span class="ops-badge daily">#$($SelectedKql.Id) de 28</span>
+                <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDO
+                <span class="ops-badge daily">#$($SelectedMdoKql.Id) de 28</span>
             </div>
             <div style="padding: 20px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <span style="background:#e6f2ff; color:#0078d4; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">$($SelectedKql.Category)</span>
+                    <span style="background:#e6f2ff; color:#0078d4; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">$($SelectedMdoKql.Category)</span>
                 </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">$($SelectedKql.Title)</h3>
-                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedKql.Query)</div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">$($SelectedMdoKql.Title)</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedMdoKql.Query)</div>
                 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
                     <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
                     <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/04%20Paquete%20MDO%20KQL%20Advance%20Hunting.md" target="_blank">&#x1f4d6; Ver Catálogo Completo (28 KQL)</a>
@@ -950,7 +1540,10 @@ $HtmlContent = @"
             </div>
         </div>
 
-        <!-- Sección MDE -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- ═══ SECCIÓN MDE: Seguridad de Endpoints ═══ -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+
         <h2>MDE: Seguridad de Endpoints</h2>
         <h3>Alertas por Severidad</h3>
         <div class="table-container">
@@ -960,8 +1553,50 @@ $HtmlContent = @"
             </table>
         </div>
 
-        <!-- Sección MDI -->
+        <!-- Recomendación de KQL diario – MDE -->
+        <div class="ops-group" style="margin-top: 20px;">
+            <div class="ops-group-header mde">
+                <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDE
+                <span class="ops-badge daily">#$($SelectedMdeKql.Id) de 12</span>
+            </div>
+            <div style="padding: 20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <span style="background:#fce4ec; color:#d83b01; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">$($SelectedMdeKql.Category)</span>
+                </div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">$($SelectedMdeKql.Title)</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedMdeKql.Query)</div>
+                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- ═══ SECCIÓN MDI: Seguridad de Identidades ═══ -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+
         <h2>MDI: Seguridad de Identidades</h2>
+
+        <!-- Tareas Operativas MDI -->
+        <div class="ops-section">
+            <div class="ops-group">
+                <div class="ops-group-header mdi">
+                    <span class="icon">&#x1f6e1;</span> Tareas Operativas - Microsoft Defender for Identity
+                    <span class="ops-badge daily">5 Diarias</span>
+                </div>
+                <table class="ops-table">
+                    <thead><tr><th style="width:50%">Tarea</th><th style="width:25%">Portal</th><th style="width:25%">Documentación</th></tr></thead>
+                    <tbody>
+                        <tr><td class="ops-task-name">Revisar ITDR Dashboard</td><td><a class="ops-btn portal" href="https://security.microsoft.com/identities/dashboard" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-itdr-dashboard-identities--dashboard" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Triage de Incidentes por Prioridad</td><td><a class="ops-btn portal" href="https://security.microsoft.com/incidents" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#triage-de-incidentes-por-prioridad-incidents--alerts" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Configurar Tuning para Benign False Positives</td><td><a class="ops-btn portal" href="https://security.microsoft.com/advanced-hunting" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#configurar-tuning-para-benign--false-positives-advanced-hunting" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Proactive hunting diario o semanal</td><td><a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#proactive-hunting-diario-o-semanal-seg%C3%BAn-madurez" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisar Health Issues Global y Sensor</td><td><a class="ops-btn portal" href="https://security.microsoft.com/identities/health-issues" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-health-issues-global-y-sensor" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <h3>Potencial de éxito de Ataque de Fuerza Bruta</h3>
         <div class="table-container">
             <table>
@@ -978,53 +1613,36 @@ $HtmlContent = @"
             </table>
         </div>
 
-        <!-- Sección MDA -->
-        <h2>MDA: Aplicaciones en la Nube y Shadow IT</h2>
-        <h3>Nuevos Consentimientos OAuth</h3>
-        <div class="table-container">
-            <table>
-                <thead><tr><th>Aplicación</th><th>AppId</th><th>Consentimientos</th><th>Usuarios</th></tr></thead>
-                <tbody>$(ConvertTo-HtmlTable $Data["MDA_OAuth"] @("Application","ApplicationId","Consents","Users"))</tbody>
-            </table>
-        </div>
-
-        <!-- Recomendaciones -->
-        <h2>Recomendaciones y Acciones Diarias</h2>
-        <div class="recs">
-            <ul>
-                <li><strong>MDO:</strong> Revisar $(if($Kpi_PhishDelivered -gt 0){"las <b>$Kpi_PhishDelivered</b> campañas de phishing entregadas"}else{"las campañas de phishing"}) y validar la efectividad de ZAP. Verificar los usuarios más atacados para capacitación de concientización.</li>
-                <li><strong>MDI:</strong> Investigar los <b>$Kpi_HighRiskUsers</b> usuarios con inicios de sesión de alto riesgo. Restablecer contraseñas o aplicar MFA en sesiones riesgosas.</li>
-                <li><strong>MDI:</strong> Analizar las <b>$Kpi_CompromisedIdentities</b> cuentas con éxito de fuerza bruta. Restablecer contraseñas y aplicar MFA si no está configurado.</li>
-                <li><strong>MDA:</strong> Auditar los <b>$Kpi_NewOAuth</b> nuevos consentimientos OAuth. Revocar permisos de publicadores sospechosos o no verificados.</li>
-            </ul>
-        </div>
-        
-        <!-- Tareas Operativas -->
-        <h2>Tareas Operativas</h2>
-        <div class="ops-section">
-
-            <!-- ═══ MDI ═══ -->
-            <div class="ops-group">
-                <div class="ops-group-header mdi">
-                    <span class="icon">&#x1f6e1;</span> Microsoft Defender for Identity
-                    <span class="ops-badge daily">5 Diarias</span>
-                </div>
-                <table class="ops-table">
-                    <thead><tr><th style="width:50%">Tarea</th><th style="width:25%">Portal</th><th style="width:25%">Documentación</th></tr></thead>
-                    <tbody>
-                        <tr><td class="ops-task-name">Revisar ITDR Dashboard</td><td><a class="ops-btn portal" href="https://security.microsoft.com/identities/dashboard" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-itdr-dashboard-identities--dashboard" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                        <tr><td class="ops-task-name">Triage de Incidentes por Prioridad</td><td><a class="ops-btn portal" href="https://security.microsoft.com/incidents" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#triage-de-incidentes-por-prioridad-incidents--alerts" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                        <tr><td class="ops-task-name">Configurar Tuning para Benign False Positives</td><td><a class="ops-btn portal" href="https://security.microsoft.com/advanced-hunting" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#configurar-tuning-para-benign--false-positives-advanced-hunting" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                        <tr><td class="ops-task-name">Proactive hunting diario o semanal</td><td><a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#proactive-hunting-diario-o-semanal-seg%C3%BAn-madurez" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                        <tr><td class="ops-task-name">Revisar Health Issues Global y Sensor</td><td><a class="ops-btn portal" href="https://security.microsoft.com/identities/health-issues" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-health-issues-global-y-sensor" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                    </tbody>
-                </table>
+        <!-- Recomendación de KQL diario – MDI -->
+        <div class="ops-group" style="margin-top: 20px;">
+            <div class="ops-group-header mdi">
+                <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDI
+                <span class="ops-badge daily">#$($SelectedMdiKql.Id) de 11</span>
             </div>
+            <div style="padding: 20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <span style="background:#fff3e0; color:#e97a00; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">$($SelectedMdiKql.Category)</span>
+                </div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">$($SelectedMdiKql.Title)</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedMdiKql.Query)</div>
+                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
+                    <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md" target="_blank">&#x1f4d6; Ver Catálogo Completo (11 KQL)</a>
+                </div>
+            </div>
+        </div>
 
-            <!-- ═══ EntraID ═══ -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- ═══ SECCIÓN Entra ID: Gobernanza de Identidades ═══ -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+
+        <h2>Entra ID: Gobernanza de Identidades</h2>
+
+        <!-- Tareas Operativas EntraID -->
+        <div class="ops-section">
             <div class="ops-group">
                 <div class="ops-group-header entra">
-                    <span class="icon">&#x1f510;</span> Microsoft Entra ID
+                    <span class="icon">&#x1f510;</span> Tareas Operativas - Microsoft Entra ID
                     <span class="ops-badge daily">4 Diarias</span>
                 </div>
                 <table class="ops-table">
@@ -1037,7 +1655,71 @@ $HtmlContent = @"
                     </tbody>
                 </table>
             </div>
+        </div>
 
+        <!-- Recomendación de KQL diario – Entra ID -->
+        <div class="ops-group" style="margin-top: 20px;">
+            <div class="ops-group-header entra">
+                <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – Entra ID
+                <span class="ops-badge daily">#$($SelectedEntraKql.Id) de 26</span>
+            </div>
+            <div style="padding: 20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <span style="background:#e8f5e9; color:#107c10; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">$($SelectedEntraKql.Category)</span>
+                </div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">$($SelectedEntraKql.Title)</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedEntraKql.Query)</div>
+                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
+                    <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/V2.1/EntraID/Paquete%20KQL%20Queries%20EntraID%20Advanced%20Hunting.md" target="_blank">&#x1f4d6; Ver Catálogo Completo (26 KQL)</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- ═══ SECCIÓN MDA: Aplicaciones en la Nube ═══ -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+
+        <h2>MDA: Aplicaciones en la Nube y Shadow IT</h2>
+
+        <h3>Nuevos Consentimientos OAuth</h3>
+        <div class="table-container">
+            <table>
+                <thead><tr><th>Aplicación</th><th>AppId</th><th>Consentimientos</th><th>Usuarios</th></tr></thead>
+                <tbody>$(ConvertTo-HtmlTable $Data["MDA_OAuth"] @("Application","ApplicationId","Consents","Users"))</tbody>
+            </table>
+        </div>
+
+        <!-- Recomendación de KQL diario – MDA -->
+        <div class="ops-group" style="margin-top: 20px;">
+            <div class="ops-group-header mda">
+                <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDA
+                <span class="ops-badge daily">#$($SelectedMdaKql.Id) de 10</span>
+            </div>
+            <div style="padding: 20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <span style="background:#ede7f6; color:#8764b8; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">$($SelectedMdaKql.Category)</span>
+                </div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">$($SelectedMdaKql.Title)</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedMdaKql.Query)</div>
+                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- ═══ Recomendaciones y Acciones ═══ -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+
+        <h2>Recomendaciones y Acciones Diarias</h2>
+        <div class="recs">
+            <ul>
+                <li><strong>MDO:</strong> Revisar $(if($Kpi_PhishDelivered -gt 0){"las <b>$Kpi_PhishDelivered</b> campañas de phishing entregadas"}else{"las campañas de phishing"}) y validar la efectividad de ZAP. Verificar los usuarios más atacados para capacitación de concientización.</li>
+                <li><strong>MDI:</strong> Investigar los <b>$Kpi_HighRiskUsers</b> usuarios con inicios de sesión de alto riesgo. Restablecer contraseñas o aplicar MFA en sesiones riesgosas.</li>
+                <li><strong>MDI:</strong> Analizar las <b>$Kpi_CompromisedIdentities</b> cuentas con éxito de fuerza bruta. Restablecer contraseñas y aplicar MFA si no está configurado.</li>
+                <li><strong>MDA:</strong> Auditar los <b>$Kpi_NewOAuth</b> nuevos consentimientos OAuth. Revocar permisos de publicadores sospechosos o no verificados.</li>
+            </ul>
         </div>
 
         <div class="footer">
