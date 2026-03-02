@@ -64,4 +64,4 @@ IdentityLogonEvents
 | project Timestamp, AccountUpn, AccountName, AccountDomain, Failures, SrcIPs, IPList, Apps
 | order by Failures desc, SrcIPs desc
 ```
-[Paquete MDI KQL Queries](https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md#recomendaciones-r%C3%A1pidas-antes-de-ejecutar)
+[Paquete MDI KQL Queries](https://github.com/watchdogcode/gol2026/blob/main/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md#recomendaciones-r%C3%A1pidas-antes-de-ejecutar)
