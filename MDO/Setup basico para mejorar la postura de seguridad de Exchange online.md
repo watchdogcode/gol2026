@@ -27,7 +27,7 @@ A continuación encontrará reglas básicas de flujo de correo que son **altamen
 ## Regla de flujo de correo para bloquear correos enviados a mydominio.onmicrosoft.com y mydominio.mail.onmicrosoft.com
 
 ### Opción 1: Script automatizado descargue el script que ejecuta esta tarea: 
-[Block-onmicrosoftEmails](https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/Scripts/Block-OnMicrosoftEmails.ps1)
+[Block-onmicrosoftEmails](https://github.com/watchdogcode/gol2026/blob/main/MDO/Scripts/Block-OnMicrosoftEmails.ps1)
 
 ### Opción 2: Creación manual
 
@@ -64,7 +64,7 @@ A continuación encontrará reglas básicas de flujo de correo que son **altamen
 ## Regla de flujo de correo para bloquear correos que no pueden ser inspeccionados
 
 ### Opción 1: Script automatizado descargue el script que ejecuta esta tarea: 
-[Attachments Can’t be inspected](https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/Scripts/Attachmentscannotbeinspected.ps1)
+[Attachments Can’t be inspected](https://github.com/watchdogcode/gol2026/blob/main/MDO/Scripts/Attachmentscannotbeinspected.ps1)
 
 ### Opción 2: Creación manual
 
@@ -305,7 +305,7 @@ Permite visibilidad operativa.
 
 Puedes validar SPF, DKIM, DMARC y MTA-STS con el siguiente script:
 
-[Domain-Health-Check.ps1](https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/Scripts/Domain-Health-Check.ps1)
+[Domain-Health-Check.ps1](https://github.com/watchdogcode/gol2026/blob/main/MDO/Scripts/Domain-Health-Check.ps1)
 
 # ¿Qué es un “parked domain”?
 
