@@ -23,7 +23,7 @@
 #>
 
 param(
-    [int]$TimeWindowHours = 24,
+    [int]$TimeWindowHours = 720,
     [string]$OutputPath = "$PSScriptRoot\Daily_SecOps_Report_$(Get-Date -Format 'yyyyMMdd').html",
     [string]$TenantId = $env:AZURE_TENANT_ID,
     [string]$ClientId = $env:AZURE_CLIENT_ID,
