@@ -1,10 +1,10 @@
-# 🏹 Guía de Hunting Proactivo en Microsoft Defender for Office 365
+# 🛡️ Guía de Seguridad Operacional Mensual/Ad-Hoc: Microsoft Defender for Office 365
 
-Esta guía detalla los procedimientos para la búsqueda proactiva de amenazas, análisis de detecciones y remediación en el entorno de Microsoft Defender for Office 365 (MDO).
+Esta guía establece los procedimientos semanales para analizar tendencias, identificar usuarios de alto riesgo y gestionar campañas de amenazas en Microsoft Defender for Office 365 (MDO).
 
 ---
 
-## 1. 🛠️ Acceso a las Herramientas de Hunting
+## Acceso a las Herramientas de Hunting
 
 Utilizarás dos portales principales para la investigación:
 
@@ -18,7 +18,7 @@ Utilizarás dos portales principales para la investigación:
 
 ---
 
-## 2. 🔍 Realizar Cacería Manual de Amenazas
+## Realizar Cacería Manual de Amenazas
 
 ### Buscar Indicadores de Compromiso (IoCs)
 En **Threat Explorer** puedes:
@@ -34,7 +34,7 @@ En **Advanced Hunting**, ejecuta consultas KQL para identificar:
 
 ---
 
-## 3. 📡 Utilizar Threat Trackers
+## Utilizar Threat Trackers
 
 Usa **Threat Trackers** para monitorear:
 *   Campañas de malware emergentes.
@@ -45,7 +45,7 @@ Usa **Threat Trackers** para monitorear:
 
 ---
 
-## 4. 🤝 Compartir y Reutilizar Consultas
+## Compartir y Reutilizar Consultas
 
 Para mejorar la eficiencia del equipo de seguridad:
 *   Comparte consultas KQL usadas frecuentemente.
@@ -54,7 +54,7 @@ Para mejorar la eficiencia del equipo de seguridad:
 
 ---
 
-## 5. 🚨 Crear Reglas de Detección Personalizadas
+## Crear Reglas de Detección Personalizadas
 
 Convierte tus hallazgos de hunting manual en alertas automáticas.
 
@@ -66,7 +66,7 @@ Convierte tus hallazgos de hunting manual en alertas automáticas.
 
 ---
 
-## 6. 🤖 Revisión y Remediación con AIR
+## Revisión y Remediación con AIR
 
 Si el hunting revela actividad sospechosa:
 *   Activa alertas de **Automated Investigation and Response (AIR)**.
@@ -74,7 +74,7 @@ Si el hunting revela actividad sospechosa:
 
 ---
 
-# 🛡️ Gestión de Spoofing e Impersonation
+# Gestión de Spoofing e Impersonation
 
 Procedimientos para revisar y ajustar las políticas de inteligencia contra suplantación.
 
@@ -120,3 +120,68 @@ Microsoft 365 detecta automáticamente remitentes que parecen ser de tu organiza
     *   Agregar usuarios protegidos (VIPs).
     *   Ajustar el umbral de phishing (*phishing threshold*).
 *   **Hunting Adicional:** Buscar variaciones del dominio y actividad anómala en los usuarios atacados.
+---
+
+# Borrar Correos Sospechosos en Exchange Online (Ad-Hoc)
+
+## Opción A (RECOMENDADA): Portal Microsoft 365 Defender
+
+### Prerrequisitos
+- Rol: Security Administrator / Compliance Administrator / Global Administrator
+
+### Pasos
+1. https://security.microsoft.com/threatexplorerv3
+2. Definir rango de fechas
+3. Buscar por Subject, Sender, IP, Message ID, URL, Hash
+4. Validar resultados
+5. **Take action** → Move or delete
+6. Soft Delete (recomendado) o Hard Delete
+7. Monitorear:
+   - https://security.microsoft.com/action-center/history
+
+### Prevención posterior
+- Bloquear sender
+- Bloquear URLs
+- Ajustar políticas
+- Verificar SPF / DKIM / DMARC
+
+---
+
+## Opción B: PowerShell (Compliance Search) 
+### Útil para IR avanzada, scripting o automatización
+
+### Conectar
+```
+Connect-IPPSSession
+```
+
+### Crear búsqueda
+```
+New-ComplianceSearch  -Name "Purge-Phishing-25022026"  -ExchangeLocation All  -ContentMatchQuery 'Subject:"Factura pendiente"'
+```
+
+### Ejecutar
+```
+Start-ComplianceSearch -Identity "Purge-Phishing-25022026"
+```
+
+### Purgar
+**Soft Delete**
+```
+New-ComplianceSearchAction  -SearchName "Purge-Phishing-25022026"  -Purge -PurgeType SoftDelete
+```
+
+**Hard Delete (casos críticos)**
+```
+New-ComplianceSearchAction  -SearchName "Purge-Phishing-25022026"  -Purge -PurgeType HardDelete
+```
+
+---
+
+## Buenas Prácticas Clave
+- Usar SoftDelete primero
+- Validar resultados
+- Documentar criterios, fecha e impacto
+- Combinar con bloqueos y DMARC enforcement
+- No purgar sin validación
+- HardDelete solo con aprobación IR/Legal
