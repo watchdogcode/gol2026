@@ -190,7 +190,7 @@ New-ComplianceSearchAction  -SearchName "Purge-Phishing-25022026"  -Purge -Purge
 ---
 
 
-# Detección histórica de Direct Send
+# Detección histórica de Direct Send (Ad-Hoc)
 
 ## 1. Correos internos anónimos (indicador Direct Send)
 
