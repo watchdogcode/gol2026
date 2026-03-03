@@ -5,6 +5,15 @@
 - Para convertir una query en **Custom Detection**, Microsoft recomienda basarla en **Advanced Hunting** y ejecutarla regularmente.
 
 ---
+## Índice
+- [Hunting base (MDI/XDR) — incidentes/alertas relacionadas con identidad](https://github.com/watchdogcode/gol2026/blob/main/MDI/MDI%20Queries%20KQL.md#hunting-base-mdixdr--incidentesalertas-relacionadas-con-identidad)
+  - [Alertas que provienen de Defender for Identity (últimos X días)](https://github.com/watchdogcode/gol2026/blob/main/MDI/MDI%20Queries%20KQL.md#alertas-que-provienen-de-defender-for-identity-%C3%BAltimos-x-d%C3%ADas)
+  - [Incidentes que incluyen evidencias de identidad (vista rápida)](https://github.com/watchdogcode/gol2026/blob/main/MDI/MDI%20Queries%20KQL.md#incidentes-que-incluyen-evidencias-de-identidad-vista-r%C3%A1pida)
+- [Accesos anómalos y abuso de credenciales](https://github.com/watchdogcode/gol2026/blob/main/MDI/MDI%20Queries%20KQL.md#accesos-an%C3%B3malos-y-abuso-de-credenciales)
+  - [Password spraying](https://github.com/watchdogcode/gol2026/blob/main/MDI/MDI%20Queries%20KQL.md#password-spraying)
+- [Custom Detection – Cuenta privilegiada con múltiples fallos](https://github.com/watchdogcode/gol2026/blob/main/MDI/MDI%20Queries%20KQL.md#custom-detection--cuenta-privilegiada-con-m%C3%BAltiples-fallos)
+
+---
 
 ## Hunting base (MDI/XDR) — incidentes/alertas relacionadas con identidad
 

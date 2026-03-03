@@ -3,6 +3,12 @@
 La guía mensual y ad‑hoc de MDI permite evaluar la postura de seguridad de identidades, ajustar controles y responder a eventos extraordinarios que pueden impactar la continuidad del negocio.
 
 ---
+## Índice
+- [Revisar Microsoft Service Health antes de troubleshooting (Mensual)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20opertiva%20mensualad-hoc%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-microsoft-service-health-antes-de-troubleshooting-mensual)
+- [Revisar proceso de alta de servidores para incluir sensores MDI (Ad-Hoc)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20opertiva%20mensualad-hoc%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-proceso-de-alta-de-servidores-para-incluir-sensores-mdi-ad-hoc)
+- [Validar configuración del dominio con Test‑MDIConfiguration (PowerShell) (Ad-Hoc)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20opertiva%20mensualad-hoc%20de%20Microsoft%20Defender%20for%20Identity.md#validar-configuraci%C3%B3n-del-dominio-con-testmdiconfiguration-powershell-ad-hoc)
+
+---
 ## Revisar Microsoft Service Health antes de troubleshooting (Mensual)
 
 ### Propósito

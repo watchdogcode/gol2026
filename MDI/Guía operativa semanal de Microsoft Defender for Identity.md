@@ -3,6 +3,12 @@
 La guía semanal de MDI permite identificar y ajustar proactivamente riesgos emergentes de identidad antes de que se conviertan en incidentes críticos para el negocio.
 
 ---
+## Índice
+- [Revisar recomendaciones de Secure Score (por producto)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20semanal%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-recomendaciones-de-secure-score-por-producto)
+- [Revisar y responder a amenazas emergentes (custom detections)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20semanal%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-y-responder-a-amenazas-emergentes-custom-detections)
+- [Ejemplo Custom Detection: Password spraying / brute force distribuido (señal temprana)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20semanal%20de%20Microsoft%20Defender%20for%20Identity.md#ejemplo-custom-detection-password-spraying--brute-force-distribuido-se%C3%B1al-temprana)
+
+---
 
 ## Revisar recomendaciones de Secure Score (por producto)
 **Propósito:** mejorar postura de identidad e infraestructura on‑premises.
