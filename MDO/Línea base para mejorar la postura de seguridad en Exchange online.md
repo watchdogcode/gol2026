@@ -541,7 +541,7 @@ En organizaciones grandes es común:
 
 > Esto es **Shadow IT de identidad y marca**, uno de los riesgos más ignorados en seguridad.
  ---
----
+
 
 ## Recomendación final enterprise
 
