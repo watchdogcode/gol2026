@@ -1,10 +1,15 @@
-# Recomendaciones rápidas (antes de ejecutar)
+# 🛡️ Paquete de Consultas KQL (Advanced Hunting)
+
+## Recomendaciones rápidas (antes de ejecutar)
 
 - Ajusta `TimeRange` y/o filtros (`AccountName`, `DeviceName`, `DomainName`) para reducir ruido.
 - Si una tabla no existe en tu tenant (depende de licenciamiento/ingesta), usa la alternativa indicada en cada query.
 - Para convertir una query en **Custom Detection**, Microsoft recomienda basarla en **Advanced Hunting** y ejecutarla regularmente.
 
+Este documento recopila una serie de consultas KQL (Kusto Query Language) diseñadas para la detección, triaje e investigación de amenazas en Microsoft Defender XDR.
+
 **Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+
 
 ---
 ## Índice
