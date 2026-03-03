@@ -219,8 +219,8 @@ Get-OrganizationConfig | Select RejectDirectSend
 ```
 
 #### Referencia
-- Envío directo: envíe correo directamente desde el dispositivo o la aplicación a Microsoft 365 o Office 365
-https://learn.microsoft.com/es-mx/exchange/mail-flow-best-practices/how-to-set-up-a-multifunction-device-or-application-to-send-email-using-microsoft-365-or-office-365#direct-send-send-mail-directly-from-your-device-or-application-to-microsoft-365-or-office-365
+- [Envío directo: envíe correo directamente desde el dispositivo o la aplicación a Microsoft 365 o Office 365](https://learn.microsoft.com/es-mx/exchange/mail-flow-best-practices/how-to-set-up-a-multifunction-device-or-application-to-send-email-using-microsoft-365-or-office-365#direct-send-send-mail-directly-from-your-device-or-application-to-microsoft-365-or-office-365)
+
 ---
 
 # 4. Estándares SPF, DKIM, DMARC y MTA-STS
