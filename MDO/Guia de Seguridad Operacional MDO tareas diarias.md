@@ -1,6 +1,6 @@
 # 🛡️ Guía de Seguridad Operacional Diaria: Microsoft Defender for Office 365
 
-Esta guía establece los procedimientos semanales para analizar tendencias, identificar usuarios de alto riesgo y gestionar campañas de amenazas en Microsoft Defender for Office 365 (MDO).
+Esta guía establece los procedimientos diarias para analizar tendencias, identificar usuarios de alto riesgo y gestionar campañas de amenazas en Microsoft Defender for Office 365 (MDO).
 
 ---
 ## Índice
