@@ -3,8 +3,15 @@
 Esta guía establece los procedimientos semanales para analizar tendencias, identificar usuarios de alto riesgo y gestionar campañas de amenazas en Microsoft Defender for Office 365 (MDO).
 
 ---
+## Índice
+- [Acceso a las Herramientas de Hunting](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md#acceso-a-las-herramientas-de-hunting)
+- [Gestión de Spoofing e Impersonation](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md#gesti%C3%B3n-de-spoofing-e-impersonation)
+- [Borrar Correos Sospechosos en Exchange Online (Ad-Hoc)](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md#borrar-correos-sospechosos-en-exchange-online-ad-hoc)
+- [Detección histórica de Direct Send (Ad-Hoc)](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md#detecci%C3%B3n-hist%C3%B3rica-de-direct-send-ad-hoc)
 
-## Acceso a las Herramientas de Hunting
+---
+
+# Acceso a las Herramientas de Hunting
 
 Utilizarás dos portales principales para la investigación:
 
@@ -185,3 +192,40 @@ New-ComplianceSearchAction  -SearchName "Purge-Phishing-25022026"  -Purge -Purge
 - Combinar con bloqueos y DMARC enforcement
 - No purgar sin validación
 - HardDelete solo con aprobación IR/Legal
+
+
+---
+
+
+# Detección histórica de Direct Send (Ad-Hoc)
+
+## 1. Correos internos anónimos (indicador Direct Send)
+
+```kql
+EmailEvents
+| where SenderFromDomain == RecipientEmailDomain
+| where isempty(ConnectorId)
+| where isempty(AuthenticationDetails)
+| project Timestamp, NetworkMessageId, SenderFromAddress, RecipientEmailAddress, SenderIPv4, Subject
+```
+
+## 2. Intentos bloqueados por RejectDirectSend
+
+```kql
+EmailEvents
+| where ActionType == "Reject"
+| where ErrorCode has "5.7.68"
+| project Timestamp, SenderFromAddress, RecipientEmailAddress, SenderIPv4, ErrorCode
+```
+
+## 3. Top IPs intentando Direct Send
+
+```kql
+EmailEvents
+| where SenderFromDomain == RecipientEmailDomain
+| where isempty(ConnectorId)
+| summarize Attempts=count() by SenderIPv4
+| order by Attempts desc
+```
+
+---

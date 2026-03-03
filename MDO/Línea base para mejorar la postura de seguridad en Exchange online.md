@@ -1,19 +1,40 @@
-# Importancia del setup básico
+# Seguridad Integral de Correo Electrónico en Microsoft 365
 
-Un setup correcto de **SPF, DKIM, DMARC y MTA‑STS**, combinado con **reglas de flujo de correo en Microsoft 365**, permite:
+---
+
+# Configuraciones base para Exchange Online
+
+**Audiencia:** Arquitectura, Messaging, SOC, SecOps, CISO  
+**Nivel:** Técnico / Operativo (Enterprise)  
+**Marco:** Zero Trust – Mail Flow Security
+
+---
+
+## Índice
+1. [Introducción](https://github.com/watchdogcode/gol2026/blob/main/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#1-introducci%C3%B3n)
+2. [Reglas básicas de flujo de correo – Microsoft 365](https://github.com/watchdogcode/gol2026/blob/main/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#2-reglas-b%C3%A1sicas-de-flujo-de-correo--microsoft-365)
+3. [RejectDirectSend en Exchange Online](https://github.com/watchdogcode/gol2026/blob/main/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#3-rejectdirectsend-en-exchange-online)
+4. [Estándares SPF, DKIM, DMARC y MTA-STS](https://github.com/watchdogcode/gol2026/blob/main/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#4-est%C3%A1ndares-spf-dkim-dmarc-y-mta-sts)
+5. [Dominios estacionados (Parked Domains)](https://github.com/watchdogcode/gol2026/blob/main/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#5--dominios-estacionados-parked-domains)
+
+
+---
+# 1. Introducción
+
+Un setup correcto de **reglas de flujo de correo en Microsoft 365** , **Bloqueo de Direct Send** y las correctas configuraciones de **SPF, DKIM, DMARC y MTA‑STS**, permiten:
 
 - Proteger la **marca** y el **dominio**
 - Reducir **phishing** y **spoofing**
 - Asegurar la **entregabilidad** del correo legítimo
 - Evitar el **abuso de dominios técnicos** (por ejemplo: `*.onmicrosoft.com`)
 - Forzar el **cifrado SMTP en tránsito** entre servidores
+- Proteger dominios sin uso
 
 ---
+> Este setup básico establece los controles mínimos necesarios para proteger la identidad del dominio y garantizar una comunicación de correo electrónico segura y confiable.
+---
 
-> **Resumen ejecutivo:** Este setup básico establece los controles mínimos necesarios para proteger la identidad del dominio y garantizar una comunicación de correo electrónico segura y confiable.
-
-
-# Reglas básicas de flujo de correo – Microsoft 365
+# 2. Reglas básicas de flujo de correo – Microsoft 365
 
 A continuación encontrará reglas básicas de flujo de correo que son **altamente recomendadas** agregar para mejorar la postura de seguridad de Microsoft 365.
 
@@ -26,8 +47,7 @@ A continuación encontrará reglas básicas de flujo de correo que son **altamen
 
 ## Regla de flujo de correo para bloquear correos enviados a mydominio.onmicrosoft.com y mydominio.mail.onmicrosoft.com
 
-### Opción 1: Script automatizado descargue el script que ejecuta esta tarea: 
-[Block-onmicrosoftEmails](https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/Scripts/Block-OnMicrosoftEmails.ps1)
+### Opción 1: Script automatizado descargue el script que ejecuta esta tarea: [Block-onmicrosoftEmails](https://github.com/watchdogcode/gol2026/blob/main/MDO/Scripts/Block-OnMicrosoftEmails.ps1)
 
 ### Opción 2: Creación manual
 
@@ -63,8 +83,7 @@ A continuación encontrará reglas básicas de flujo de correo que son **altamen
 
 ## Regla de flujo de correo para bloquear correos que no pueden ser inspeccionados
 
-### Opción 1: Script automatizado descargue el script que ejecuta esta tarea: 
-[Attachments Can’t be inspected](https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/Scripts/Attachmentscannotbeinspected.ps1)
+### Opción 1: Script automatizado descargue el script que ejecuta esta tarea: [Attachments Can’t be inspected](https://github.com/watchdogcode/gol2026/blob/main/MDO/Scripts/Attachmentscannotbeinspected.ps1)
 
 ### Opción 2: Creación manual
 
@@ -87,9 +106,126 @@ A continuación encontrará reglas básicas de flujo de correo que son **altamen
 - Inspect message attachments – Microsoft Learn  
   https://learn.microsoft.com/en-us/exchange/security-and-compliance/mail-flow-rules/inspect-message-attachments
 
+
+---
+# 3. RejectDirectSend en Exchange Online
+---
+## ¿Qué es Direct Send?
+
+**Direct Send** permite enviar correos a buzones internos del tenant usando:
+
+- SMTP puerto **25**  
+- Destino: `tenant.mail.protection.outlook.com`  
+- **Sin autenticación** (anónimo)  
+- Dominio del remitente (**P1 MAIL FROM**) pertenece a un *accepted domain*
+
+Diseñado para:
+
+- Impresoras  
+- Scanners  
+- Aplicaciones legacy on‑prem
+
+### Riesgo inherente
+
+- No requiere compromiso de cuenta  
+- Permite suplantación interna creíble (CEO, Finanzas, RRHH)  
+- Depende de SPF / DKIM / DMARC (controles posteriores, no preventivos)
+
 ---
 
-# SPF, DKIM, DMARC y MTA-STS
+### ¿Qué hace RejectDirectSend?
+
+```powershell
+Set-OrganizationConfig -RejectDirectSend $true
+```
+
+### Lógica de evaluación
+
+Exchange Online **rechaza el mensaje** cuando:
+
+1. El correo llega de forma **anónima**  
+2. No está asociado a un **Mail Flow Connector autenticado**  
+3. El **P1 MAIL FROM** pertenece a un dominio aceptado del tenant  
+4. El destinatario es un buzón interno
+
+### Resultado
+
+- ❌ No entra al pipeline antispam  
+- ❌ No se evalúa SPF / DKIM / DMARC  
+- ✅ Rechazo inmediato en SMTP
+
+**Error típico:**
+
+```
+550 5.7.68 TenantInboundAttribution; Direct Send not allowed for this organization
+```
+
+---
+
+### Qué NO hace este control
+
+- No valida el **P2 From header**  
+- No analiza reputación  
+- No depende de DMARC  
+- No aplica heurística
+
+Es un **control determinístico**, no probabilístico.
+
+---
+
+### Impacto en seguridad (SOC view)
+
+**Sin RejectDirectSend**
+
+- Phishing interno sin compromiso de identidad  
+- Correos spoofeados pueden llegar a Inbox / Junk  
+- Alto riesgo de fraude financiero
+
+**Con RejectDirectSend**
+
+- Bloqueo total de spoofing interno por SMTP  
+- Reducción inmediata de superficie de ataque  
+- Control alineado a Zero Trust
+
+---
+
+### Impacto operativo en aplicaciones
+
+**Flujos que se rompen**
+
+- Impresoras / scanners  
+- ERPs / HR legacy  
+- Scripts SMTP antiguos  
+- SaaS mal configurados
+
+**Alternativas soportadas**
+
+- ✅ Mail Flow Connector autenticado por **certificado** (recomendado)  
+- ✅ Mail Flow Connector por **IP fija**  
+- ✅ SMTP AUTH con cuenta dedicada (último recurso)
+
+---
+
+### Estado del control
+
+| Propiedad | Valor |
+|---------|------|
+| Default | false |
+| GA | Septiembre 2025 |
+| Propagación | ~30 minutos |
+
+Verificación:
+
+```powershell
+Get-OrganizationConfig | Select RejectDirectSend
+```
+
+#### Referencia
+- Envío directo: envíe correo directamente desde el dispositivo o la aplicación a Microsoft 365 o Office 365
+https://learn.microsoft.com/es-mx/exchange/mail-flow-best-practices/how-to-set-up-a-multifunction-device-or-application-to-send-email-using-microsoft-365-or-office-365#direct-send-send-mail-directly-from-your-device-or-application-to-microsoft-365-or-office-365
+---
+
+# 4. Estándares SPF, DKIM, DMARC y MTA-STS
 
 SPF, DKIM, DMARC y MTA-STS son controles fundamentales de seguridad de correo electrónico que protegen a las organizaciones contra suplantación de identidad (spoofing), phishing, fraude y ataques en tránsito, además de asegurar la entregabilidad del correo legítimo.
 
@@ -133,7 +269,7 @@ Resultados posibles:
 - `permerror`
 - `temperror`
 
-#### 3. Acción según resultado
+#### Acción según resultado
 - **pass** → correo aceptado
 - **fail (-all)** → posible rechazo
 - **softfail (~all)** → marcado como sospechoso
@@ -291,7 +427,7 @@ mx: mail.ejemplo.com
 max_age: 604800
 ```
 
-#### 3. TLS Reporting (TLS-RPT)
+####  TLS Reporting (TLS-RPT)
 
 ```
 _smtp._tls.ejemplo.com IN TXT "v=TLSRPTv1; rua=mailto:tlsrpt@ejemplo.com"
@@ -307,9 +443,13 @@ Puedes validar SPF, DKIM, DMARC y MTA-STS con el siguiente script:
 
 [Domain-Health-Check.ps1](https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/Scripts/Domain-Health-Check.ps1)
 
-# ¿Qué es un “parked domain”?
+---
 
-Un **dominio aparcado** es un dominio que:
+# 5.  Dominios estacionados (Parked Domains)
+
+##**¿Qué es un “parked domain”?**
+
+Un **dominio estacionado** es un dominio que:
 - No tiene servicios activos (web, correo, aplicaciones).
 - Apunta a una página genérica del proveedor (hosting o registrador).
 - No tiene configuraciones explícitas de **DNS**, **seguridad** o **correo**.
@@ -400,3 +540,6 @@ En organizaciones grandes es común:
 - Nadie revisa logs.
 
 > Esto es **Shadow IT de identidad y marca**, uno de los riesgos más ignorados en seguridad.
+ ---
+
+

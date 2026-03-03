@@ -3,6 +3,12 @@
 La guía semanal de MDI permite identificar y ajustar proactivamente riesgos emergentes de identidad antes de que se conviertan en incidentes críticos para el negocio.
 
 ---
+## Índice
+- [Revisar recomendaciones de Secure Score (por producto)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20semanal%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-recomendaciones-de-secure-score-por-producto)
+- [Revisar y responder a amenazas emergentes (custom detections)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20semanal%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-y-responder-a-amenazas-emergentes-custom-detections)
+- [Ejemplo Custom Detection: Password spraying / brute force distribuido (señal temprana)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20semanal%20de%20Microsoft%20Defender%20for%20Identity.md#ejemplo-custom-detection-password-spraying--brute-force-distribuido-se%C3%B1al-temprana)
+
+---
 
 ## Revisar recomendaciones de Secure Score (por producto)
 **Propósito:** mejorar postura de identidad e infraestructura on‑premises.
@@ -64,4 +70,4 @@ IdentityLogonEvents
 | project Timestamp, AccountUpn, AccountName, AccountDomain, Failures, SrcIPs, IPList, Apps
 | order by Failures desc, SrcIPs desc
 ```
-[Paquete MDI KQL Queries](https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md#recomendaciones-r%C3%A1pidas-antes-de-ejecutar)
+[Paquete MDI KQL Queries](https://github.com/watchdogcode/gol2026/blob/main/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md#recomendaciones-r%C3%A1pidas-antes-de-ejecutar)

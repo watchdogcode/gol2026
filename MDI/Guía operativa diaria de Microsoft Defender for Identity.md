@@ -3,17 +3,15 @@
 La guía diaria de MDI asegura que las amenazas a identidades se detecten y contengan antes de que impacten la operación del negocio.
 
 ---
+## Índice
+- [Revisar ITDR Dashboard (Identities > Dashboard)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-itdr-dashboard-identities--dashboard)
+- [Triage de incidentes por prioridad (Incidents & alerts)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#triage-de-incidentes-por-prioridad-incidents--alerts)
+- [Configurar tuning para benign / false positives (Advanced hunting)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#configurar-tuning-para-benign--false-positives-advanced-hunting)
+- [Proactive hunting (diario o semanal, según madurez)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#proactive-hunting-diario-o-semanal-seg%C3%BAn-madurez)
+- [Revisar Health issues (Global y Sensor)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-health-issues-global-y-sensor)
 
 Guía oficial:
 https://learn.microsoft.com/en-us/defender-for-identity/ops-guide/ops-guide-daily
-
-### Qué cubre (alineado a la guía)
-
-- ITDR Dashboard
-- Triage de incidentes
-- Tuning para benign / false positives
-- Proactive hunting
-- Health issues (Global / Sensor)
 
 ---
 
@@ -104,7 +102,7 @@ IdentityLogonEvents
 | where AccountName == "svc_sqlbackup"
 | summarize Count=count() by ActionType, DeviceName
 ```
-[MDI KQL Queries](https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md#recomendaciones-r%C3%A1pidas-antes-de-ejecutar)
+[MDI KQL Queries](https://github.com/watchdogcode/gol2026/blob/main/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md#recomendaciones-r%C3%A1pidas-antes-de-ejecutar)
 
 **Resultado**
 - 100% eventos esperados
@@ -163,7 +161,7 @@ DeviceLogonEvents
 | order by Devices desc, TotalLogons desc
 ```
 
-[MDI KQL Queries](https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md#recomendaciones-r%C3%A1pidas-antes-de-ejecutar)
+[MDI KQL Queries](https://github.com/watchdogcode/gol2026/blob/main/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md#recomendaciones-r%C3%A1pidas-antes-de-ejecutar)
 
 
 ---
