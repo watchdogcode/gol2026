@@ -213,7 +213,7 @@ Es un **control determinístico**, no probabilístico.
 | $true | Direct Send is blocked |
 | Propagación | ~30 minutos |
 
-Verificación:
+**Verificación:**
 
 ```powershell
 Get-OrganizationConfig | Select RejectDirectSend
