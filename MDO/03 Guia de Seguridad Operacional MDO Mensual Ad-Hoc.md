@@ -189,43 +189,8 @@ New-ComplianceSearchAction  -SearchName "Purge-Phishing-25022026"  -Purge -Purge
 
 ---
 
-## Direct Send / RejectDirectSend (Ad-Hoc)
 
-## Objetivo
-
-Detectar y responder a intentos de uso de Direct Send y validar que el control esté bloqueando correctamente intentos de spoofing interno.
-
----
-
-## Detección – Qué buscar
-
-### Indicadores clave
-
-- Errores SMTP `5.7.68 TenantInboundAttribution`  
-- Correos internos con:
-  - `SenderFromDomain` = dominio corporativo  
-  - `AuthenticationDetails` = vacío  
-  - `ConnectorId` = null
-
----
-
-## Respuesta – Playbook
-
-1. **Confirmar intento**  
-   Revisar Message Trace / Advanced Hunting
-2. **Clasificar origen**  
-   IP, dispositivo, aplicación
-3. **Decisión**  
-   ✅ App legítima → Migrar a Connector autenticado  
-   ❌ Origen desconocido → Bloqueo permanente
-4. **Acción correctiva**  
-   Crear Mail Flow Connector y documentar excepción
-5. **Lección aprendida**  
-   Actualizar inventario de apps y revisar SPF / DKIM / DMARC
-
----
-
-# KQL – Detección histórica de Direct Send
+# Detección histórica de Direct Send
 
 ## 1. Correos internos anónimos (indicador Direct Send)
 
