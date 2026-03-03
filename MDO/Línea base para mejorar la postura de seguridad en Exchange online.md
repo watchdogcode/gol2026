@@ -101,8 +101,8 @@ A continuación encontrará reglas básicas de flujo de correo que son **altamen
 
 #### Referencia
 
-- Inspect message attachments – Microsoft Learn  
-  https://learn.microsoft.com/en-us/exchange/security-and-compliance/mail-flow-rules/inspect-message-attachments
+- [Inspect message attachments – Microsoft Learn](https://learn.microsoft.com/en-us/exchange/security-and-compliance/mail-flow-rules/inspect-message-attachments)
+  
 
 
 ---
