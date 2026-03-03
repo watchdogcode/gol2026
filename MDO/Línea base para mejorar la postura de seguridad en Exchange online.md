@@ -437,9 +437,7 @@ Permite visibilidad operativa.
 
 ## Script de validación
 
-Puedes validar SPF, DKIM, DMARC y MTA-STS con el siguiente script:
-
-[Domain-Health-Check.ps1](https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/Scripts/Domain-Health-Check.ps1)
+Puedes validar SPF, DKIM, DMARC y MTA-STS con el siguiente script: [Domain-Health-Check.ps1](https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/Scripts/Domain-Health-Check.ps1)
 
 ---
 
