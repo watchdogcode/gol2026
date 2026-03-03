@@ -3,6 +3,13 @@
 Esta guía establece los procedimientos semanales para analizar tendencias, identificar usuarios de alto riesgo y gestionar campañas de amenazas en Microsoft Defender for Office 365 (MDO).
 
 ---
+
+## Índice
+- [Revisar Tendencias de Detección de Correo en Microsoft Defender for Office 365](https://github.com/watchdogcode/gol2026/blob/main/MDO/02%20Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md#revisar-tendencias-de-detecci%C3%B3n-de-correo-en-microsoft-defender-for-office-365)
+- [Identificar Usuarios Más Atacados por Malware y Phishing](https://github.com/watchdogcode/gol2026/blob/main/MDO/02%20Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md#identificar-usuarios-m%C3%A1s-atacados-por-malware-y-phishing)
+- [Revisar Campañas de Malware y Phishing](https://github.com/watchdogcode/gol2026/blob/main/MDO/02%20Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md#revisar-campa%C3%B1as-de-malware-y-phishing)
+
+---
 # Revisar Tendencias de Detección de Correo en Microsoft Defender for Office 365
 
 ### Email & Collaboration Reporting
