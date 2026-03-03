@@ -543,11 +543,3 @@ En organizaciones grandes es común:
  ---
 
 
-## Recomendación final enterprise
-
-✔ Habilitar `RejectDirectSend` en todos los tenants  
-✔ Migrar aplicaciones a conectores autenticados  
-✔ Complementar con SPF estricto, DKIM y DMARC `p=reject`  
-✔ Monitorear continuamente desde SOC
-
----
