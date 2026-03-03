@@ -11,12 +11,12 @@
 ---
 
 ## Índice
-1. [Introducción](https://github.com/watchdogcode/gol2026/blob/main/Seguridad_Correo_M365_Unificado.md#introducci%C3%B3n)
-2. [Reglas básicas de flujo de correo – Microsoft 365](https://github.com/watchdogcode/gol2026/blob/main/Seguridad_Correo_M365_Unificado.md#2-reglas-b%C3%A1sicas-de-flujo-de-correo--microsoft-365)
-3. [RejectDirectSend en Exchange Online](https://github.com/watchdogcode/gol2026/blob/main/Seguridad_Correo_M365_Unificado.md#3-rejectdirectsend-en-exchange-online)
-4. [Estándares SPF, DKIM, DMARC y MTA-STS](https://github.com/watchdogcode/gol2026/blob/main/Seguridad_Correo_M365_Unificado.md#4-est%C3%A1ndares-spf-dkim-dmarc-y-mta-sts)
-5. [Dominios estacionados (Parked Domains)](https://github.com/watchdogcode/gol2026/blob/main/Seguridad_Correo_M365_Unificado.md#5--dominios-estacionados-parked-domains)
-6. [RUNBOOK SOC – Direct Send / RejectDirectSend](https://github.com/watchdogcode/gol2026/blob/main/Seguridad_Correo_M365_Unificado.md#6-runbook-soc--direct-send--rejectdirectsend)
+1. [Introducción](https://github.com/watchdogcode/gol2026/blob/main/MDO/Seguridad_Correo_M365_Unificado.md#introducci%C3%B3n)
+2. [Reglas básicas de flujo de correo – Microsoft 365](https://github.com/watchdogcode/gol2026/blob/main/MDO/Seguridad_Correo_M365_Unificado.md#2-reglas-b%C3%A1sicas-de-flujo-de-correo--microsoft-365)
+3. [RejectDirectSend en Exchange Online](https://github.com/watchdogcode/gol2026/blob/main/MDO/Seguridad_Correo_M365_Unificado.md#3-rejectdirectsend-en-exchange-online)
+4. [Estándares SPF, DKIM, DMARC y MTA-STS](https://github.com/watchdogcode/gol2026/blob/main/MDO/Seguridad_Correo_M365_Unificado.md#4-est%C3%A1ndares-spf-dkim-dmarc-y-mta-sts)
+5. [Dominios estacionados (Parked Domains)](https://github.com/watchdogcode/gol2026/blob/main/MDO/Seguridad_Correo_M365_Unificado.md#5--dominios-estacionados-parked-domains)
+6. [RUNBOOK SOC – Direct Send / RejectDirectSend](https://github.com/watchdogcode/gol2026/blob/main/MDO/Seguridad_Correo_M365_Unificado.md#6-runbook-soc--direct-send--rejectdirectsend)
 
 ---
 # 1. Introducción
@@ -47,7 +47,7 @@ A continuación encontrará reglas básicas de flujo de correo que son **altamen
 
 ## Regla de flujo de correo para bloquear correos enviados a mydominio.onmicrosoft.com y mydominio.mail.onmicrosoft.com
 
-### Opción 1: Script automatizado descargue el script que ejecuta esta tarea: [Block-onmicrosoftEmails](https://github.com/watchdogcode/gol2026/blob/main/Scripts/Block-OnMicrosoftEmails.ps1)
+### Opción 1: Script automatizado descargue el script que ejecuta esta tarea: [Block-onmicrosoftEmails](https://github.com/watchdogcode/gol2026/blob/main/MDO/Scripts/Block-OnMicrosoftEmails.ps1)
 
 ### Opción 2: Creación manual
 
@@ -83,7 +83,7 @@ A continuación encontrará reglas básicas de flujo de correo que son **altamen
 
 ## Regla de flujo de correo para bloquear correos que no pueden ser inspeccionados
 
-### Opción 1: Script automatizado descargue el script que ejecuta esta tarea: [Attachments Can’t be inspected](https://github.com/watchdogcode/gol2026/blob/main/Scripts/Attachmentscannotbeinspected.ps1)
+### Opción 1: Script automatizado descargue el script que ejecuta esta tarea: [Attachments Can’t be inspected](https://github.com/watchdogcode/gol2026/blob/main/MDO/Scripts/Attachmentscannotbeinspected.ps1)
 
 ### Opción 2: Creación manual
 
