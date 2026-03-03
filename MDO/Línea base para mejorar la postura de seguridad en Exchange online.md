@@ -28,7 +28,7 @@ Un setup correcto de **reglas de flujo de correo en Microsoft 365** , **Bloqueo 
 - Asegurar la **entregabilidad** del correo legítimo
 - Evitar el **abuso de dominios técnicos** (por ejemplo: `*.onmicrosoft.com`)
 - Forzar el **cifrado SMTP en tránsito** entre servidores
-- Proteger dominios sin uso
+- Proteger **dominios sin uso**
 
 ---
 > Este setup básico establece los controles mínimos necesarios para proteger la identidad del dominio y garantizar una comunicación de correo electrónico segura y confiable.
