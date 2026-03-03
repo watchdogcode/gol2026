@@ -209,7 +209,8 @@ Es un **control determinístico**, no probabilístico.
 | Propiedad | Valor |
 |---------|------|
 | Default | false |
-| GA | Septiembre 2025 |
+| $false | Direct Send isn't blocked |
+| $true | Direct Send is blocked |
 | Propagación | ~30 minutos |
 
 Verificación:
@@ -220,6 +221,7 @@ Get-OrganizationConfig | Select RejectDirectSend
 
 #### Referencia
 - [Envío directo: envíe correo directamente desde el dispositivo o la aplicación a Microsoft 365 o Office 365](https://learn.microsoft.com/es-mx/exchange/mail-flow-best-practices/how-to-set-up-a-multifunction-device-or-application-to-send-email-using-microsoft-365-or-office-365#direct-send-send-mail-directly-from-your-device-or-application-to-microsoft-365-or-office-365)
+- [RejectDirectSend](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/set-organizationconfig?view=exchange-ps#-rejectdirectsend)
 
 ---
 
