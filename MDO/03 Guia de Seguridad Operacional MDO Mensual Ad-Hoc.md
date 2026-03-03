@@ -3,6 +3,11 @@
 Esta guía establece los procedimientos semanales para analizar tendencias, identificar usuarios de alto riesgo y gestionar campañas de amenazas en Microsoft Defender for Office 365 (MDO).
 
 ---
+## Indice
+[Acceso a las Herramientas de Hunting](https://github.com/watchdogcode/gol2026/blob/main/MDO/03%20Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md#acceso-a-las-herramientas-de-hunting)
+
+
+---
 
 ## Acceso a las Herramientas de Hunting
 
