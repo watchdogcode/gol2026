@@ -288,6 +288,9 @@ Resultados posibles:
 
 > Nota: El qualifier `/all` **no existe** en el estándar SPF.
 
+#### Referencia
+- [Sender Policy Framework (SPF)](https://www.rfc-editor.org/rfc/rfc7208)
+
 ---
 
 ## DKIM (DomainKeys Identified Mail)
@@ -338,6 +341,9 @@ Campos importantes:
 - `bh` → hash del cuerpo
 - `b` → firma digital
 
+
+#### Referencia
+- [DomainKeys Identified Mail (DKIM)](https://dkim.org/)
 ---
 
 ## DMARC (Domain-based Message Authentication, Reporting & Conformance)
@@ -384,6 +390,9 @@ Buenas prácticas:
 - Monitoreo continuo
 - Alineación estricta
 - Protección de subdominios
+
+#### Referencia
+- [Domain-based Message Authentication, Reporting, and Conformance (DMARC)](https://www.rfc-editor.org/rfc/rfc7489.html)
 
 ---
 
@@ -437,7 +446,10 @@ Permite visibilidad operativa.
 
 ## Script de validación
 
-Puedes validar SPF, DKIM, DMARC y MTA-STS con el siguiente script: [Domain-Health-Check.ps1](https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/Scripts/Domain-Health-Check.ps1)
+Puedes validar SPF, DKIM, DMARC y MTA-STS con el siguiente script: [Domain-Health-Check.ps1](https://github.com/watchdogcode/gol2026/blob/main/MDO/Scripts/Domain-Health-Check.ps1)
+
+#### Referencia
+- [SMTP MTA Strict Transport Security (MTA-STS)](https://www.rfc-editor.org/rfc/rfc8461)
 
 ---
 
@@ -538,4 +550,5 @@ En organizaciones grandes es común:
 > Esto es **Shadow IT de identidad y marca**, uno de los riesgos más ignorados en seguridad.
  ---
 
-
+#### Referencia
+- [Parked and Inactive Domain Setup for MX, SPF and DMARC](https://support.dmarcreport.com/support/solutions/articles/5000882467-parked-and-inactive-domain-setup-for-mx-spf-and-dmarc)
