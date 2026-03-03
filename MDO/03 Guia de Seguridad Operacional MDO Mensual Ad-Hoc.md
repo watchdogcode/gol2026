@@ -4,10 +4,10 @@ Esta guía establece los procedimientos semanales para analizar tendencias, iden
 
 ---
 ## Indice
-[Acceso a las Herramientas de Hunting](https://github.com/watchdogcode/gol2026/blob/main/MDO/03%20Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md#acceso-a-las-herramientas-de-hunting)
-[Gestión de Spoofing e Impersonation](https://github.com/watchdogcode/gol2026/blob/main/MDO/03%20Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md#gesti%C3%B3n-de-spoofing-e-impersonation)
-[Borrar Correos Sospechosos en Exchange Online (Ad-Hoc)](https://github.com/watchdogcode/gol2026/blob/main/MDO/03%20Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md#borrar-correos-sospechosos-en-exchange-online-ad-hoc)
-[Detección histórica de Direct Send (Ad-Hoc)](https://github.com/watchdogcode/gol2026/blob/main/MDO/03%20Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md#detecci%C3%B3n-hist%C3%B3rica-de-direct-send-ad-hoc)
+- [Acceso a las Herramientas de Hunting](https://github.com/watchdogcode/gol2026/blob/main/MDO/03%20Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md#acceso-a-las-herramientas-de-hunting)
+- [Gestión de Spoofing e Impersonation](https://github.com/watchdogcode/gol2026/blob/main/MDO/03%20Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md#gesti%C3%B3n-de-spoofing-e-impersonation)
+- [Borrar Correos Sospechosos en Exchange Online (Ad-Hoc)](https://github.com/watchdogcode/gol2026/blob/main/MDO/03%20Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md#borrar-correos-sospechosos-en-exchange-online-ad-hoc)
+- [Detección histórica de Direct Send (Ad-Hoc)](https://github.com/watchdogcode/gol2026/blob/main/MDO/03%20Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md#detecci%C3%B3n-hist%C3%B3rica-de-direct-send-ad-hoc)
 
 ---
 
