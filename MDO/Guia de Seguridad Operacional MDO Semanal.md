@@ -225,15 +225,12 @@ Incluye:
 
 # Validar correos entregados con amenazas
 
-## 1️⃣ Acceder a Advanced Hunting
-1. Abre el portal **Microsoft Defender**  
-   https://security.microsoft.com
-2. Navega a:  
-   **Hunting → Advanced hunting**
+## Acceder a Advanced Hunting
+1. Ir a https://security.microsoft.com/v2/advanced-hunting
 
 ---
 
-## 2️⃣ Identificar correos entregados con detección de amenaza
+## Identificar correos entregados con detección de amenaza
 **Objetivo:** confirmar correos que **NO fueron bloqueados** y llegaron al buzón del usuario.
 
 ### Query base (imprescindible)
@@ -261,7 +258,7 @@ EmailEvents
 
 ---
 
-## 3️⃣ Validar tipo de amenaza entregada
+## Validar tipo de amenaza entregada
 Para entender qué se escapó, filtra por tipo:
 
 ### Malware
@@ -281,7 +278,7 @@ Para entender qué se escapó, filtra por tipo:
 
 ---
 
-## 4️⃣ Confirmar si fue Safe Attachments o Safe Links
+## Confirmar si fue Safe Attachments o Safe Links
 
 ### Adjuntos maliciosos entregados
 ```kql
