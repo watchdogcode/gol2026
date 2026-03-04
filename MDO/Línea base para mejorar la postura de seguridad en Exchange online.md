@@ -1,5 +1,5 @@
 # 🛡️ Seguridad Integral de Correo Electrónico en Microsoft 365
-
+## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 ---
 
 # Configuraciones base para Exchange Online
