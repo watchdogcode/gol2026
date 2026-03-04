@@ -61,7 +61,7 @@
 [CmdletBinding()]
 param (
     [ValidateSet('Interactive','NonInteractive','Successful')]$SignInType = 'Successful',
-    [int]$MemberDaysOfInactivity = 30,
+    [int]$MemberDaysOfInactivity = 45,
     [int]$GuestDaysOfInactivity = 90,
     [ValidateSet("Member", "Guest")][string[]]$UserType = @("Member", "Guest"),
     [ValidateSet("Commercial", "USGovGCC", "USGovGCCHigh", "USGovDoD", "China")][string]$CloudEnvironment="Commercial",

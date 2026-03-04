@@ -26,7 +26,7 @@ Aplicar el **principio de mínimo privilegio** para reducir el riesgo asociado a
    - Justificación documentada para accesos **permanentes**.
 
 ### Herramienta recomendada
-Se recomienda la ejecución del script: [Get-M365RoleReport](https://github.com/o365soa/Scripts/blob/master/Get-M365RoleReport.ps1)
+Se recomienda la ejecución del script: [Get-M365RoleReport](https://github.com/watchdogcode/gol2026/blob/main/EntraID/Scripts/Get-M365RoleReport.ps1)
 
 ### Salida / DoD
 - Listado actualizado de roles privilegiados.
