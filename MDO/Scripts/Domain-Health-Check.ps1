@@ -30,7 +30,7 @@ Clear-DnsClientCache
 Set-StrictMode -Version Latest
 Write-Host "Reviewing requirements..." -ForegroundColor Yellow
 Write-Host "PowerShell Running as Administrator OK" -ForegroundColor Green
-$requiredModules = @('DomainHealthChecker', 'MailAuthDnsTools', 'EmailAuthChecker')
+$requiredModules = @('DomainHealthChecker', 'EmailAuthChecker')
 $totalModules = $requiredModules.Count
 for ($i = 0; $i -lt $totalModules; $i++) {
     $mod = $requiredModules[$i]
@@ -351,6 +351,7 @@ $html = @"
         <img src="https://dco.microsoft.com/Images/microsoft-white-logo.png" alt="Microsoft" class="logo-img mb-2">
         <h1>Domain Health Security Report</h1>
         <p>Analysis for: <strong>$domain</strong> | <span style="font-size:0.85rem;">$date</span></p>
+        <p><em>&ldquo;Technology enables security, but discipline makes it effective&rdquo;</em></p>
     </div>
 
     <div class="container-fluid px-5">
