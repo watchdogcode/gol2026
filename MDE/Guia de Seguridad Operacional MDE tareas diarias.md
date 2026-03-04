@@ -1,5 +1,7 @@
 # 🛡️ Guía de Seguridad Operacional Diaria: Microsoft Defender for Endpoint
 
+## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
+
 Esta guía establece los procedimientos diarios para monitorear alertas, gestionar dispositivos en riesgo, validar la salud del sensor EDR y responder a incidentes en Microsoft Defender for Endpoint (MDE).
 
 ---
