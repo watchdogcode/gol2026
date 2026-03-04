@@ -391,6 +391,7 @@ $fullHtml = ConvertTo-Html -Head $htmlHead -Body ($htmlBody + $htmlTable + $html
 try {
     $fullHtml | Out-File -FilePath $htmlPath -Encoding UTF8
     Write-Host "[OK] Reporte HTML exportado: $htmlPath" -ForegroundColor Green
+    Invoke-Item $htmlPath
 }
 catch {
     Write-Host "[ERROR] Error al exportar HTML: $($_.Exception.Message)" -ForegroundColor Red
