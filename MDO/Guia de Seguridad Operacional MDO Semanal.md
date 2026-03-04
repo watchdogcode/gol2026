@@ -229,7 +229,7 @@ Incluye:
 ## Acceder a Advanced Hunting
 1. Ir a https://security.microsoft.com/v2/advanced-hunting
 
-## Ajustar Filtros para Analizar Tendencias
+### Ajustar Filtros para Analizar Tendencias
 
 Utiliza la barra de filtros superior:
 - **Time range**: 15 días, 30 días, 90 días (para tareas semanales se recomienda al menos 15 días)
