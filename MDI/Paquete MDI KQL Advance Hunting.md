@@ -14,6 +14,24 @@ Este documento recopila una serie de consultas KQL (Kusto Query Language) diseñ
 
 ---
 
+## Índice de Queries
+
+| #  | Query | Tabla principal |
+|----|-------|-----------------|
+| 1  | [Alertas de Microsoft Defender for Identity (últimos X días)](#1-alertas-de-microsoft-defender-for-identity-últimos-x-días) | `AlertInfo` |
+| 2  | [Incidentes con evidencias de identidad (vista rápida)](#2-incidentes-con-evidencias-de-identidad-vista-rápida) | `IncidentInfo` |
+| 3  | [Password spraying – múltiples fallos por cuenta](#3-password-spraying--múltiples-fallos-por-cuenta) | `IdentityLogonEvents` |
+| 4  | [Cuentas privilegiadas con múltiples fallos de autenticación](#4-cuentas-privilegiadas-con-múltiples-fallos-de-autenticación) | `IdentityLogonEvents` |
+| 5  | [Enumeración LDAP / SAM-R anómala](#5-enumeración-ldap--sam-r-anómala) | `IdentityQueryEvents` |
+| 6  | [Enumeración de objetos AD (usuarios / grupos)](#6-enumeración-de-objetos-ad-usuarios--grupos) | `IdentityQueryEvents` |
+| 7  | [Lateral movement – logons exitosos en múltiples equipos](#7-lateral-movement--logons-exitosos-en-múltiples-equipos) | `IdentityLogonEvents` |
+| 8  | [sAMAccountName spoofing / noPac](#8-samaccountname-spoofing--nopac) | `IdentityDirectoryEvents` |
+| 9  | [Cambios de UPN sospechosos](#9-cambios-de-upn-sospechosos) | `IdentityDirectoryEvents` |
+| 10 | [Actividad PowerShell en Domain Controllers](#10-actividad-powershell-en-domain-controllers) | `IdentityDirectoryEvents` |
+| 11 | [DNS tunneling / exfiltración](#11-dns-tunneling--exfiltración) | `DeviceNetworkEvents` |
+
+---
+
 ## 1. Alertas de Microsoft Defender for Identity (últimos X días)
 ```kql
 let TimeRange = 7d;
