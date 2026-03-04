@@ -8,7 +8,7 @@ Esta guía establece los procedimientos mensual/Ad-Hoc para analizar tendencias,
 - [Gestión de Spoofing e Impersonation](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md#gesti%C3%B3n-de-spoofing-e-impersonation)
 - [Borrar Correos Sospechosos en Exchange Online (Ad-Hoc)](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md#borrar-correos-sospechosos-en-exchange-online-ad-hoc)
 - [Detección histórica de Direct Send (Ad-Hoc)](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md#detecci%C3%B3n-hist%C3%B3rica-de-direct-send-ad-hoc)
-- [Revisar las políticas de Microsoft Defender for Office 365]()
+- [Revisar las políticas de Microsoft Defender for Office 365](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md#revision-de-pol%C3%ADticas-de-microsoft-defender-for-office-365)
 
 ---
 
@@ -232,7 +232,11 @@ EmailEvents
 ---
 # Revision de políticas de Microsoft Defender for Office 365
 
-## 1. Acceder al portal correcto de Microsoft Defender for Office 365 (MDO)
+## Opción 1, ejecutar script de validación: [MDO/Scripts/Validate-MDOPolicies.ps1](https://github.com/watchdogcode/gol2026/blob/main/MDO/Scripts/Validate-MDOPolicies.ps1)
+
+## Opción 2 paso a paso:
+
+### 1. Acceder al portal correcto de Microsoft Defender for Office 365 (MDO)
 
 1. Abre el portal de Microsoft Defender:
    - https://security.microsoft.com
