@@ -568,7 +568,7 @@ if ($pUsers.Count -gt 0) {
 "@
 
 	$htmlBody = @"
-<h1>Reporte de Asignación de Roles Administrativos - Microsoft 365</h1>
+<h1>Reporte de Asignación de Roles Administrativos - Microsoft 365 <em style="font-size: 0.75em; font-weight: normal; margin-left: 80px;">&ldquo;Technology enables security, but discipline makes it effective&rdquo;</em></h1>
 <p>Tenant: $tenantName | Tenant ID: $tenantId | Generado: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')</p>
 <p>Workloads evaluados: <strong>$($workLoads -join ', ')</strong> | Umbral de antigüedad de contraseña: <strong>$PasswordAgeThreshold días</strong></p>
 <p><em>Si la asignación es mediante grupo, el nombre de inicio de sesión se muestra con prefijo del grupo.</em></p>

@@ -228,7 +228,7 @@ if ($result.Count -gt 0) {
         $tenantId = (Get-MgContext).TenantId
 
         $htmlBody = @"
-<h1>Reporte de Usuarios Inactivos - Microsoft Entra ID</h1>
+<h1>Reporte de Usuarios Inactivos - Microsoft Entra ID <em style="font-size: 0.75em; font-weight: normal; margin-left: 80px;">&ldquo;Technology enables security, but discipline makes it effective&rdquo;</em></h1>
 <p>Tenant: $tenantName | Tenant ID: $tenantId | Generado: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')</p>
 <p>Tipo de inicio de sesión evaluado: <strong>$SignInType</strong> | Inactividad miembros: <strong>$MemberDaysOfInactivity días</strong> | Inactividad invitados: <strong>$GuestDaysOfInactivity días</strong></p>
 

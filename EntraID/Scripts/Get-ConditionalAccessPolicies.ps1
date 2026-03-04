@@ -364,7 +364,7 @@ $tenantName   = $tenantDetail.DisplayName
 $tenantId     = (Get-MgContext).TenantId
 
 $htmlBody = @"
-<h1>Reporte de Políticas de Conditional Access</h1>
+<h1>Reporte de Políticas de Conditional Access <em style="font-size: 0.75em; font-weight: normal; margin-left: 80px;">&ldquo;Technology enables security, but discipline makes it effective&rdquo;</em></h1>
 <p>Tenant: $tenantName | Tenant ID: $tenantId | Generado: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')</p>
 
 <div>
