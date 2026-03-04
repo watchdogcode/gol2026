@@ -1,6 +1,6 @@
 # 🛡️ Guía de Seguridad Operacional Mensual/Ad-Hoc: Microsoft EntraID
 
-## La tecnología permite la seguridad, pero la disciplina la hace efectiva
+## *La tecnología permite la seguridad, pero la disciplina la hace efectiva*
 
 La operación efectiva de Microsoft Entra ID requiere monitoreo continuo, control de cambios y revisión periódica de privilegios para reducir riesgos de identidad y garantizar continuidad del negocio.
 
