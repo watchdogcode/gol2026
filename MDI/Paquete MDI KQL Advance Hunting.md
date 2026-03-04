@@ -14,7 +14,7 @@ Este documento recopila una serie de consultas KQL (Kusto Query Language) diseñ
 
 ---
 
-## Índice de Queries
+## Índice
 
 1. [Alertas de Microsoft Defender for Identity (últimos X días)](#1-alertas-de-microsoft-defender-for-identity-últimos-x-días)
 2. [Incidentes con evidencias de identidad (vista rápida)](#2-incidentes-con-evidencias-de-identidad-vista-rápida)
