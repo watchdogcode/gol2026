@@ -47,6 +47,10 @@ Este documento recopila una serie de consultas KQL (Kusto Query Language) diseñ
   - [26. Mensajes Remediados Post-Entrega (ZAP)](https://github.com/watchdogcode/gol2026/blob/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md#26-mensajes-remediados-post-entrega-zap)
   - [27. Evasión Inicial + ZAP Posterior](https://github.com/watchdogcode/gol2026/blob/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md#27-evasi%C3%B3n-inicial--zap-posterior)
   - [28. Bypass por Allow/Override](https://github.com/watchdogcode/gol2026/blob/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md#28-bypass-por-allowoverride)
+- [Validación de Correos Entregados con Amenazas](https://github.com/watchdogcode/gol2026/blob/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md#-validaci%C3%B3n-de-correos-entregados-con-amenazas)
+  - [29. Correos entregados con algún tipo de amenaza (Query base)](https://github.com/watchdogcode/gol2026/blob/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md#29-correos-entregados-con-alg%C3%BAn-tipo-de-amenaza-query-base)
+  - [30. Confirmar si fue Safe Attachments o Safe Links](https://github.com/watchdogcode/gol2026/blob/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md#30-confirmar-si-fue-safe-attachments-o-safe-links)
+  - [31. Enlaces maliciosos entregados](https://github.com/watchdogcode/gol2026/blob/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md#31-enlaces-maliciosos-entregados)
 
 ---
 
@@ -495,4 +499,75 @@ EmailEvents
 | where OrgLevelAction in ("Allow","DeliverToInbox") or (DetectionMethods has "UserOverride" or DetectionMethods has "AdminOverride")
 | summarize Total=count(), DistinctSenders=dcount(SenderFromAddress) by OrgLevelAction, DetectionMethods
 | order by Total desc
+```
+
+---
+
+## 📧 Validación de Correos Entregados con Amenazas
+
+### 29. Correos entregados con algún tipo de amenaza (Query base)
+Query imprescindible para identificar todos los correos que llegaron al buzón con algún tipo de amenaza detectada. Punto de partida para cualquier investigación de correos maliciosos entregados.
+
+```kql
+EmailEvents
+| where DeliveryAction == "Delivered"
+| where ThreatTypes != ""
+| project
+    Timestamp,
+    NetworkMessageId,
+    SenderFromAddress,
+    RecipientEmailAddress,
+    Subject,
+    ThreatTypes,
+    DetectionMethods,
+    ConfidenceLevel,
+    DeliveryLocation
+| order by Timestamp desc
+```
+
+**Validar por tipo de amenaza específicamente:**
+
+Agrega cualquiera de los siguientes filtros a la query base para segmentar por categoría de amenaza:
+
+#### Malware
+```kql
+| where ThreatTypes has "Malware"
+```
+
+#### Phishing
+```kql
+| where ThreatTypes has "Phish"
+```
+
+#### Spam de alto riesgo
+```kql
+| where ThreatTypes has "Spam"
+```
+
+### 30. Confirmar si fue Safe Attachments o Safe Links
+Verifica si los adjuntos detectados fueron procesados por Safe Attachments y cuál fue el veredicto del filtro de malware.
+
+```kql
+EmailAttachmentInfo
+| where MalwareFilterVerdict != "Clean"
+| project
+    Timestamp,
+    NetworkMessageId,
+    FileName,
+    MalwareFilterVerdict,
+    DetectionMethods
+```
+
+### 31. Enlaces maliciosos entregados
+Identifica URLs con algún tipo de amenaza detectada que fueron incluidas en correos entregados.
+
+```kql
+EmailUrlInfo
+| where UrlThreatType != "None"
+| project
+    Timestamp,
+    NetworkMessageId,
+    Url,
+    UrlThreatType,
+    DetectionMethods
 ```
