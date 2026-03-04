@@ -1,3 +1,15 @@
+﻿##############################################################################################
+#This sample script is not supported under any Microsoft standard support program or service.
+#This sample script is provided AS IS without warranty of any kind.
+#Microsoft further disclaims all implied warranties including, without limitation, any implied
+#warranties of merchantability or of fitness for a particular purpose. The entire risk arising
+#out of the use or performance of the sample script and documentation remains with you. In no
+#event shall Microsoft, its authors, or anyone else involved in the creation, production, or
+#delivery of the scripts be liable for any damages whatsoever (including, without limitation,
+#damages for loss of business profits, business interruption, loss of business information,
+#or other pecuniary loss) arising out of the use of or inability to use the sample script or
+#documentation, even if Microsoft has been advised of the possibility of such damages.
+##############################################################################################
 <#
 .SYNOPSIS
     Valida todas las políticas de Microsoft Defender for Office 365 (MDO).
@@ -178,28 +190,47 @@ function Test-SettingWarn {
 }
 
 # ─────────────────────────────────────────────
-# Validación de conexión
+# Conexión a Exchange Online y Security & Compliance
 # ─────────────────────────────────────────────
 Write-Host ""
 Write-Host "Validando conexion a Exchange Online / Security & Compliance..." -ForegroundColor DarkGray
 
+# Intentar conectar a Exchange Online si no hay sesión activa
 try {
     $null = Get-OrganizationConfig -ErrorAction Stop
+    Write-Host "  Conexion a Exchange Online activa." -ForegroundColor Green
 }
 catch {
-    Write-Host "[X] No hay conexion activa a Exchange Online. Ejecuta Connect-ExchangeOnline primero." -ForegroundColor Red
-    return
+    Write-Host "  No hay conexion activa a Exchange Online. Conectando..." -ForegroundColor Yellow
+    try {
+        Connect-ExchangeOnline -ShowBanner:$false -ErrorAction Stop
+        Write-Host "  Conexion a Exchange Online establecida." -ForegroundColor Green
+    }
+    catch {
+        Write-Host "[X] No se pudo conectar a Exchange Online: $($_.Exception.Message)" -ForegroundColor Red
+        return
+    }
 }
 
-# Verificar si los cmdlets de MDO estan disponibles
+# Intentar conectar a Security & Compliance (IPPSSession) si los cmdlets de MDO no están disponibles
 $mdoAvailable = $true
 try {
     $null = Get-Command Get-SafeLinksPolicy -ErrorAction Stop
+    Write-Host "  Cmdlets de MDO (Safe Links/Attachments) disponibles." -ForegroundColor Green
 }
 catch {
-    $mdoAvailable = $false
-    Write-Host "[!!] Los cmdlets de Safe Links / Safe Attachments no estan disponibles." -ForegroundColor Yellow
-    Write-Host "     Asegurate de tener licencia MDO P1/P2 y ejecutar Connect-IPPSSession." -ForegroundColor Yellow
+    Write-Host "  Cmdlets de MDO no disponibles. Conectando a Security & Compliance..." -ForegroundColor Yellow
+    try {
+        Connect-IPPSSession -ShowBanner:$false -ErrorAction Stop
+        # Verificar de nuevo después de conectar
+        $null = Get-Command Get-SafeLinksPolicy -ErrorAction Stop
+        Write-Host "  Conexion a Security & Compliance establecida." -ForegroundColor Green
+    }
+    catch {
+        $mdoAvailable = $false
+        Write-Host "[!!] No se pudieron habilitar los cmdlets de MDO." -ForegroundColor Yellow
+        Write-Host "     Asegurate de tener licencia MDO P1/P2. Las secciones Safe Links/Attachments se omitiran." -ForegroundColor Yellow
+    }
 }
 
 $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
