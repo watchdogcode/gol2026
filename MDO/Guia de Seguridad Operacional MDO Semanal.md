@@ -31,7 +31,7 @@ El panel muestra gráficas de tendencias para:
 ## Ajustar Filtros para Analizar Tendencias
 
 Utiliza la barra de filtros superior:
-- **Time range**: 24 horas, 7 días, 30 días, 90 días
+- **Time range**: 24 horas, 7 días, 30 días, 90 días (para tareas semanales se recomienda al menos 15 días)
 - **Detection type**: Malware, Phish, Spam, High‑confidence Phish
 - **Delivery location**: Inbox, Junk, Quarantine, Removed
 - **Workload**: Exchange Online, Teams, SharePoint, OneDrive
@@ -229,6 +229,10 @@ Incluye:
 ## Acceder a Advanced Hunting
 1. Ir a https://security.microsoft.com/v2/advanced-hunting
 
+## Ajustar Filtros para Analizar Tendencias
+
+Utiliza la barra de filtros superior:
+- **Time range**: 15 días, 30 días, 90 días (para tareas semanales se recomienda al menos 15 días)
 ---
 
 ## Identificar correos entregados con detección de amenaza
