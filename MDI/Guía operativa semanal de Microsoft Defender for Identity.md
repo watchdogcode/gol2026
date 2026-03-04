@@ -1,5 +1,7 @@
 # 🛡️ Guía de Seguridad Operacional Diaria: Microsoft Defender for Identity
 
+## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
+
 La guía semanal de MDI permite identificar y ajustar proactivamente riesgos emergentes de identidad antes de que se conviertan en incidentes críticos para el negocio.
 
 ---
