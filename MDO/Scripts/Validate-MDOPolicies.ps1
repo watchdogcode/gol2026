@@ -873,10 +873,10 @@ foreach ($row in $script:htmlRows) {
     $htmlDetailRows += @"
 <tr>
     <td class='$statusClass'>$statusIcon $($row.Status)</td>
+    <td class='policy-name'>$policyNameHtml</td>
     <td><strong>$safeSetting</strong></td>
     <td><code>$safeCurrentValue</code></td>
     <td><code>$safeRecommended</code></td>
-    <td class='policy-name'>$policyNameHtml</td>
 </tr>
 "@
 }
@@ -1037,10 +1037,10 @@ $htmlReport = @"
                 <thead>
                     <tr>
                         <th style="width:80px;">Estado</th>
+                        <th>Política</th>
                         <th>Configuración</th>
                         <th>Valor Actual</th>
                         <th>Recomendado</th>
-                        <th>Política</th>
                     </tr>
                 </thead>
                 <tbody>
