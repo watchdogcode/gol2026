@@ -221,3 +221,88 @@ Incluye:
 - Priorizar respuesta
 - Endurecer postura defensiva
 - Revisar movimientos posteriores
+---
+
+# Validar correos entregados con amenazas
+
+## 1️⃣ Acceder a Advanced Hunting
+1. Abre el portal **Microsoft Defender**  
+   https://security.microsoft.com
+2. Navega a:  
+   **Hunting → Advanced hunting**
+
+---
+
+## 2️⃣ Identificar correos entregados con detección de amenaza
+**Objetivo:** confirmar correos que **NO fueron bloqueados** y llegaron al buzón del usuario.
+
+### Query base (imprescindible)
+```kql
+EmailEvents
+| where DeliveryAction == "Delivered"
+| where ThreatTypes != ""
+| project
+    Timestamp,
+    NetworkMessageId,
+    SenderFromAddress,
+    RecipientEmailAddress,
+    Subject,
+    ThreatTypes,
+    DetectionMethods,
+    ConfidenceLevel,
+    DeliveryLocation
+| order by Timestamp desc
+```
+
+### 🔍 Qué valida esta consulta
+- ✅ El correo **sí se entregó**
+- ✅ Defender detectó **algún tipo de amenaza**
+- ✅ Puedes ver **qué tipo** y **cómo fue detectada**
+
+---
+
+## 3️⃣ Validar tipo de amenaza entregada
+Para entender qué se escapó, filtra por tipo:
+
+### Malware
+```kql
+| where ThreatTypes has "Malware"
+```
+
+### Phishing
+```kql
+| where ThreatTypes has "Phish"
+```
+
+### Spam de alto riesgo
+```kql
+| where ThreatTypes has "Spam"
+```
+
+---
+
+## 4️⃣ Confirmar si fue Safe Attachments o Safe Links
+
+### Adjuntos maliciosos entregados
+```kql
+EmailAttachmentInfo
+| where MalwareFilterVerdict != "Clean"
+| project
+    Timestamp,
+    NetworkMessageId,
+    FileName,
+    MalwareFilterVerdict,
+    DetectionMethods
+```
+
+### Enlaces maliciosos entregados
+```kql
+EmailUrlInfo
+| where UrlThreatType != "None"
+| project
+    Timestamp,
+    NetworkMessageId,
+    Url,
+    UrlThreatType,
+    DetectionMethods
+```
