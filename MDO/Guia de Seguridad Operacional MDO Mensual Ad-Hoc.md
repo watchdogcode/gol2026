@@ -234,7 +234,7 @@ EmailEvents
 
 ## Opción 1, ejecutar script de validación: [MDO/Scripts/Validate-MDOPolicies.ps1](https://github.com/watchdogcode/gol2026/blob/main/MDO/Scripts/Validate-MDOPolicies.ps1)
 
-## Opción 2 paso a paso:
+## Opción 2, paso a paso:
 
 ### 1. Acceder al portal correcto de Microsoft Defender for Office 365 (MDO)
 
