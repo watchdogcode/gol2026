@@ -29,6 +29,7 @@ Un setup correcto de **reglas de flujo de correo en Microsoft 365** , **Bloqueo 
 - Evitar el **abuso de dominios técnicos** (por ejemplo: `*.onmicrosoft.com`)
 - Forzar el **cifrado SMTP en tránsito** entre servidores
 - Proteger **dominios sin uso**
+- Línea base para mejorar la postura de seguridad en Exchange online
 
 ---
 > Este setup básico establece los controles mínimos necesarios para proteger la identidad del dominio y garantizar una comunicación de correo electrónico segura y confiable.
@@ -554,3 +555,7 @@ En organizaciones grandes es común:
 
 #### Referencia
 - [Parked and Inactive Domain Setup for MX, SPF and DMARC](https://support.dmarcreport.com/support/solutions/articles/5000882467-parked-and-inactive-domain-setup-for-mx-spf-and-dmarc)
+
+# Validación Línea base para mejorar la postura de seguridad en Exchange online
+
+## Se puede hacer una validación rapida ejecutando el siguiente escript: [Validate-EXOSecurityBaseline](https://github.com/watchdogcode/gol2026/blob/main/MDO/Scripts/Validate-EXOSecurityBaseline.ps1)
