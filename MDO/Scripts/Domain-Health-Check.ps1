@@ -350,7 +350,7 @@ $html = @"
 
     <!-- Hero Header -->
     <div class="hero text-center">
-        <img src="https://dco.microsoft.com/Images/microsoft-white-logo.png" alt="Microsoft" class="logo-img mb-2">
+        <img src="https://cdn.theatlantic.com/assets/marketing/prod/logos/2024/03/MS-Security_logo_horiz_c-gray_rgb_1_O3yRRKf.png" alt="Microsoft Security" class="logo-img mb-2">
         <h1>Domain Health Security Report</h1>
         <p>Analysis for: <strong>$domain</strong> | <span style="font-size:0.85rem;">$date</span></p>
         <p><em>&ldquo;Technology enables security, but discipline makes it effective&rdquo;</em></p>
