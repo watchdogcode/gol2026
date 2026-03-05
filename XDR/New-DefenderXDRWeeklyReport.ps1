@@ -40,7 +40,7 @@
 
 param(
     [ValidateSet(7, 14, 30)]
-    [int]$TimeWindowDays = 7,
+    [int]$TimeWindowDays = 30
 
     [string]$OutputPath = "$PSScriptRoot\Weekly_SecOps_Report_$(Get-Date -Format 'yyyyMMdd').html",
 
@@ -359,7 +359,7 @@ EmailEvents
     "MDE_Severity" = @"
 AlertInfo
 | where Timestamp between (ago(TimeWindowDays*d) .. now())
-| where ServiceSource == 'MicrosoftDefenderForEndpoint'
+| where ServiceSource has 'Endpoint'
 | summarize Count=count() by Severity
 | order by Count desc
 "@
@@ -367,7 +367,7 @@ AlertInfo
     "MDE_HostsRisk" = @"
 AlertInfo
 | where Timestamp between (ago(TimeWindowDays*d) .. now())
-| where ServiceSource == 'MicrosoftDefenderForEndpoint'
+| where ServiceSource has 'Endpoint'
 | where Severity in ('High', 'Critical')
 | join kind=inner (AlertEvidence | where Timestamp between (ago(TimeWindowDays*d) .. now()) | where EntityType == 'Machine') on AlertId
 | summarize AlertCount=dcount(AlertId), MaxSev=max(Severity) by DeviceName, DeviceId
@@ -551,6 +551,67 @@ try {
     
     # Tenant ID ya enmascarado al inicio del script vía función Mask-String
 
+    # --- KQL RECOMENDADA SEMANAL POR CARGA DE TRABAJO ---
+    $MdoWeeklyKqlCatalog = @(
+        @{ Id = 1; Category = "Tendencias"; Title = "Tendencias de malware/phishing por día"; Query = $Queries["MDO_Trend"] },
+        @{ Id = 2; Category = "Campañas"; Title = "Campañas de alto impacto"; Query = $Queries["MDO_Campaigns"] },
+        @{ Id = 3; Category = "Usuarios objetivo"; Title = "Top usuarios más atacados"; Query = $Queries["MDO_TopUsers"] }
+    )
+    $SelectedMdoWeeklyKql = $MdoWeeklyKqlCatalog | Get-Random
+
+    $MdeWeeklyKqlCatalog = @(
+        @{ Id = 1; Category = "Threat Analytics"; Title = "Alertas MDE por severidad"; Query = $Queries["MDE_Severity"] },
+        @{ Id = 2; Category = "Hunting"; Title = "Hosts con múltiples alertas altas/críticas"; Query = $Queries["MDE_HostsRisk"] },
+        @{ Id = 3; Category = "Cobertura"; Title = "Salud del sensor y onboarding"; Query = $Queries["MDE_Health"] }
+    )
+    $SelectedMdeWeeklyKql = $MdeWeeklyKqlCatalog | Get-Random
+
+    $MdiWeeklyKqlCatalog = @(
+        @{ Id = 1; Category = "Secure Score"; Title = "Password spray por cuenta"; Query = $Queries["MDI_Spray"] },
+        @{ Id = 2; Category = "Custom Detection"; Title = "Ubicaciones atípicas por identidad"; Query = $Queries["MDI_Atypical"] },
+        @{ Id = 3; Category = "Custom Detection"; Title = "Brute force distribuido (señal temprana)"; Query = @"
+let Lookback = 7d;
+let Window = 30m;
+let MinFailures = 25;
+let MinSrcIPs = 8;
+IdentityLogonEvents
+| where Timestamp >= ago(Lookback)
+| where ActionType has_any ("Fail", "LogonFailed", "InvalidPassword", "UserLoginFailed")
+| summarize Failures=count(), SrcIPs=dcount(IPAddress), IPList=make_set(IPAddress, 25), Apps=make_set(Application, 15)
+  by AccountUpn, AccountName, AccountDomain, bin(Timestamp, Window)
+| where Failures >= MinFailures and SrcIPs >= MinSrcIPs
+| project Timestamp, AccountUpn, AccountName, AccountDomain, Failures, SrcIPs, IPList, Apps
+| order by Failures desc, SrcIPs desc
+"@ }
+    )
+    $SelectedMdiWeeklyKql = $MdiWeeklyKqlCatalog | Get-Random
+
+    $EntraWeeklyKqlCatalog = @(
+        @{ Id = 1; Category = "Cambios Administrativos"; Title = "Cambios de roles administrativos"; Query = @"
+CloudAppEvents
+| where Timestamp between (ago(TimeWindowDays*d) .. now())
+| where Application == "Azure Active Directory"
+| where ActionType has_any ("Add member to role", "Remove member from role", "Update role", "Role")
+| project Timestamp, ActionType, AccountDisplayName, IPAddress, CountryCode, RawEventData
+| order by Timestamp desc
+"@ },
+        @{ Id = 2; Category = "Identity Secure Score"; Title = "Sign-ins de alto riesgo"; Query = @"
+EntraIdSignInEvents
+| where Timestamp between (ago(TimeWindowDays*d) .. now())
+| where RiskLevelAggregated in (50, 100)
+| project Timestamp, AccountUpn, RiskLevelAggregated, RiskState, Application, IPAddress, Country
+| order by Timestamp desc
+"@ },
+        @{ Id = 3; Category = "Sincronización"; Title = "Errores de inicio de sesión por código"; Query = @"
+EntraIdSignInEvents
+| where Timestamp between (ago(TimeWindowDays*d) .. now())
+| where ErrorCode != 0
+| summarize Failures=count(), Users=dcount(AccountUpn) by ErrorCode, FailureReason
+| order by Failures desc
+"@ }
+    )
+    $SelectedEntraWeeklyKql = $EntraWeeklyKqlCatalog | Get-Random
+
 # 4. Generar HTML
 function New-HtmlTable {
     param($Rows, $Cols)
@@ -701,6 +762,81 @@ $HtmlContent = @"
         }
         .recs ul { margin: 0; padding-left: 20px; }
         .recs li { margin-bottom: 8px; line-height: 1.6; }
+
+        .ops-section { margin-bottom: 30px; }
+        .ops-group {
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .ops-group-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 20px;
+            font-weight: 600;
+            font-size: 1em;
+            color: #fff;
+            letter-spacing: 0.3px;
+        }
+        .ops-group-header.mdo   { background: linear-gradient(135deg, #0078d4, #005a9e); }
+        .ops-group-header.mde   { background: linear-gradient(135deg, #d83b01, #a52a00); }
+        .ops-group-header.mdi   { background: linear-gradient(135deg, #e97a00, #c25e00); }
+        .ops-group-header.entra { background: linear-gradient(135deg, #107c10, #0b5e0b); }
+        .ops-group-header .icon { font-size: 1.2em; }
+        .ops-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.7em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            line-height: 1.6;
+        }
+        .ops-badge.weekly { background: rgba(255,255,255,0.25); color: #fff; }
+        .ops-table { width: 100%; border-collapse: collapse; font-size: 0.92em; }
+        .ops-table th {
+            background-color: #f8f9fa;
+            color: #605e5c;
+            text-align: left;
+            padding: 10px 16px;
+            font-weight: 600;
+            font-size: 0.8em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid var(--border-color);
+        }
+        .ops-table td {
+            padding: 11px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: middle;
+        }
+        .ops-table tr:last-child td { border-bottom: none; }
+        .ops-table tr:hover { background-color: #fafbfc; }
+        .ops-task-name {
+            font-family: 'Segoe UI Semibold', 'Segoe UI', sans-serif;
+            font-weight: 600;
+            color: var(--text-color);
+            font-size: 0.93em;
+        }
+        .ops-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 14px;
+            border-radius: 5px;
+            font-size: 0.82em;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.15s ease;
+        }
+        .ops-btn.portal { background: #0078d4; color: #fff; }
+        .ops-btn.portal:hover { background: #005a9e; }
+        .ops-btn.doc { background: #f3f2f1; color: #323130; border: 1px solid #d2d0ce; }
+        .ops-btn.doc:hover { background: #e1dfdd; }
         .footer { text-align: center; margin-top: 50px; color: #8a8886; font-size: 0.85em; padding-bottom: 20px; }
         @media (max-width: 900px) {
             .header { flex-direction: column; align-items: flex-start; gap: 12px; }
@@ -755,6 +891,43 @@ $HtmlContent = @"
         </div>
 
         <h2>MDO: Correo y Colaboración</h2>
+
+        <div class="ops-section">
+            <div class="ops-group">
+                <div class="ops-group-header mdo">
+                    <span class="icon">&#x1f4e7;</span> Tareas Operativas Semanales - Microsoft Defender for Office 365
+                    <span class="ops-badge weekly">4 Semanales</span>
+                </div>
+                <table class="ops-table">
+                    <thead><tr><th style="width:50%">Tarea</th><th style="width:25%">Portal</th><th style="width:25%">Guía</th></tr></thead>
+                    <tbody>
+                        <tr><td class="ops-task-name">Revisar tendencias de detección de correo</td><td><a class="ops-btn portal" href="https://security.microsoft.com/emailandcollabreport" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md#revisar-tendencias-de-detecci%C3%B3n-de-correo-en-microsoft-defender-for-office-365" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Identificar usuarios más atacados</td><td><a class="ops-btn portal" href="https://security.microsoft.com/emailandcollabreport" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md#identificar-usuarios-m%C3%A1s-atacados-por-malware-y-phishing" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisar campañas de malware y phishing</td><td><a class="ops-btn portal" href="https://security.microsoft.com/threatexplorerv3" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md#revisar-campa%C3%B1as-de-malware-y-phishing" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Validar correos entregados con amenazas</td><td><a class="ops-btn portal" href="https://security.microsoft.com/threatexplorerv3" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md#validar-correos-entregados-con-amenazas" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="ops-group" style="margin-top: 20px;">
+            <div class="ops-group-header mdo">
+                <span class="icon">&#x1f50d;</span> Recomendación de KQL semanal - MDO
+                <span class="ops-badge weekly">#$($SelectedMdoWeeklyKql.Id) de $($MdoWeeklyKqlCatalog.Count)</span>
+            </div>
+            <div style="padding: 20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <span style="background:#e6f2ff; color:#0078d4; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">$($SelectedMdoWeeklyKql.Category)</span>
+                </div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">$($SelectedMdoWeeklyKql.Title)</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedMdoWeeklyKql.Query)</div>
+                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
+                    <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md" target="_blank">&#x1f4d6; Guía Semanal MDO</a>
+                </div>
+            </div>
+        </div>
+
         <div class="table-grid">
             <div class="table-container">
                 <h3 style="padding:0 15px;">Principales Campañas Activas</h3>
@@ -773,6 +946,27 @@ $HtmlContent = @"
         </div>
 
         <h2>MDE: Seguridad de Endpoint</h2>
+
+        <div class="ops-section">
+            <div class="ops-group">
+                <div class="ops-group-header mde">
+                    <span class="icon">&#x1f6e1;</span> Tareas Operativas Semanales - Microsoft Defender for Endpoint
+                    <span class="ops-badge weekly">6 Semanales</span>
+                </div>
+                <table class="ops-table">
+                    <thead><tr><th style="width:50%">Tarea</th><th style="width:25%">Portal</th><th style="width:25%">Guía</th></tr></thead>
+                    <tbody>
+                        <tr><td class="ops-task-name">Análisis de tendencias de amenazas</td><td><a class="ops-btn portal" href="https://security.microsoft.com/threatanalytics3" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20semanales.md#an%C3%A1lisis-de-tendencias-de-amenazas" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Advanced Hunting semanal</td><td><a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20semanales.md#advanced-hunting-semanal" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Exposición y vulnerabilidades (MDVM)</td><td><a class="ops-btn portal" href="https://security.microsoft.com/tvm_dashboard" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20semanales.md#exposici%C3%B3n-y-vulnerabilidades" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisión de configuraciones de seguridad</td><td><a class="ops-btn portal" href="https://security.microsoft.com/asr" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20semanales.md#revisi%C3%B3n-de-configuraciones-de-seguridad" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Dispositivos reincidentes</td><td><a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20semanales.md#dispositivos-reincidentes" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Reporte operativo / ejecutivo</td><td><a class="ops-btn portal" href="https://security.microsoft.com/incidents" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20semanales.md#reporte-operativo--ejecutivo" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <div class="table-grid">
             <div class="table-container">
                 <h3 style="padding:0 15px;">Alertas por Severidad</h3>
@@ -797,7 +991,43 @@ $HtmlContent = @"
             </table>
         </div>
 
+        <div class="ops-group" style="margin-top: 20px;">
+            <div class="ops-group-header mde">
+                <span class="icon">&#x1f50d;</span> Recomendación de KQL semanal - MDE
+                <span class="ops-badge weekly">#$($SelectedMdeWeeklyKql.Id) de $($MdeWeeklyKqlCatalog.Count)</span>
+            </div>
+            <div style="padding: 20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <span style="background:#fce4ec; color:#d83b01; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">$($SelectedMdeWeeklyKql.Category)</span>
+                </div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">$($SelectedMdeWeeklyKql.Title)</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedMdeWeeklyKql.Query)</div>
+                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
+                    <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20semanales.md" target="_blank">&#x1f4d6; Guía Semanal MDE</a>
+                </div>
+            </div>
+        </div>
+
         <h2>MDI: Seguridad de Identidad</h2>
+
+        <div class="ops-section">
+            <div class="ops-group">
+                <div class="ops-group-header mdi">
+                    <span class="icon">&#x1f512;</span> Tareas Operativas Semanales - Microsoft Defender for Identity
+                    <span class="ops-badge weekly">3 Semanales</span>
+                </div>
+                <table class="ops-table">
+                    <thead><tr><th style="width:50%">Tarea</th><th style="width:25%">Portal</th><th style="width:25%">Guía</th></tr></thead>
+                    <tbody>
+                        <tr><td class="ops-task-name">Revisar recomendaciones de Secure Score</td><td><a class="ops-btn portal" href="https://security.microsoft.com/securescore" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20semanal%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-recomendaciones-de-secure-score-por-producto" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Responder a amenazas emergentes (custom detections)</td><td><a class="ops-btn portal" href="https://security.microsoft.com/advanced-hunting" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20semanal%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-y-responder-a-amenazas-emergentes-custom-detections" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Custom detection de password spray distribuido</td><td><a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20semanal%20de%20Microsoft%20Defender%20for%20Identity.md#ejemplo-custom-detection-password-spraying--brute-force-distribuido-se%C3%B1al-temprana" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <div class="table-grid">
             <div class="table-container">
                 <h3 style="padding:0 15px;">Password Spray / Fuerza Bruta</h3>
@@ -812,6 +1042,61 @@ $HtmlContent = @"
                     <thead><tr><th>Cuenta</th><th>Países</th><th>Visto Por Última Vez</th></tr></thead>
                     <tbody>$(New-HtmlTable $Data["MDI_Atypical"] @("AccountUpn","Countries","LastSeen"))</tbody>
                 </table>
+            </div>
+        </div>
+
+        <div class="ops-group" style="margin-top: 20px;">
+            <div class="ops-group-header mdi">
+                <span class="icon">&#x1f50d;</span> Recomendación de KQL semanal - MDI
+                <span class="ops-badge weekly">#$($SelectedMdiWeeklyKql.Id) de $($MdiWeeklyKqlCatalog.Count)</span>
+            </div>
+            <div style="padding: 20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <span style="background:#fff3e0; color:#e97a00; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">$($SelectedMdiWeeklyKql.Category)</span>
+                </div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">$($SelectedMdiWeeklyKql.Title)</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedMdiWeeklyKql.Query)</div>
+                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
+                    <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20semanal%20de%20Microsoft%20Defender%20for%20Identity.md" target="_blank">&#x1f4d6; Guía Semanal MDI</a>
+                </div>
+            </div>
+        </div>
+
+        <h2>Entra ID: Gobernanza de Identidades</h2>
+
+        <div class="ops-section">
+            <div class="ops-group">
+                <div class="ops-group-header entra">
+                    <span class="icon">&#x1f510;</span> Tareas Operativas Semanales - Microsoft Entra ID
+                    <span class="ops-badge weekly">3 Semanales</span>
+                </div>
+                <table class="ops-table">
+                    <thead><tr><th style="width:50%">Tarea</th><th style="width:25%">Portal</th><th style="width:25%">Guía</th></tr></thead>
+                    <tbody>
+                        <tr><td class="ops-task-name">Revisión de cambios administrativos</td><td><a class="ops-btn portal" href="https://entra.microsoft.com/#view/Microsoft_AAD_IAM/AuditLogList.ReactView" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20EntraID%20Tareas%20Semanales.md#revisi%C3%B3n-de-cambios-administrativos" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Seguimiento del Identity Secure Score</td><td><a class="ops-btn portal" href="https://entra.microsoft.com/#view/Microsoft_AAD_IAM/EntraRecommendationsIdentitySecureScore.ReactView" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20EntraID%20Tareas%20Semanales.md#seguimiento-del-identity-secure-score" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Revisión de errores de sincronización antiguos</td><td><a class="ops-btn portal" href="https://entra.microsoft.com/#view/Microsoft_AAD_Connect_Provisioning/CrossTenantSynchronizationConfiguration.ReactView" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20EntraID%20Tareas%20Semanales.md#revisi%C3%B3n-de-errores-de-sincronizaci%C3%B3n-antiguos" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="ops-group" style="margin-top: 20px;">
+            <div class="ops-group-header entra">
+                <span class="icon">&#x1f50d;</span> Recomendación de KQL semanal - Entra ID
+                <span class="ops-badge weekly">#$($SelectedEntraWeeklyKql.Id) de $($EntraWeeklyKqlCatalog.Count)</span>
+            </div>
+            <div style="padding: 20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <span style="background:#e8f5e9; color:#107c10; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">$($SelectedEntraWeeklyKql.Category)</span>
+                </div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">$($SelectedEntraWeeklyKql.Title)</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedEntraWeeklyKql.Query)</div>
+                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
+                    <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20EntraID%20Tareas%20Semanales.md" target="_blank">&#x1f4d6; Guía Semanal Entra ID</a>
+                </div>
             </div>
         </div>
 

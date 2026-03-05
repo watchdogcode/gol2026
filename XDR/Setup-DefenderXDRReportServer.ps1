@@ -173,7 +173,7 @@ Write-Host "    5. Saltar         (Configurare las credenciales despues)" -Foreg
 
 $AuthChoice = Read-Host "`n  Seleccione metodo [1-5]"
 
-$AuthMode        = "DeviceCode"
+$AuthMode        = "Secret"
 $UseSecret       = $false
 $UseCertificate  = $false
 $SecretFile      = "$ConfigPath\ClientSecret.enc"
@@ -257,6 +257,7 @@ elseif ($AuthChoice -eq "4") {
 }
 else {
     Write-Skip "Configuracion de autenticacion omitida"
+    Write-Host "    Se usara AuthMode=Secret por defecto (requiere ClientSecret o variable de entorno)." -ForegroundColor DarkYellow
 }
 
 # Mostrar resumen enmascarado
@@ -302,6 +303,9 @@ $Config = @{
     SmtpServer      = $null
     MailFrom        = $null
     MailTo          = $null
+    DailyTimeWindowHours = 720
+    WeeklyTimeWindowDays = 7
+    WeeklyExportCsv      = $true
     RetentionDays   = 90
 }
 
@@ -510,11 +514,12 @@ if ((`$DailyAuth -eq "Secret") -and `$Config.SecretFile) {
 }
 
 # Construir parametros
+`$DailyTimeWindowHours = if (`$Config.DailyTimeWindowHours) { [int]`$Config.DailyTimeWindowHours } else { 720 }
 `$Params = @{
     TenantId        = `$Config.TenantId
     ClientId        = `$Config.ClientId
     AuthMode        = `$DailyAuth
-    TimeWindowHours = 24
+    TimeWindowHours = `$DailyTimeWindowHours
     OutputPath      = Join-Path `$OutputDir "Daily_SecOps_Report_`$(Get-Date -Format 'yyyyMMdd').html"
     TimeoutSec      = 120
 }
@@ -605,15 +610,17 @@ if (`$WeeklyAuth -eq "Secret" -and `$Config.SecretFile) {
 }
 
 # Construir parametros
+`$WeeklyTimeWindowDays = if (`$Config.WeeklyTimeWindowDays) { [int]`$Config.WeeklyTimeWindowDays } else { 7 }
+`$WeeklyExportCsv = if (`$null -ne `$Config.WeeklyExportCsv) { [bool]`$Config.WeeklyExportCsv } else { `$true }
 `$Params = @{
     TenantId       = `$Config.TenantId
     ClientId       = `$Config.ClientId
     AuthMode       = `$WeeklyAuth
-    TimeWindowDays = 7
+    TimeWindowDays = `$WeeklyTimeWindowDays
     OutputPath     = Join-Path `$OutputDir "Weekly_SecOps_Report_`$(Get-Date -Format 'yyyyMMdd').html"
     LogPath        = Join-Path `$LogDir "DefenderXDR_Weekly_`$(Get-Date -Format 'yyyyMMdd').log"
     TimeoutSec     = 120
-    ExportCsv      = `$true
+    ExportCsv      = `$WeeklyExportCsv
 }
 
 if (`$ClientSecretPlain) { `$Params['ClientSecret'] = `$ClientSecretPlain }
@@ -671,30 +678,40 @@ Write-Step "8/9" "Tareas programadas (Task Scheduler)"
 if ($SkipScheduledTasks) {
     Write-Skip "Creacion de tareas omitida (parametro -SkipScheduledTasks)"
 }
-elseif ($AuthMode -eq "Interactive") {
-    Write-Fail "Tareas programadas NO compatibles con modo Interactive (requiere browser)."
-    Write-Host "    Cambie a Client Secret o Certificado para automatizacion." -ForegroundColor DarkYellow
-    Write-Skip "Creacion de tareas omitida automaticamente"
-}
 else {
     $CreateTasks = Read-Host "  Crear tareas programadas? [S/n]"
 
     if ($CreateTasks -notin @("n", "N")) {
 
-        $TaskDefs = @(
-            @{
+        $TaskDefs = @()
+
+        if ($DailyAuthMode -in @("Secret")) {
+            $TaskDefs += @{
                 Name    = "DefenderXDR-DailyReport"
                 Script  = $DailyWrapperPath
                 Trigger = { New-ScheduledTaskTrigger -Daily -At 7am }
                 Desc    = "Reporte diario de seguridad - Defender XDR (Daily 7:00 AM) [Auth: $DailyAuthMode]"
-            },
-            @{
+            }
+        }
+        else {
+            Write-Skip "Tarea diaria omitida: AuthMode '$DailyAuthMode' no recomendado para Task Scheduler."
+        }
+
+        if ($WeeklyAuthMode -in @("Secret", "Certificate")) {
+            $TaskDefs += @{
                 Name    = "DefenderXDR-WeeklyReport"
                 Script  = $WeeklyWrapperPath
                 Trigger = { New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday -At "7:30AM" }
                 Desc    = "Reporte semanal de seguridad - Defender XDR (Lunes 7:30 AM) [Auth: $WeeklyAuthMode]"
             }
-        )
+        }
+        else {
+            Write-Skip "Tarea semanal omitida: AuthMode '$WeeklyAuthMode' no recomendado para Task Scheduler."
+        }
+
+        if ($TaskDefs.Count -eq 0) {
+            Write-Skip "No se crearon tareas: configure AuthMode Secret (o Certificate para Weekly) para automatizacion."
+        }
 
         foreach ($Task in $TaskDefs) {
             try {
@@ -742,7 +759,8 @@ if ($UseSecret -or $UseCertificate) {
     $RunTest = Read-Host "  Ejecutar prueba del reporte diario ahora? [s/N]"
 
     if ($RunTest -in @("s", "S")) {
-        Write-Info "Ejecutando prueba con ventana de 1 hora (resultados minimos)..."
+        $DailyTestWindow = if ($Config.DailyTimeWindowHours) { $Config.DailyTimeWindowHours } else { 720 }
+        Write-Info "Ejecutando prueba con ventana configurada de $DailyTestWindow horas..."
         try {
             & $DailyWrapperPath
             Write-Ok "Prueba completada exitosamente"
