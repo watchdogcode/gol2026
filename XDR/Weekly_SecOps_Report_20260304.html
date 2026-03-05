@@ -32,6 +32,7 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+        .header .subtitle { margin-top: 6px; font-size: 0.92em; opacity: 0.95; }
         .header .meta { font-size: 0.9em; opacity: 0.95; text-align: right; }
         .status-badge {
             padding: 4px 12px;
@@ -206,11 +207,14 @@
 </head>
 <body>
     <div class="header">
-        <h1>Reporte Semanal de Operaciones de Seguridad</h1>
+        <div>
+            <h1>Reporte Semanal de Operaciones de Seguridad</h1>
+            <div class="subtitle">Technology enables security, but discipline makes it effective</div>
+        </div>
         <div class="meta">
             <div class="status-badge" style="background-color: #107c10;">Saludable</div>
-            <div><strong>Periodo:</strong> Últimos 7 días</div>
-            <div><strong>Generado:</strong> 2026-03-04 19:58</div>
+            <div><strong>Periodo:</strong> Últimos 30 días</div>
+            <div><strong>Generado:</strong> 2026-03-04 20:05</div>
             <div style="font-size: 0.85em; margin-top: 4px;">Tenant ID: ********************************8c2b</div>
         </div>
     </div>
@@ -272,18 +276,17 @@
         <div class="ops-group" style="margin-top: 20px;">
             <div class="ops-group-header mdo">
                 <span class="icon">&#x1f50d;</span> Recomendación de KQL semanal - MDO
-                <span class="ops-badge weekly">#3 de 3</span>
+                <span class="ops-badge weekly">#1 de 3</span>
             </div>
             <div style="padding: 20px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <span style="background:#e6f2ff; color:#0078d4; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Usuarios objetivo</span>
+                    <span style="background:#e6f2ff; color:#0078d4; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Tendencias</span>
                 </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Top usuarios más atacados</h3>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Tendencias de malware/phishing por día</h3>
                 <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">EmailEvents
 | where Timestamp between (ago(TimeWindowDays*d) .. now())
-| where ThreatTypes has_any ('Phish', 'Malware')
-| summarize Attacks=count() by RecipientEmailAddress
-| top 20 by Attacks desc</div>
+| summarize Incidents=count(), Phish=countif(ThreatTypes has 'Phish'), Malware=countif(ThreatTypes has 'Malware') by bin(Timestamp, 1d)
+| order by Timestamp asc</div>
                 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
                     <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
                     <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md" target="_blank">&#x1f4d6; Guía Semanal MDO</a>
@@ -350,25 +353,25 @@
         <div class="table-container">
             <table>
                 <thead><tr><th>Nombre Dispositivo</th><th>SO</th><th>Estado Salud</th><th>Visto Por Última Vez</th></tr></thead>
-                <tbody><tr><td><a href='https://security.microsoft.com/machines/53171c9f56e6677dbe9550650586a87be0338a15' target='_blank' title='Ver Dispositivo en Defender'>win10-ceo</a></td><td>Windows10</td><td></td><td>2026-03-05 01:51</td></tr><tr><td><a href='https://security.microsoft.com/machines/8c3b9d91724a359d5028d5c61f1a6938177be32e' target='_blank' title='Ver Dispositivo en Defender'>win10-adm</a></td><td>Windows10</td><td></td><td>2026-03-05 01:49</td></tr><tr><td><a href='https://security.microsoft.com/machines/40f0d4cb1cbe64dcfcf22c4cc112997df330ab87' target='_blank' title='Ver Dispositivo en Defender'>attackerkali</a></td><td>Linux</td><td></td><td>2026-03-05 01:22</td></tr><tr><td><a href='https://security.microsoft.com/machines/22f7f084e1a8cc02ab8d996328594ec91eecd3a6' target='_blank' title='Ver Dispositivo en Defender'>attackerwin10</a></td><td>Windows10</td><td></td><td>2026-03-05 01:21</td></tr><tr><td><a href='https://security.microsoft.com/machines/7f290579351f92e63b1cb2e21fdb7623af445af1' target='_blank' title='Ver Dispositivo en Defender'>w11</a></td><td>Windows11</td><td></td><td>2026-03-05 01:19</td></tr><tr><td><a href='https://security.microsoft.com/machines/85017d537b7328885006c730ad233cc04c52a12d' target='_blank' title='Ver Dispositivo en Defender'>elk</a></td><td>Linux</td><td></td><td>2026-03-05 01:17</td></tr><tr><td><a href='https://security.microsoft.com/machines/4bae693073d24cfc84670a1c57c30a0857cb01f7' target='_blank' title='Ver Dispositivo en Defender'>svr19-dc1</a></td><td>WindowsServer2019</td><td></td><td>2026-03-05 01:11</td></tr><tr><td><a href='https://security.microsoft.com/machines/a062332fc84cbd03744064d9aff6cf74f7fce5a7' target='_blank' title='Ver Dispositivo en Defender'>attackerubuntu</a></td><td>Linux</td><td></td><td>2026-03-05 00:32</td></tr><tr><td><a href='https://security.microsoft.com/machines/722c28965678451e78dbe2d4ee928eb63340d3cf' target='_blank' title='Ver Dispositivo en Defender'>ubuntu-proxy</a></td><td>Linux</td><td></td><td>2026-03-04 21:40</td></tr><tr><td><a href='https://security.microsoft.com/machines/518857f68aa04e970514dbcbd2659aac7262650e' target='_blank' title='Ver Dispositivo en Defender'>svr16-adfs</a></td><td>WindowsServer2016</td><td></td><td>2026-03-01 09:48</td></tr><tr><td><a href='https://security.microsoft.com/machines/d06c8380a28052a2e4eeb4fb6c73ab02a1e26ea5' target='_blank' title='Ver Dispositivo en Defender'>svr22-sync</a></td><td>WindowsServer2022</td><td></td><td>2026-02-28 03:37</td></tr><tr><td><a href='https://security.microsoft.com/machines/3e5c6f1b92caf6dd3486cfa5dc660677f02d2a29' target='_blank' title='Ver Dispositivo en Defender'>lab25</a></td><td>WindowsServer2025</td><td>Active</td><td>2026-02-28 02:03</td></tr><tr><td><a href='https://security.microsoft.com/machines/3e6a8d1dec4b105c25faf5408c4edd1501d51db1' target='_blank' title='Ver Dispositivo en Defender'>ravenscar.hellblazer.local</a></td><td>WindowsServer2022</td><td>Active</td><td>2026-02-28 01:49</td></tr><tr><td><a href='https://security.microsoft.com/machines/5be61a149ad56b1bdac274fa463e85bccf5267ee' target='_blank' title='Ver Dispositivo en Defender'>win2022dc2.hellblazer.local</a></td><td>WindowsServer2022</td><td>Active</td><td>2026-02-28 01:49</td></tr><tr><td><a href='https://security.microsoft.com/machines/7bea85d62352164d69791d9aba29392ae5b7da0e' target='_blank' title='Ver Dispositivo en Defender'>cliente01.private.pvt</a></td><td>Windows11</td><td></td><td>2026-02-28 00:59</td></tr><tr><td><a href='https://security.microsoft.com/machines/1c3e1cacba9595e7e510401916dd7c6f76466095' target='_blank' title='Ver Dispositivo en Defender'>sensor.private.pvt</a></td><td>WindowsServer2016</td><td></td><td>2026-02-28 00:34</td></tr><tr><td><a href='https://security.microsoft.com/machines/4df40c04471e75cec1c8990762e9cfad3d33a6b1' target='_blank' title='Ver Dispositivo en Defender'>dcprivate</a></td><td>WindowsServer2019</td><td></td><td>2026-02-27 23:50</td></tr><tr><td><a href='https://security.microsoft.com/machines/fcc9152391706eeaf75b659f6ec8877c716d673e' target='_blank' title='Ver Dispositivo en Defender'></a></td><td>Linux</td><td></td><td>2026-02-27 23:39</td></tr><tr><td><a href='https://security.microsoft.com/machines/141e299043d2ff989c06a92539e679a1acaf04c1' target='_blank' title='Ver Dispositivo en Defender'>w10clientdomain.hellblazer.local</a></td><td>Windows10</td><td>Active</td><td>2026-02-27 00:19</td></tr><tr><td><a href='https://security.microsoft.com/machines/fb1adb44191c74c70ba2212cefc09cee8122b6a9' target='_blank' title='Ver Dispositivo en Defender'>kali</a></td><td>Linux</td><td></td><td>2026-02-26 21:26</td></tr><tr><td><a href='https://security.microsoft.com/machines/18e38bbf5863dd8bcb3055768a89c5cf50478f0c' target='_blank' title='Ver Dispositivo en Defender'>desktop-45p1f7b</a></td><td>Windows10</td><td>Active</td><td>2026-02-26 19:48</td></tr><tr><td><a href='https://security.microsoft.com/machines/b9f6ce4949924403a4f542144b1ed0a7a056178b' target='_blank' title='Ver Dispositivo en Defender'>localhost</a></td><td>Linux</td><td></td><td>2026-02-26 14:44</td></tr><tr><td><a href='https://security.microsoft.com/machines/70c5d867798548777602ae3648276f4c61b06741' target='_blank' title='Ver Dispositivo en Defender'>desktop-bo2mutj</a></td><td>Windows10</td><td>Inactive</td><td>2026-02-26 14:40</td></tr></tbody>
+                <tbody><tr><td><a href='https://security.microsoft.com/machines/53171c9f56e6677dbe9550650586a87be0338a15' target='_blank' title='Ver Dispositivo en Defender'>win10-ceo</a></td><td>Windows10</td><td></td><td>2026-03-05 01:51</td></tr><tr><td><a href='https://security.microsoft.com/machines/8c3b9d91724a359d5028d5c61f1a6938177be32e' target='_blank' title='Ver Dispositivo en Defender'>win10-adm</a></td><td>Windows10</td><td></td><td>2026-03-05 01:49</td></tr><tr><td><a href='https://security.microsoft.com/machines/40f0d4cb1cbe64dcfcf22c4cc112997df330ab87' target='_blank' title='Ver Dispositivo en Defender'>attackerkali</a></td><td>Linux</td><td></td><td>2026-03-05 01:22</td></tr><tr><td><a href='https://security.microsoft.com/machines/22f7f084e1a8cc02ab8d996328594ec91eecd3a6' target='_blank' title='Ver Dispositivo en Defender'>attackerwin10</a></td><td>Windows10</td><td></td><td>2026-03-05 01:21</td></tr><tr><td><a href='https://security.microsoft.com/machines/7f290579351f92e63b1cb2e21fdb7623af445af1' target='_blank' title='Ver Dispositivo en Defender'>w11</a></td><td>Windows11</td><td></td><td>2026-03-05 01:19</td></tr><tr><td><a href='https://security.microsoft.com/machines/85017d537b7328885006c730ad233cc04c52a12d' target='_blank' title='Ver Dispositivo en Defender'>elk</a></td><td>Linux</td><td></td><td>2026-03-05 01:17</td></tr><tr><td><a href='https://security.microsoft.com/machines/4bae693073d24cfc84670a1c57c30a0857cb01f7' target='_blank' title='Ver Dispositivo en Defender'>svr19-dc1</a></td><td>WindowsServer2019</td><td></td><td>2026-03-05 01:11</td></tr><tr><td><a href='https://security.microsoft.com/machines/a062332fc84cbd03744064d9aff6cf74f7fce5a7' target='_blank' title='Ver Dispositivo en Defender'>attackerubuntu</a></td><td>Linux</td><td></td><td>2026-03-05 00:32</td></tr><tr><td><a href='https://security.microsoft.com/machines/722c28965678451e78dbe2d4ee928eb63340d3cf' target='_blank' title='Ver Dispositivo en Defender'>ubuntu-proxy</a></td><td>Linux</td><td></td><td>2026-03-04 21:40</td></tr><tr><td><a href='https://security.microsoft.com/machines/518857f68aa04e970514dbcbd2659aac7262650e' target='_blank' title='Ver Dispositivo en Defender'>svr16-adfs</a></td><td>WindowsServer2016</td><td></td><td>2026-03-01 09:48</td></tr><tr><td><a href='https://security.microsoft.com/machines/d06c8380a28052a2e4eeb4fb6c73ab02a1e26ea5' target='_blank' title='Ver Dispositivo en Defender'>svr22-sync</a></td><td>WindowsServer2022</td><td></td><td>2026-02-28 03:37</td></tr><tr><td><a href='https://security.microsoft.com/machines/3e5c6f1b92caf6dd3486cfa5dc660677f02d2a29' target='_blank' title='Ver Dispositivo en Defender'>lab25</a></td><td>WindowsServer2025</td><td>Active</td><td>2026-02-28 02:03</td></tr><tr><td><a href='https://security.microsoft.com/machines/3e6a8d1dec4b105c25faf5408c4edd1501d51db1' target='_blank' title='Ver Dispositivo en Defender'>ravenscar.hellblazer.local</a></td><td>WindowsServer2022</td><td>Active</td><td>2026-02-28 01:49</td></tr><tr><td><a href='https://security.microsoft.com/machines/5be61a149ad56b1bdac274fa463e85bccf5267ee' target='_blank' title='Ver Dispositivo en Defender'>win2022dc2.hellblazer.local</a></td><td>WindowsServer2022</td><td>Active</td><td>2026-02-28 01:49</td></tr><tr><td><a href='https://security.microsoft.com/machines/7bea85d62352164d69791d9aba29392ae5b7da0e' target='_blank' title='Ver Dispositivo en Defender'>cliente01.private.pvt</a></td><td>Windows11</td><td></td><td>2026-02-28 00:59</td></tr><tr><td><a href='https://security.microsoft.com/machines/1c3e1cacba9595e7e510401916dd7c6f76466095' target='_blank' title='Ver Dispositivo en Defender'>sensor.private.pvt</a></td><td>WindowsServer2016</td><td></td><td>2026-02-28 00:34</td></tr><tr><td><a href='https://security.microsoft.com/machines/4df40c04471e75cec1c8990762e9cfad3d33a6b1' target='_blank' title='Ver Dispositivo en Defender'>dcprivate</a></td><td>WindowsServer2019</td><td></td><td>2026-02-27 23:50</td></tr><tr><td><a href='https://security.microsoft.com/machines/fcc9152391706eeaf75b659f6ec8877c716d673e' target='_blank' title='Ver Dispositivo en Defender'></a></td><td>Linux</td><td></td><td>2026-02-27 23:39</td></tr><tr><td><a href='https://security.microsoft.com/machines/141e299043d2ff989c06a92539e679a1acaf04c1' target='_blank' title='Ver Dispositivo en Defender'>w10clientdomain.hellblazer.local</a></td><td>Windows10</td><td>Active</td><td>2026-02-27 00:19</td></tr><tr><td><a href='https://security.microsoft.com/machines/fb1adb44191c74c70ba2212cefc09cee8122b6a9' target='_blank' title='Ver Dispositivo en Defender'>kali</a></td><td>Linux</td><td></td><td>2026-02-26 21:26</td></tr><tr><td><a href='https://security.microsoft.com/machines/18e38bbf5863dd8bcb3055768a89c5cf50478f0c' target='_blank' title='Ver Dispositivo en Defender'>desktop-45p1f7b</a></td><td>Windows10</td><td>Active</td><td>2026-02-26 19:48</td></tr><tr><td><a href='https://security.microsoft.com/machines/b9f6ce4949924403a4f542144b1ed0a7a056178b' target='_blank' title='Ver Dispositivo en Defender'>localhost</a></td><td>Linux</td><td></td><td>2026-02-26 14:44</td></tr><tr><td><a href='https://security.microsoft.com/machines/70c5d867798548777602ae3648276f4c61b06741' target='_blank' title='Ver Dispositivo en Defender'>desktop-bo2mutj</a></td><td>Windows10</td><td>Inactive</td><td>2026-02-26 14:40</td></tr><tr><td><a href='https://security.microsoft.com/machines/78054a1565c61bc942d0df91b33c32008bece7c4' target='_blank' title='Ver Dispositivo en Defender'>ca.hellblazer.local</a></td><td>WindowsServer2019</td><td>Active</td><td>2026-02-22 02:42</td></tr><tr><td><a href='https://security.microsoft.com/machines/afd892979bbb6fb1d469e2a7c9efe74798a6bc3d' target='_blank' title='Ver Dispositivo en Defender'>ws2012.hellblazer.local</a></td><td>Windows</td><td></td><td>2026-02-22 01:23</td></tr></tbody>
             </table>
         </div>
 
         <div class="ops-group" style="margin-top: 20px;">
             <div class="ops-group-header mde">
                 <span class="icon">&#x1f50d;</span> Recomendación de KQL semanal - MDE
-                <span class="ops-badge weekly">#3 de 3</span>
+                <span class="ops-badge weekly">#1 de 3</span>
             </div>
             <div style="padding: 20px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <span style="background:#fce4ec; color:#d83b01; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Cobertura</span>
+                    <span style="background:#fce4ec; color:#d83b01; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Threat Analytics</span>
                 </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Salud del sensor y onboarding</h3>
-                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">DeviceInfo
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Alertas MDE por severidad</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">AlertInfo
 | where Timestamp between (ago(TimeWindowDays*d) .. now())
-| summarize arg_max(Timestamp, OSPlatform, SensorHealthState, DeviceId) by DeviceName
-| project DeviceName, OS=OSPlatform, Health=SensorHealthState, LastSeen=Timestamp, DeviceId
-| top 25 by LastSeen desc</div>
+| where ServiceSource has 'Endpoint'
+| summarize Count=count() by Severity
+| order by Count desc</div>
                 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
                     <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
                     <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20semanales.md" target="_blank">&#x1f4d6; Guía Semanal MDE</a>
@@ -400,14 +403,14 @@
                 <h3 style="padding:0 15px;">Password Spray / Fuerza Bruta</h3>
                 <table>
                     <thead><tr><th>Cuenta</th><th>Ubicación</th><th>Fallos</th><th>IPs</th></tr></thead>
-                    <tbody><tr><td><a href='https://security.microsoft.com/users/sec/UserPage?user=admin@mngenvmcap965156.onmicrosoft.com' target='_blank' title='Ver Usuario en Defender'>admin@mngenvmcap965156.onmicrosoft.com</a></td><td>US</td><td>14</td><td>1</td></tr></tbody>
+                    <tbody><tr><td><a href='https://security.microsoft.com/users/sec/UserPage?user=admin@mngenvmcap965156.onmicrosoft.com' target='_blank' title='Ver Usuario en Defender'>admin@mngenvmcap965156.onmicrosoft.com</a></td><td>US</td><td>39</td><td>1</td></tr></tbody>
                 </table>
             </div>
             <div class="table-container">
                 <h3 style="padding:0 15px;">Ubicaciones Atípicas (Viajes)</h3>
                 <table>
                     <thead><tr><th>Cuenta</th><th>Países</th><th>Visto Por Última Vez</th></tr></thead>
-                    <tbody><tr><td colspan='3' style='text-align:center; color:#888; padding:15px;'>No hay datos disponibles para este periodo.</td></tr></tbody>
+                    <tbody><tr><td></td><td>3</td><td>2026-02-27 00:03</td></tr></tbody>
                 </table>
             </div>
         </div>
@@ -415,25 +418,18 @@
         <div class="ops-group" style="margin-top: 20px;">
             <div class="ops-group-header mdi">
                 <span class="icon">&#x1f50d;</span> Recomendación de KQL semanal - MDI
-                <span class="ops-badge weekly">#3 de 3</span>
+                <span class="ops-badge weekly">#2 de 3</span>
             </div>
             <div style="padding: 20px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
                     <span style="background:#fff3e0; color:#e97a00; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Custom Detection</span>
                 </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Brute force distribuido (señal temprana)</h3>
-                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let Lookback = 7d;
-let Window = 30m;
-let MinFailures = 25;
-let MinSrcIPs = 8;
-IdentityLogonEvents
-| where Timestamp >= ago(Lookback)
-| where ActionType has_any ("Fail", "LogonFailed", "InvalidPassword", "UserLoginFailed")
-| summarize Failures=count(), SrcIPs=dcount(IPAddress), IPList=make_set(IPAddress, 25), Apps=make_set(Application, 15)
-  by AccountUpn, AccountName, AccountDomain, bin(Timestamp, Window)
-| where Failures >= MinFailures and SrcIPs >= MinSrcIPs
-| project Timestamp, AccountUpn, AccountName, AccountDomain, Failures, SrcIPs, IPList, Apps
-| order by Failures desc, SrcIPs desc</div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Ubicaciones atípicas por identidad</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">IdentityLogonEvents
+| where Timestamp between (ago(TimeWindowDays*d) .. now())
+| summarize Countries=dcount(Location), LastSeen=max(Timestamp) by AccountUpn
+| where Countries >= 3
+| top 25 by Countries desc</div>
                 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
                     <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
                     <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20semanal%20de%20Microsoft%20Defender%20for%20Identity.md" target="_blank">&#x1f4d6; Guía Semanal MDI</a>
@@ -463,18 +459,18 @@ IdentityLogonEvents
         <div class="ops-group" style="margin-top: 20px;">
             <div class="ops-group-header entra">
                 <span class="icon">&#x1f50d;</span> Recomendación de KQL semanal - Entra ID
-                <span class="ops-badge weekly">#3 de 3</span>
+                <span class="ops-badge weekly">#2 de 3</span>
             </div>
             <div style="padding: 20px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <span style="background:#e8f5e9; color:#107c10; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Sincronización</span>
+                    <span style="background:#e8f5e9; color:#107c10; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Identity Secure Score</span>
                 </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Errores de inicio de sesión por código</h3>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Sign-ins de alto riesgo</h3>
                 <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">EntraIdSignInEvents
 | where Timestamp between (ago(TimeWindowDays*d) .. now())
-| where ErrorCode != 0
-| summarize Failures=count(), Users=dcount(AccountUpn) by ErrorCode, FailureReason
-| order by Failures desc</div>
+| where RiskLevelAggregated in (50, 100)
+| project Timestamp, AccountUpn, RiskLevelAggregated, RiskState, Application, IPAddress, Country
+| order by Timestamp desc</div>
                 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
                     <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
                     <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20EntraID%20Tareas%20Semanales.md" target="_blank">&#x1f4d6; Guía Semanal Entra ID</a>
@@ -495,7 +491,7 @@ IdentityLogonEvents
                 <h3 style="padding:0 15px;">Nuevas Apps Descubiertas (Shadow IT)</h3>
                 <table>
                     <thead><tr><th>Aplicación</th><th>Eventos</th><th>Usuarios</th></tr></thead>
-                    <tbody><tr><td>Microsoft Exchange Online</td><td>1010</td><td>1</td></tr><tr><td>Microsoft 365</td><td>161</td><td>10</td></tr></tbody>
+                    <tbody><tr><td>Microsoft Exchange Online</td><td>2701</td><td>3</td></tr><tr><td>Microsoft 365</td><td>699</td><td>17</td></tr><tr><td>Microsoft Viva Engage</td><td>1</td><td>1</td></tr></tbody>
                 </table>
             </div>
         </div>
@@ -511,7 +507,7 @@ IdentityLogonEvents
         </div>
 
         <div class="footer">
-            Fuente: Defender XDR - Advanced Hunting & Reporting (Ops Semanal) | Generado a las 19:58
+            Fuente: Defender XDR - Advanced Hunting & Reporting (Ops Semanal) | Generado a las 20:05
         </div>
     </div>
 </body>

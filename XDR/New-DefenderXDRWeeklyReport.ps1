@@ -40,7 +40,7 @@
 
 param(
     [ValidateSet(7, 14, 30)]
-    [int]$TimeWindowDays = 30
+    [int]$TimeWindowDays = 30,
 
     [string]$OutputPath = "$PSScriptRoot\Weekly_SecOps_Report_$(Get-Date -Format 'yyyyMMdd').html",
 
@@ -673,6 +673,7 @@ $HtmlContent = @"
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+        .header .subtitle { margin-top: 6px; font-size: 0.92em; opacity: 0.95; }
         .header .meta { font-size: 0.9em; opacity: 0.95; text-align: right; }
         .status-badge {
             padding: 4px 12px;
@@ -847,7 +848,10 @@ $HtmlContent = @"
 </head>
 <body>
     <div class="header">
-        <h1>Reporte Semanal de Operaciones de Seguridad</h1>
+        <div>
+            <h1>Reporte Semanal de Operaciones de Seguridad</h1>
+            <div class="subtitle">Technology enables security, but discipline makes it effective</div>
+        </div>
         <div class="meta">
             <div class="status-badge" style="background-color: $StatusColor;">$GlobalStatus</div>
             <div><strong>Periodo:</strong> Últimos $TimeWindowDays días</div>
