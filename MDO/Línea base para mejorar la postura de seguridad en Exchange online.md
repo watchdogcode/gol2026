@@ -553,7 +553,7 @@ En organizaciones grandes es común:
 
 > Esto es **Shadow IT de identidad y marca**, uno de los riesgos más ignorados en seguridad.
  ---
-
+---
 #### Referencia
 - [Parked and Inactive Domain Setup for MX, SPF and DMARC](https://support.dmarcreport.com/support/solutions/articles/5000882467-parked-and-inactive-domain-setup-for-mx-spf-and-dmarc)
 
