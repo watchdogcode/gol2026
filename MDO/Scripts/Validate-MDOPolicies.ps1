@@ -32,8 +32,8 @@
         Connect-ExchangeOnline
         Connect-IPPSSession
 
-    Autor : ecobos
-    Fecha : 2026-03-03
+    Autor : Ernesto Cobos Roqueñí
+    Fecha : 3/Marzo/2026
     Versión: 2.6
 #>
 

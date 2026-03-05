@@ -22,8 +22,9 @@
 
 .NOTES
     Requires: ExchangeOnlineManagement module and an active session (Connect-ExchangeOnline).
-    Author  : SecOps Team
-    Date    : 2026-02-24
+    Author  : Ernesto Cobos Roqueñí
+    Date    : 24/February/2026
+    Version : 1.1
 
 .EXAMPLE
     .\Block-OnMicrosoftEmails.ps1

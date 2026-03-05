@@ -17,7 +17,8 @@
     Checks required PowerShell modules, installs them if missing, and generates
     an HTML report with the domain's email authentication configuration.
 .NOTES
-    Date:    2026-02-20
+    Author  : Ernesto Cobos Roqueñí
+    Date    : 24/February/2026
     Version: 2.5
     Requires: Administrator privileges
 
