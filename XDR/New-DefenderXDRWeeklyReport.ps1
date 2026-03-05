@@ -14,7 +14,7 @@
     Ruta para guardar el reporte HTML.
 
 .PARAMETER AuthMode
-    Método de autenticación: 'DeviceCode' (predeterminado), 'Interactive', 'Secret', 'Certificate'.
+    Método de autenticación: 'Secret' (predeterminado), 'DeviceCode', 'Interactive', 'Certificate'.
 
 .PARAMETER TenantId
     ID del Inquilino (Tenant ID) de Azure AD (Requerido).
@@ -44,8 +44,9 @@ param(
 
     [string]$OutputPath = "$PSScriptRoot\Weekly_SecOps_Report_$(Get-Date -Format 'yyyyMMdd').html",
 
+    [Alias('Auth')]
     [ValidateSet('DeviceCode', 'Interactive', 'Secret', 'Certificate')]
-    [string]$AuthMode = 'DeviceCode',
+    [string]$AuthMode = 'Secret',
 
     [Parameter(Mandatory = $true)]
     [string]$TenantId,
@@ -578,117 +579,192 @@ function New-HtmlTable {
 
 $HtmlContent = @"
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Defender XDR - Reporte Semanal de Amenazas</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte Semanal de Seguridad</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #323130; margin: 0; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; background: #fff; padding: 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 8px; }
-        
-        /* Header */
-        .header { border-bottom: 3px solid #0078d4; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
-        .header h1 { margin: 0; color: #0078d4; font-size: 28px; }
-        .meta { text-align: right; font-size: 0.9em; color: #605e5c; }
-        .status-badge { padding: 5px 15px; border-radius: 4px; color: white; font-weight: bold; text-transform: uppercase; font-size: 0.9em; }
-        
-        /* Executive Summary */
-        .summary { background: #f8f9fa; padding: 20px; border-radius: 6px; border-left: 5px solid #0078d4; margin-bottom: 30px; }
-        .summary h3 { margin-top: 0; color: #201f1e; }
+        :root {
+            --primary-color: #0078d4;
+            --secondary-color: #2b2b2b;
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --text-color: #323130;
+            --border-color: #e1dfdd;
+            --danger-color: #a80000;
+        }
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.5;
+        }
+        .header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+        .header .meta { font-size: 0.9em; opacity: 0.95; text-align: right; }
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 4px;
+            color: white;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.8em;
+            display: inline-block;
+            margin-bottom: 8px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+        h2 {
+            color: var(--secondary-color);
+            margin-top: 40px;
+            margin-bottom: 15px;
+            font-size: 18px;
+            border-left: 4px solid var(--primary-color);
+            padding-left: 12px;
+            display: flex;
+            align-items: center;
+        }
+        h3 {
+            color: #605e5c;
+            font-size: 16px;
+            margin-top: 22px;
+            margin-bottom: 10px;
+        }
+        .summary {
+            background-color: #e6f2ff;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #cce4ff;
+            margin-bottom: 25px;
+        }
+        .summary h3 { margin-top: 0; color: var(--secondary-color); }
         .summary ul { margin: 0; padding-left: 20px; }
-        .summary li { margin-bottom: 8px; font-size: 1.05em; }
-
-        /* KPI Grid */
-        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 40px; }
-        .card { background: #fff; padding: 20px; border-radius: 6px; border: 1px solid #e1dfdd; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .card-val { font-size: 36px; font-weight: 700; color: #0078d4; margin-bottom: 5px; }
-        .card-label { font-size: 12px; text-transform: uppercase; color: #605e5c; font-weight: 600; letter-spacing: 0.5px; }
-        .card.danger .card-val { color: #d13438; }
-        .card.success .card-val { color: #107c10; }
-        
-        /* Sections */
-        h2 { color: #201f1e; border-left: 4px solid #0078d4; padding-left: 12px; margin-top: 40px; font-size: 20px; }
-        h3 { color: #605e5c; font-size: 16px; margin-top: 25px; margin-bottom: 10px; }
-        
-        /* Tables */
-        table { width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 20px; }
-        th { background: #f3f2f1; text-align: left; padding: 10px; border-bottom: 2px solid #e1dfdd; color: #605e5c; }
-        td { padding: 10px; border-bottom: 1px solid #e1dfdd; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
-        tr:hover { background-color: #f0f0f0; transition: background 0.2s; }
-        a { text-decoration: none; color: #0078d4; font-weight: 500; }
+        .summary li { margin-bottom: 8px; line-height: 1.6; }
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .kpi-card {
+            background: var(--card-bg);
+            padding: 25px 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: transform 0.2s ease;
+            border-top: 4px solid transparent;
+        }
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .kpi-card.alert { border-top-color: var(--primary-color); }
+        .kpi-card.danger { border-top-color: var(--danger-color); }
+        .kpi-val { font-size: 3em; font-weight: 700; color: var(--secondary-color); line-height: 1; margin-bottom: 5px; }
+        .kpi-label { font-size: 0.85em; color: #605e5c; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+        .table-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .table-container {
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
+        th { background-color: #f8f9fa; color: #605e5c; text-align: left; padding: 12px 15px; font-weight: 600; border-bottom: 2px solid var(--border-color); }
+        td { border-bottom: 1px solid var(--border-color); padding: 12px 15px; color: var(--text-color); }
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background-color: #f8f9fa; }
+        a { color: var(--primary-color); text-decoration: none; font-weight: 500; }
         a:hover { text-decoration: underline; }
-
-        /* Checklist */
-        .checklist { background: #e6f2ff; padding: 20px; border-radius: 6px; margin-top: 40px; }
-        .checklist h3 { margin-top: 0; color: #005a9e; }
-        .checklist ul { list-style: none; padding: 0; }
-        .checklist li { padding: 8px 0; border-bottom: 1px solid #cce4ff; display: flex; align-items: flex-start; }
-        .checklist li:before { content: "☐"; margin-right: 10px; font-weight: bold; color: #0078d4; }
-        
-        .footer { margin-top: 50px; text-align: center; color: #8a8886; font-size: 12px; border-top: 1px solid #e1dfdd; padding-top: 20px; }
+        .recs {
+            background-color: #e6f2ff;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #cce4ff;
+        }
+        .recs ul { margin: 0; padding-left: 20px; }
+        .recs li { margin-bottom: 8px; line-height: 1.6; }
+        .footer { text-align: center; margin-top: 50px; color: #8a8886; font-size: 0.85em; padding-bottom: 20px; }
+        @media (max-width: 900px) {
+            .header { flex-direction: column; align-items: flex-start; gap: 12px; }
+            .header .meta { text-align: left; }
+            .table-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <div>
-                <h1>Defender XDR – Reporte Semanal de Amenazas</h1>
-                <div style="margin-top:5px; color:#605e5c;">Operaciones de Seguridad Semanal y Protección contra Amenazas</div>
-            </div>
-            <div class="meta">
-                <div class="status-badge" style="background-color: $StatusColor; display:inline-block; margin-bottom:10px;">$GlobalStatus</div><br>
-                <strong>Inquilino:</strong> $MaskedTenantId<br>
-                <strong>Generado:</strong> $(Get-Date -Format "yyyy-MM-dd HH:mm")<br>
-                <strong>Periodo:</strong> Últimos $TimeWindowDays Días
-            </div>
+    <div class="header">
+        <h1>Reporte Semanal de Operaciones de Seguridad</h1>
+        <div class="meta">
+            <div class="status-badge" style="background-color: $StatusColor;">$GlobalStatus</div>
+            <div><strong>Periodo:</strong> Últimos $TimeWindowDays días</div>
+            <div><strong>Generado:</strong> $(Get-Date -Format "yyyy-MM-dd HH:mm")</div>
+            <div style="font-size: 0.85em; margin-top: 4px;">Tenant ID: $MaskedTenantId</div>
         </div>
+    </div>
 
+    <div class="container">
         <div class="summary">
             <h3>Resumen Ejecutivo</h3>
             <ul>
                 <li><strong>$KPI_MDO_Phish</strong> correos de phishing y <strong>$KPI_MDO_Malware</strong> intentos de malware detectados esta semana.</li>
-                <li><strong>$KPI_MDE_Alerts</strong> alertas totales de endpoint registradas; <strong>$KPI_MDE_RiskyHosts</strong> hosts requieren atención inmediata (Múltiples Alertas/Alta Sev).</li>
-                <li><strong>$KPI_MDI_Spray</strong> identidades mostraron signos de ataques de password spray o fuerza bruta.</li>
+                <li><strong>$KPI_MDE_Alerts</strong> alertas de endpoint registradas; <strong>$KPI_MDE_RiskyHosts</strong> hosts requieren atención inmediata.</li>
+                <li><strong>$KPI_MDI_Spray</strong> identidades mostraron señales de password spray o fuerza bruta.</li>
                 <li><strong>$KPI_MDA_OAuth</strong> nuevos consentimientos OAuth otorgados a aplicaciones.</li>
             </ul>
         </div>
 
         <div class="kpi-grid">
-            <div class="card $(if($KPI_MDE_Alerts -eq 0){'success'})">
-                <div class="card-val">$KPI_MDE_Alerts</div>
-                <div class="card-label">Total de Alertas de Endpoint</div>
+            <div class="kpi-card $(if($KPI_MDE_Alerts -gt 0){'danger'}else{'alert'})">
+                <div class="kpi-val">$KPI_MDE_Alerts</div>
+                <div class="kpi-label">Total de Alertas de Endpoint</div>
             </div>
-            <div class="card $(if($KPI_MDO_Phish -eq 0){'success'}else{'danger'})">
-                <div class="card-val">$KPI_MDO_Phish</div>
-                <div class="card-label">Intentos de Phishing</div>
+            <div class="kpi-card $(if($KPI_MDO_Phish -gt 0){'danger'}else{'alert'})">
+                <div class="kpi-val">$KPI_MDO_Phish</div>
+                <div class="kpi-label">Intentos de Phishing</div>
             </div>
-            <div class="card $(if($KPI_MDE_RiskyHosts -eq 0){'success'}else{'danger'})">
-                <div class="card-val">$KPI_MDE_RiskyHosts</div>
-                <div class="card-label">Hosts Críticos (≥3 Alertas)</div>
+            <div class="kpi-card $(if($KPI_MDE_RiskyHosts -gt 0){'danger'}else{'alert'})">
+                <div class="kpi-val">$KPI_MDE_RiskyHosts</div>
+                <div class="kpi-label">Hosts Críticos (≥3 Alertas)</div>
             </div>
-            <div class="card $(if($KPI_MDI_Spray -eq 0){'success'}else{'danger'})">
-                <div class="card-val">$KPI_MDI_Spray</div>
-                <div class="card-label">Ataques de Spray de Identidad</div>
+            <div class="kpi-card $(if($KPI_MDI_Spray -gt 0){'danger'}else{'alert'})">
+                <div class="kpi-val">$KPI_MDI_Spray</div>
+                <div class="kpi-label">Ataques de Spray de Identidad</div>
             </div>
-            <div class="card $(if($KPI_MDA_OAuth -eq 0){'success'})">
-                <div class="card-val">$KPI_MDA_OAuth</div>
-                <div class="card-label">Nuevos Consentimientos OAuth</div>
+            <div class="kpi-card $(if($KPI_MDA_OAuth -gt 0){'danger'}else{'alert'})">
+                <div class="kpi-val">$KPI_MDA_OAuth</div>
+                <div class="kpi-label">Nuevos Consentimientos OAuth</div>
             </div>
         </div>
 
-        <!-- MDO -->
         <h2>MDO: Correo y Colaboración</h2>
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
-            <div>
-                <h3>Principales Campañas Activas</h3>
+        <div class="table-grid">
+            <div class="table-container">
+                <h3 style="padding:0 15px;">Principales Campañas Activas</h3>
                 <table>
                     <thead><tr><th>Asunto</th><th>Dominio Remitente</th><th>Conteo</th><th>Objetivos</th></tr></thead>
                     <tbody>$(New-HtmlTable $Data["MDO_Campaigns"] @("Subject","SenderFromDomain","Count","Targets"))</tbody>
                 </table>
             </div>
-            <div>
-                <h3>Usuarios Más Atacados</h3>
+            <div class="table-container">
+                <h3 style="padding:0 15px;">Usuarios Más Atacados</h3>
                 <table>
                     <thead><tr><th>Correo Usuario</th><th>Ataques</th></tr></thead>
                     <tbody>$(New-HtmlTable $Data["MDO_TopUsers"] @("RecipientEmailAddress","Attacks"))</tbody>
@@ -696,18 +772,17 @@ $HtmlContent = @"
             </div>
         </div>
 
-        <!-- MDE -->
         <h2>MDE: Seguridad de Endpoint</h2>
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
-            <div>
-                <h3>Alertas por Severidad</h3>
+        <div class="table-grid">
+            <div class="table-container">
+                <h3 style="padding:0 15px;">Alertas por Severidad</h3>
                 <table>
                     <thead><tr><th>Severidad</th><th>Conteo</th></tr></thead>
                     <tbody>$(New-HtmlTable $Data["MDE_Severity"] @("Severity","Count"))</tbody>
                 </table>
             </div>
-            <div>
-                <h3>Hosts con Múltiples Alertas Altas/Críticas</h3>
+            <div class="table-container">
+                <h3 style="padding:0 15px;">Hosts con Múltiples Alertas Altas/Críticas</h3>
                 <table>
                     <thead><tr><th>Nombre Dispositivo</th><th>Conteo Alertas</th><th>Max Severidad</th></tr></thead>
                     <tbody>$(New-HtmlTable $Data["MDE_HostsRisk"] @("DeviceName","AlertCount","MaxSev"))</tbody>
@@ -715,23 +790,24 @@ $HtmlContent = @"
             </div>
         </div>
         <h3>Estado de Salud del Dispositivo (Top 25)</h3>
-        <table>
-            <thead><tr><th>Nombre Dispositivo</th><th>SO</th><th>Estado Salud</th><th>Visto Por Última Vez</th></tr></thead>
-            <tbody>$(New-HtmlTable $Data["MDE_Health"] @("DeviceName","OS","Health","LastSeen"))</tbody>
-        </table>
+        <div class="table-container">
+            <table>
+                <thead><tr><th>Nombre Dispositivo</th><th>SO</th><th>Estado Salud</th><th>Visto Por Última Vez</th></tr></thead>
+                <tbody>$(New-HtmlTable $Data["MDE_Health"] @("DeviceName","OS","Health","LastSeen"))</tbody>
+            </table>
+        </div>
 
-        <!-- MDI -->
         <h2>MDI: Seguridad de Identidad</h2>
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
-            <div>
-                <h3>Password Spray / Fuerza Bruta</h3>
+        <div class="table-grid">
+            <div class="table-container">
+                <h3 style="padding:0 15px;">Password Spray / Fuerza Bruta</h3>
                 <table>
                     <thead><tr><th>Cuenta</th><th>Ubicación</th><th>Fallos</th><th>IPs</th></tr></thead>
                     <tbody>$(New-HtmlTable $Data["MDI_Spray"] @("AccountUpn","Location","Failures","DistinctIPs"))</tbody>
                 </table>
             </div>
-            <div>
-                <h3>Ubicaciones Atípicas (Viajes)</h3>
+            <div class="table-container">
+                <h3 style="padding:0 15px;">Ubicaciones Atípicas (Viajes)</h3>
                 <table>
                     <thead><tr><th>Cuenta</th><th>Países</th><th>Visto Por Última Vez</th></tr></thead>
                     <tbody>$(New-HtmlTable $Data["MDI_Atypical"] @("AccountUpn","Countries","LastSeen"))</tbody>
@@ -739,18 +815,17 @@ $HtmlContent = @"
             </div>
         </div>
 
-        <!-- MDA -->
         <h2>MDA: Aplicaciones en la Nube y Shadow IT</h2>
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
-            <div>
-                <h3>Nuevos Consentimientos OAuth</h3>
+        <div class="table-grid">
+            <div class="table-container">
+                <h3 style="padding:0 15px;">Nuevos Consentimientos OAuth</h3>
                 <table>
                     <thead><tr><th>Nombre App</th><th>ID App</th><th>Consentimientos</th><th>Usuarios</th></tr></thead>
                     <tbody>$(New-HtmlTable $Data["MDA_OAuth"] @("Application","ApplicationId","Consents","Users"))</tbody>
                 </table>
             </div>
-            <div>
-                <h3>Nuevas Apps Descubiertas (Shadow IT)</h3>
+            <div class="table-container">
+                <h3 style="padding:0 15px;">Nuevas Apps Descubiertas (Shadow IT)</h3>
                 <table>
                     <thead><tr><th>Aplicación</th><th>Eventos</th><th>Usuarios</th></tr></thead>
                     <tbody>$(New-HtmlTable $Data["MDA_Apps"] @("Application","Events","Users"))</tbody>
@@ -758,19 +833,18 @@ $HtmlContent = @"
             </div>
         </div>
 
-        <!-- Recommendations -->
-        <div class="checklist">
+        <div class="recs">
             <h3>Lista de Verificación Operativa Semanal</h3>
             <ul>
-                <li><strong>MDO:</strong> Revisar las principales campañas de phishing y ajustar políticas de Safe Links/Attachments. Verificar "Usuarios Más Atacados" para posible compromiso o necesidades de capacitación.</li>
-                <li><strong>MDE:</strong> Investigar hosts con ≥3 alertas Altas/Críticas. Aislar dispositivos si se confirman amenazas activas. Validar la salud del sensor EDR.</li>
-                <li><strong>MDI:</strong> Revisar cuentas con altas tasas de fallos (Spray) y forzar MFA o restablecimiento de contraseñas. Investigar patrones de viaje atípicos.</li>
-                <li><strong>MDA:</strong> Auditar nuevos consentimientos OAuth. Revocar permisos para aplicaciones no verificadas o sospechosas. Revisar el uso de Shadow IT.</li>
+                <li><strong>MDO:</strong> Revisar campañas de phishing y ajustar políticas de Safe Links/Attachments. Verificar usuarios más atacados para identificar posible compromiso.</li>
+                <li><strong>MDE:</strong> Investigar hosts con ≥3 alertas altas/críticas, aislar dispositivos comprometidos y validar salud del sensor EDR.</li>
+                <li><strong>MDI:</strong> Revisar cuentas con altas tasas de fallos, forzar MFA/restablecimiento y analizar ubicaciones atípicas.</li>
+                <li><strong>MDA:</strong> Auditar consentimientos OAuth nuevos, revocar permisos sospechosos y revisar uso de Shadow IT.</li>
             </ul>
         </div>
 
         <div class="footer">
-            Fuente: Defender XDR – Advanced Hunting & Reporting (Ops Semanal) | Generado a las $(Get-Date -Format "HH:mm")
+            Fuente: Defender XDR - Advanced Hunting & Reporting (Ops Semanal) | Generado a las $(Get-Date -Format "HH:mm")
         </div>
     </div>
 </body>
