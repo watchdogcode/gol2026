@@ -375,7 +375,10 @@ $htmlHead = @"
 <style>
     * { box-sizing: border-box; }
     body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; padding: 20px; background: #f0f2f5; color: #333; }
-    .header { background: linear-gradient(135deg, #0078d4, #005a9e); color: #fff; padding: 30px; border-radius: 10px; margin-bottom: 25px; }
+    .header { background: linear-gradient(135deg, #0078d4, #005a9e); color: #fff; padding: 30px; border-radius: 10px; margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; }
+    .header-text { flex: 1; }
+    .header-logo { flex-shrink: 0; margin-left: 30px; }
+    .header-logo img { height: 50px; filter: brightness(0) invert(1); }
     .header h1 { margin: 0 0 5px 0; font-size: 24px; }
     .header p { margin: 5px 0; opacity: 0.9; font-size: 14px; }
     .header .quote { font-style: italic; opacity: 0.8; margin-top: 10px; font-size: 17px; }
@@ -424,9 +427,14 @@ $htmlHead = @"
 # Header
 $htmlBody = @"
 <div class="header">
-    <h1>&#128737; Validaci&oacute;n de L&iacute;nea Base de Seguridad &mdash; Exchange Online</h1>
-    <p><strong>Tenant:</strong> $tenantName &nbsp;|&nbsp; <strong>Generado:</strong> $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')</p>
-    <p class="quote">&ldquo;La tecnolog&iacute;a habilita la seguridad, pero es la disciplina la que garantiza su efectividad&rdquo;</p>
+    <div class="header-text">
+        <h1>&#128737; Validaci&oacute;n de L&iacute;nea Base de Seguridad &mdash; Exchange Online</h1>
+        <p><strong>Tenant:</strong> $tenantName &nbsp;|&nbsp; <strong>Generado:</strong> $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')</p>
+        <p class="quote">&ldquo;La tecnolog&iacute;a habilita la seguridad, pero es la disciplina la que garantiza su efectividad&rdquo;</p>
+    </div>
+    <div class="header-logo">
+        <img src="https://cdn.theatlantic.com/assets/marketing/prod/logos/2024/03/MS-Security_logo_horiz_c-gray_rgb_1_O3yRRKf.png" alt="Microsoft Security">
+    </div>
 </div>
 "@
 

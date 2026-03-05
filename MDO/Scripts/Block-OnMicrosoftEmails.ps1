@@ -77,9 +77,10 @@ $ruleParams = @{
     HeaderMatchesPatterns     = @($pattern1, $pattern2)
     DeleteMessage             = $true
     Mode                      = "Enforce"
+    Priority                  = 0
     RuleErrorAction           = "Defer"
     SetAuditSeverity          = "High"
-    StopRuleProcessing        = $false
+    StopRuleProcessing        = $True
 }
 
 try {

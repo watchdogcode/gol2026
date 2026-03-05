@@ -67,9 +67,10 @@ $ruleParams = @{
     AttachmentIsUnsupported = $true
     Quarantine           = $true
     Mode                 = "Enforce"
+    Priority             = 1
     RuleErrorAction      = "Defer"
     SetAuditSeverity     = "High"
-    StopRuleProcessing   = $false
+    StopRuleProcessing   = $true
 }
 
 try {
