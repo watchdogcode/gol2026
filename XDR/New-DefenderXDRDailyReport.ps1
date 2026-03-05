@@ -359,7 +359,7 @@ $Kpi_NewOAuth = ($Data["MDA_OAuth"] | Measure-Object -Property Consents -Sum).Su
 if (-not $Kpi_NewOAuth) { $Kpi_NewOAuth = 0 }
 
 # --- CATÁLOGO COMPLETO DE KQL (MDO Advanced Hunting) ---
-# Fuente: https://github.com/watchdogcode/gol2026/blob/main/MDO/04%20Paquete%20MDO%20KQL%20Advance%20Hunting.md
+# Fuente: https://github.com/watchdogcode/gol2026/blob/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md
 $MdoKqlCatalog = @(
     # ── Spoofing y Autenticación ──
     @{ Id=1;  Category="Spoofing y Autenticación"; Title="Spoofing: From (Header) ≠ MailFrom (Envelope)"; Query=@"
@@ -1559,7 +1559,7 @@ $HtmlContent = @"
                 <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedMdoKql.Query)</div>
                 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
                     <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
-                    <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/04%20Paquete%20MDO%20KQL%20Advance%20Hunting.md" target="_blank">&#x1f4d6; Ver Catálogo Completo (28 KQL)</a>
+                    <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md" target="_blank">&#x1f4d6; Ver Catálogo Completo (28 KQL)</a>
                 </div>
             </div>
         </div>

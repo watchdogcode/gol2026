@@ -1,5 +1,7 @@
 # 🛡️ Guía de Seguridad Operacional Mensual/Ad-Hoc: Microsoft EntraID
 
+## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
+
 La operación efectiva de Microsoft Entra ID requiere monitoreo continuo, control de cambios y revisión periódica de privilegios para reducir riesgos de identidad y garantizar continuidad del negocio.
 
 ---
@@ -26,7 +28,7 @@ Aplicar el **principio de mínimo privilegio** para reducir el riesgo asociado a
    - Justificación documentada para accesos **permanentes**.
 
 ### Herramienta recomendada
-Se recomienda la ejecución del script: [Get-M365RoleReport](https://github.com/o365soa/Scripts/blob/master/Get-M365RoleReport.ps1)
+Se recomienda la ejecución del script: [Get-M365RoleReport](https://github.com/watchdogcode/gol2026/blob/main/EntraID/Scripts/Get-M365RoleReport.ps1)
 
 ### Salida / DoD
 - Listado actualizado de roles privilegiados.

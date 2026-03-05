@@ -1,6 +1,8 @@
 # 🛡️ Guía de Seguridad Operacional Mensual/Ad-Hoc: Microsoft Defender for Office 365
 
-Esta guía establece los procedimientos semanales para analizar tendencias, identificar usuarios de alto riesgo y gestionar campañas de amenazas en Microsoft Defender for Office 365 (MDO).
+## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
+
+Esta guía establece los procedimientos mensual/Ad-Hoc para analizar tendencias, identificar usuarios de alto riesgo y gestionar campañas de amenazas en Microsoft Defender for Office 365 (MDO).
 
 ---
 ## Índice
@@ -8,6 +10,7 @@ Esta guía establece los procedimientos semanales para analizar tendencias, iden
 - [Gestión de Spoofing e Impersonation](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md#gesti%C3%B3n-de-spoofing-e-impersonation)
 - [Borrar Correos Sospechosos en Exchange Online (Ad-Hoc)](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md#borrar-correos-sospechosos-en-exchange-online-ad-hoc)
 - [Detección histórica de Direct Send (Ad-Hoc)](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md#detecci%C3%B3n-hist%C3%B3rica-de-direct-send-ad-hoc)
+- [Revisar las políticas de Microsoft Defender for Office 365](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md#revision-de-pol%C3%ADticas-de-microsoft-defender-for-office-365)
 
 ---
 
@@ -229,3 +232,133 @@ EmailEvents
 ```
 
 ---
+# Revision de políticas de Microsoft Defender for Office 365
+
+## Opción 1, ejecutar script de validación: [MDO/Scripts/Validate-MDOPolicies.ps1](https://github.com/watchdogcode/gol2026/blob/main/MDO/Scripts/Validate-MDOPolicies.ps1)
+
+## Opción 2, paso a paso:
+
+### 1. Acceder al portal correcto de Microsoft Defender for Office 365 (MDO)
+
+1. Abre el portal de Microsoft Defender:
+   - https://security.microsoft.com
+
+2. Navega a la siguiente ruta:
+   - **Email & collaboration**
+   - **Policies & rules**
+   - **Threat policies**
+   - **Safe Attachments**
+
+👉 **Acceso directo:**
+- https://security.microsoft.com/safeattachmentv2
+
+---
+
+## 2. Identificar todas las políticas de Safe Attachments existentes
+
+En la vista principal de **Safe Attachments**, revisa los siguientes campos:
+
+- **Name**: Nombre de la política  
+- **Status**: On / Off  
+- **Priority**: Orden de aplicación  
+
+### Acciones disponibles:
+- Buscar políticas por nombre  
+- Exportar la lista de políticas a CSV  
+- Abrir el **Threat protection status report**
+
+---
+
+## 3. Distinguir el tipo de políticas (crítico para la revisión)
+
+Valida qué tipo de políticas existen en el tenant:
+
+### Tipos de políticas:
+1. **Preset Security Policies**
+   - Strict Preset Security Policy  
+   - Standard Preset Security Policy  
+
+2. **Built‑in protection (Microsoft)**
+
+3. **Custom Safe Attachments policies**
+
+⚠️ **Importante:**
+- Las políticas **Preset** y **Built‑in** **no se pueden editar directamente** desde Safe Attachments.
+- **Solo las políticas Custom** pueden modificarse desde esta sección.
+
+Referencia:
+- Microsoft Learn – Set up Safe Attachments policies
+
+---
+
+## 4. Revisar el detalle de una política específica
+
+1. Haz clic sobre el **nombre de la política** (no el checkbox).
+2. Se abrirá el **panel de detalles (details flyout)**.
+
+Revisa cuidadosamente los siguientes apartados:
+
+---
+
+### a) Alcance (Users and domains)
+
+Verifica a quién aplica la política:
+
+- Usuarios  
+- Grupos  
+- Dominios  
+- Exclusiones (**exceptions**)
+
+✅ Validaciones clave:
+- Si la política aplica a **todos los usuarios**
+- Si existen **excepciones críticas** (por ejemplo: ejecutivos, cuentas sin licencia, cuentas técnicas)
+
+---
+
+### b) Configuración de protección (Settings)
+
+Valida explícitamente los siguientes parámetros:
+
+- **Safe Attachments unknown malware response**
+  - Off  
+  - Monitor  
+  - Block *(valor por defecto y recomendado en Standard / Strict)*
+
+- **Dynamic Delivery**
+
+- **Quarantine policy**
+  - Valor por defecto: `AdminOnlyAccessPolicy`
+
+- **Redirect messages**
+  - Solo disponible si la política está en **Monitor**
+
+---
+
+## 5. Verificar el orden de precedencia (Priority)
+
+Revisa el orden exacto de aplicación de las políticas:
+
+1. **Strict Preset Security Policy** (si está habilitada)
+2. **Standard Preset Security Policy**
+3. **Custom policies**  
+   - *Priority 0 = mayor prioridad*
+4. **Built‑in protection (Microsoft)**  
+   - *Lowest priority, no modificable*
+
+⚠️ **Nota crítica:**
+- Safe Attachments **se detiene en la primera política que aplica al destinatario**.
+
+---
+
+## 6. Confirmar estado de habilitación
+
+### Para políticas Custom:
+- Verifica que el **Status** esté en **On**
+- Desde el panel de detalles:
+  - **Turn on / Turn off**
+- Desde la vista de lista:
+  - **More actions > Enable / Disable selected policies**
+
+### Para políticas Preset:
+- Se gestionan exclusivamente desde:
+  - https://security.microsoft.com/presetSecurityPolicies

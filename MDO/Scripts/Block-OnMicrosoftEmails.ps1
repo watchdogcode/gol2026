@@ -1,3 +1,15 @@
+﻿##############################################################################################
+#This sample script is not supported under any Microsoft standard support program or service.
+#This sample script is provided AS IS without warranty of any kind.
+#Microsoft further disclaims all implied warranties including, without limitation, any implied
+#warranties of merchantability or of fitness for a particular purpose. The entire risk arising
+#out of the use or performance of the sample script and documentation remains with you. In no
+#event shall Microsoft, its authors, or anyone else involved in the creation, production, or
+#delivery of the scripts be liable for any damages whatsoever (including, without limitation,
+#damages for loss of business profits, business interruption, loss of business information,
+#or other pecuniary loss) arising out of the use of or inability to use the sample script or
+#documentation, even if Microsoft has been advised of the possibility of such damages.
+##############################################################################################
 <#
 .SYNOPSIS
     Creates a transport rule in Exchange Online to block emails
@@ -10,34 +22,31 @@
 
 .NOTES
     Requires: ExchangeOnlineManagement module and an active session (Connect-ExchangeOnline).
-    Author  : SecOps Team
-    Date    : 2026-02-24
+    Author  : Ernesto Cobos Roqueñí
+    Date    : 24/February/2026
+    Version : 1.1
 
 .EXAMPLE
     .\Block-OnMicrosoftEmails.ps1
-
-.DISCLAIMER
-    The sample scripts are not supported under any Microsoft standard support program or service.
-    The sample scripts are provided AS IS without warranty of any kind. Microsoft further disclaims all
-    implied warranties including, without limitation, any implied warranties of merchantability or of
-    fitness for a particular purpose. The entire risk arising out of the use or performance of the
-    sample scripts and documentation remains with you. In no event shall Microsoft, its authors, or
-    anyone else involved in the creation, production, or delivery of the scripts be liable for any
-    damages whatsoever (including, without limitation, damages for loss of business profits, business
-    interruption, loss of business information, or other pecuniary loss) arising out of the use of or
-    inability to use the sample scripts or documentation, even if Microsoft has been advised of the
-    possibility of such damages.
 
 #>
 
 #Requires -Modules ExchangeOnlineManagement
 
-# ── Validate active Exchange Online session ──
+# ── Validate / establish Exchange Online session ──
 try {
     $null = Get-AcceptedDomain -ErrorAction Stop | Select-Object -First 1
+    Write-Host "Exchange Online session active." -ForegroundColor DarkGray
 } catch {
-    Write-Host "No active Exchange Online session found. Run Connect-ExchangeOnline first." -ForegroundColor Red
-    return
+    Write-Host "No active Exchange Online session. Connecting..." -ForegroundColor Yellow
+    try {
+        Connect-ExchangeOnline -ShowBanner:$false -ErrorAction Stop
+        Write-Host "Connected to Exchange Online." -ForegroundColor Green
+    }
+    catch {
+        Write-Host "[X] Could not connect to Exchange Online: $($_.Exception.Message)" -ForegroundColor Red
+        return
+    }
 }
 
 # ── Prompt for domain ──
@@ -69,9 +78,10 @@ $ruleParams = @{
     HeaderMatchesPatterns     = @($pattern1, $pattern2)
     DeleteMessage             = $true
     Mode                      = "Enforce"
+    Priority                  = 0
     RuleErrorAction           = "Defer"
     SetAuditSeverity          = "High"
-    StopRuleProcessing        = $false
+    StopRuleProcessing        = $True
 }
 
 try {

@@ -1,5 +1,7 @@
 # 🛡️ Guía de Seguridad Operacional Semanal: Microsoft Defender for Office 365
 
+## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
+
 Esta guía establece los procedimientos semanales para analizar tendencias, identificar usuarios de alto riesgo y gestionar campañas de amenazas en Microsoft Defender for Office 365 (MDO).
 
 ---
@@ -8,6 +10,7 @@ Esta guía establece los procedimientos semanales para analizar tendencias, iden
 - [Revisar Tendencias de Detección de Correo en Microsoft Defender for Office 365](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md#revisar-tendencias-de-detecci%C3%B3n-de-correo-en-microsoft-defender-for-office-365)
 - [Identificar Usuarios Más Atacados por Malware y Phishing](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md#identificar-usuarios-m%C3%A1s-atacados-por-malware-y-phishing)
 - [Revisar Campañas de Malware y Phishing](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md#revisar-campa%C3%B1as-de-malware-y-phishing)
+- [Validar correos entregados con amenazas](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md#validar-correos-entregados-con-amenazas)
 
 ---
 # Revisar Tendencias de Detección de Correo en Microsoft Defender for Office 365
@@ -30,7 +33,7 @@ El panel muestra gráficas de tendencias para:
 ## Ajustar Filtros para Analizar Tendencias
 
 Utiliza la barra de filtros superior:
-- **Time range**: 24 horas, 7 días, 30 días, 90 días
+- **Time range**: 24 horas, 7 días, 30 días, 90 días (para tareas semanales se recomienda al menos 15 días)
 - **Detection type**: Malware, Phish, Spam, High‑confidence Phish
 - **Delivery location**: Inbox, Junk, Quarantine, Removed
 - **Workload**: Exchange Online, Teams, SharePoint, OneDrive
@@ -221,3 +224,89 @@ Incluye:
 - Priorizar respuesta
 - Endurecer postura defensiva
 - Revisar movimientos posteriores
+---
+
+# Validar correos entregados con amenazas
+
+## Acceder a Advanced Hunting
+1. Ir a https://security.microsoft.com/v2/advanced-hunting
+
+### Ajustar Filtros para Analizar Tendencias
+
+Utiliza la barra de filtros superior:
+- **Time range**: 15 días, 30 días, 90 días (para tareas semanales se recomienda al menos 15 días)
+---
+
+## Identificar correos entregados con detección de amenaza
+**Objetivo:** confirmar correos que **NO fueron bloqueados** y llegaron al buzón del usuario.
+
+### Query base (imprescindible)
+```kql
+EmailEvents
+| where DeliveryAction == "Delivered"
+| where ThreatTypes != ""
+| project
+    Timestamp,
+    NetworkMessageId,
+    SenderFromAddress,
+    RecipientEmailAddress,
+    Subject,
+    ThreatTypes,
+    DetectionMethods,
+    ConfidenceLevel,
+    DeliveryLocation
+| order by Timestamp desc
+```
+
+### 🔍 Qué valida esta consulta
+- ✅ El correo **sí se entregó**
+- ✅ Defender detectó **algún tipo de amenaza**
+- ✅ Puedes ver **qué tipo** y **cómo fue detectada**
+
+---
+
+## Validar tipo de amenaza entregada
+Para entender qué se escapó, filtra por tipo:
+
+### Malware
+```kql
+| where ThreatTypes has "Malware"
+```
+
+### Phishing
+```kql
+| where ThreatTypes has "Phish"
+```
+
+### Spam de alto riesgo
+```kql
+| where ThreatTypes has "Spam"
+```
+
+---
+
+## Confirmar si fue Safe Attachments o Safe Links
+
+### Adjuntos maliciosos entregados
+```kql
+EmailAttachmentInfo
+| where MalwareFilterVerdict != "Clean"
+| project
+    Timestamp,
+    NetworkMessageId,
+    FileName,
+    MalwareFilterVerdict,
+    DetectionMethods
+```
+
+### Enlaces maliciosos entregados
+```kql
+EmailUrlInfo
+| where UrlThreatType != "None"
+| project
+    Timestamp,
+    NetworkMessageId,
+    Url,
+    UrlThreatType,
+    DetectionMethods
+```

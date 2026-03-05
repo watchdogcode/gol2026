@@ -1,3 +1,15 @@
+﻿##############################################################################################
+#This sample script is not supported under any Microsoft standard support program or service.
+#This sample script is provided AS IS without warranty of any kind.
+#Microsoft further disclaims all implied warranties including, without limitation, any implied
+#warranties of merchantability or of fitness for a particular purpose. The entire risk arising
+#out of the use or performance of the sample script and documentation remains with you. In no
+#event shall Microsoft, its authors, or anyone else involved in the creation, production, or
+#delivery of the scripts be liable for any damages whatsoever (including, without limitation,
+#damages for loss of business profits, business interruption, loss of business information,
+#or other pecuniary loss) arising out of the use of or inability to use the sample script or
+#documentation, even if Microsoft has been advised of the possibility of such damages.
+##############################################################################################
 <#
 .SYNOPSIS
     Domain Health Check - Verifies DNS authentication records (SPF, DKIM, DMARC, MTA-STS).
@@ -5,24 +17,14 @@
     Checks required PowerShell modules, installs them if missing, and generates
     an HTML report with the domain's email authentication configuration.
 .NOTES
-    Date:    2026-02-20
+    Author  : Ernesto Cobos Roqueñí
+    Date    : 24/February/2026
     Version: 2.5
     Requires: Administrator privileges
 
     .\Domain-Health-Check.ps1
     Prompts for a domain and generates a health check HTML report.
  
-.DISCLAIMER
-    The sample scripts are not supported under any Microsoft standard support program or service.
-    The sample scripts are provided AS IS without warranty of any kind. Microsoft further disclaims all
-    implied warranties including, without limitation, any implied warranties of merchantability or of
-    fitness for a particular purpose. The entire risk arising out of the use or performance of the
-    sample scripts and documentation remains with you. In no event shall Microsoft, its authors, or
-    anyone else involved in the creation, production, or delivery of the scripts be liable for any
-    damages whatsoever (including, without limitation, damages for loss of business profits, business
-    interruption, loss of business information, or other pecuniary loss) arising out of the use of or
-    inability to use the sample scripts or documentation, even if Microsoft has been advised of the
-    possibility of such damages.
 #>
 # 1. Script Requirements
 #Requires -RunAsAdministrator
@@ -30,7 +32,7 @@ Clear-DnsClientCache
 Set-StrictMode -Version Latest
 Write-Host "Reviewing requirements..." -ForegroundColor Yellow
 Write-Host "PowerShell Running as Administrator OK" -ForegroundColor Green
-$requiredModules = @('DomainHealthChecker', 'MailAuthDnsTools', 'EmailAuthChecker')
+$requiredModules = @('DomainHealthChecker', 'EmailAuthChecker')
 $totalModules = $requiredModules.Count
 for ($i = 0; $i -lt $totalModules; $i++) {
     $mod = $requiredModules[$i]
@@ -351,6 +353,7 @@ $html = @"
         <img src="https://dco.microsoft.com/Images/microsoft-white-logo.png" alt="Microsoft" class="logo-img mb-2">
         <h1>Domain Health Security Report</h1>
         <p>Analysis for: <strong>$domain</strong> | <span style="font-size:0.85rem;">$date</span></p>
+        <p><em>&ldquo;Technology enables security, but discipline makes it effective&rdquo;</em></p>
     </div>
 
     <div class="container-fluid px-5">

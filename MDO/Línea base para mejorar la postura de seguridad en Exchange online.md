@@ -1,5 +1,5 @@
-# Seguridad Integral de Correo Electrónico en Microsoft 365
-
+# 🛡️ Seguridad Integral de Correo Electrónico en Microsoft 365
+## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 ---
 
 # Configuraciones base para Exchange Online
@@ -16,6 +16,7 @@
 3. [RejectDirectSend en Exchange Online](https://github.com/watchdogcode/gol2026/blob/main/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#3-rejectdirectsend-en-exchange-online)
 4. [Estándares SPF, DKIM, DMARC y MTA-STS](https://github.com/watchdogcode/gol2026/blob/main/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#4-est%C3%A1ndares-spf-dkim-dmarc-y-mta-sts)
 5. [Dominios estacionados (Parked Domains)](https://github.com/watchdogcode/gol2026/blob/main/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#5--dominios-estacionados-parked-domains)
+6. [Validación Línea base para mejorar la postura de seguridad en Exchange online](https://github.com/watchdogcode/gol2026/blob/main/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#validaci%C3%B3n-l%C3%ADnea-base-para-mejorar-la-postura-de-seguridad-en-exchange-online)
 
 
 ---
@@ -28,7 +29,8 @@ Un setup correcto de **reglas de flujo de correo en Microsoft 365** , **Bloqueo 
 - Asegurar la **entregabilidad** del correo legítimo
 - Evitar el **abuso de dominios técnicos** (por ejemplo: `*.onmicrosoft.com`)
 - Forzar el **cifrado SMTP en tránsito** entre servidores
-- Proteger dominios sin uso
+- Proteger **dominios sin uso**
+- Línea base para mejorar la postura de seguridad en Exchange online
 
 ---
 > Este setup básico establece los controles mínimos necesarios para proteger la identidad del dominio y garantizar una comunicación de correo electrónico segura y confiable.
@@ -69,15 +71,14 @@ A continuación encontrará reglas básicas de flujo de correo que son **altamen
 10. Rule mode: **Enforce**
 11. Severity: **High**
 12. Marcar **Defer the message if rule processing doesn't complete**
-13. Next
-14. Finish
+13. Next y **Finish**
 
 #### Referencias
 
-- Mail flow rules (transport rules) in Exchange Online  
-  https://learn.microsoft.com/en-us/exchange/security-and-compliance/mail-flow-rules
-- New-TransportRule (Exchange PowerShell)  
-  https://learn.microsoft.com/en-us/powershell/module/exchange/new-transportrule
+- [Mail flow rules (transport rules) in Exchange Online](https://learn.microsoft.com/en-us/exchange/security-and-compliance/mail-flow-rules)
+  
+- [New-TransportRule (Exchange PowerShell](https://learn.microsoft.com/en-us/powershell/module/exchange/new-transportrule)
+  
 
 ---
 
@@ -98,13 +99,12 @@ A continuación encontrará reglas básicas de flujo de correo que son **altamen
 7. Next
 8. Rule mode: **Enforce**
 9. Severity: **High**
-10. Next
-11. Finish
+10. Next y **Finish**
 
 #### Referencia
 
-- Inspect message attachments – Microsoft Learn  
-  https://learn.microsoft.com/en-us/exchange/security-and-compliance/mail-flow-rules/inspect-message-attachments
+- [Inspect message attachments – Microsoft Learn](https://learn.microsoft.com/en-us/exchange/security-and-compliance/mail-flow-rules/inspect-message-attachments)
+  
 
 
 ---
@@ -211,18 +211,20 @@ Es un **control determinístico**, no probabilístico.
 | Propiedad | Valor |
 |---------|------|
 | Default | false |
-| GA | Septiembre 2025 |
+| $false | Direct Send isn't blocked |
+| $true | Direct Send is blocked |
 | Propagación | ~30 minutos |
 
-Verificación:
+**Verificación:**
 
 ```powershell
 Get-OrganizationConfig | Select RejectDirectSend
 ```
 
 #### Referencia
-- Envío directo: envíe correo directamente desde el dispositivo o la aplicación a Microsoft 365 o Office 365
-https://learn.microsoft.com/es-mx/exchange/mail-flow-best-practices/how-to-set-up-a-multifunction-device-or-application-to-send-email-using-microsoft-365-or-office-365#direct-send-send-mail-directly-from-your-device-or-application-to-microsoft-365-or-office-365
+- [Envío directo: envíe correo directamente desde el dispositivo o la aplicación a Microsoft 365 o Office 365](https://learn.microsoft.com/es-mx/exchange/mail-flow-best-practices/how-to-set-up-a-multifunction-device-or-application-to-send-email-using-microsoft-365-or-office-365#direct-send-send-mail-directly-from-your-device-or-application-to-microsoft-365-or-office-365)
+- [RejectDirectSend](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/set-organizationconfig?view=exchange-ps#-rejectdirectsend)
+
 ---
 
 # 4. Estándares SPF, DKIM, DMARC y MTA-STS
@@ -290,6 +292,9 @@ Resultados posibles:
 
 > Nota: El qualifier `/all` **no existe** en el estándar SPF.
 
+#### Referencia
+- [Sender Policy Framework (SPF)](https://www.rfc-editor.org/rfc/rfc7208)
+
 ---
 
 ## DKIM (DomainKeys Identified Mail)
@@ -340,6 +345,9 @@ Campos importantes:
 - `bh` → hash del cuerpo
 - `b` → firma digital
 
+
+#### Referencia
+- [DomainKeys Identified Mail (DKIM)](https://dkim.org/)
 ---
 
 ## DMARC (Domain-based Message Authentication, Reporting & Conformance)
@@ -386,6 +394,9 @@ Buenas prácticas:
 - Monitoreo continuo
 - Alineación estricta
 - Protección de subdominios
+
+#### Referencia
+- [Domain-based Message Authentication, Reporting, and Conformance (DMARC)](https://www.rfc-editor.org/rfc/rfc7489.html)
 
 ---
 
@@ -439,9 +450,10 @@ Permite visibilidad operativa.
 
 ## Script de validación
 
-Puedes validar SPF, DKIM, DMARC y MTA-STS con el siguiente script:
+Puedes validar SPF, DKIM, DMARC y MTA-STS con el siguiente script: [Domain-Health-Check.ps1](https://github.com/watchdogcode/gol2026/blob/main/MDO/Scripts/Domain-Health-Check.ps1)
 
-[Domain-Health-Check.ps1](https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/Scripts/Domain-Health-Check.ps1)
+#### Referencia
+- [SMTP MTA Strict Transport Security (MTA-STS)](https://www.rfc-editor.org/rfc/rfc8461)
 
 ---
 
@@ -541,5 +553,10 @@ En organizaciones grandes es común:
 
 > Esto es **Shadow IT de identidad y marca**, uno de los riesgos más ignorados en seguridad.
  ---
+---
+#### Referencia
+- [Parked and Inactive Domain Setup for MX, SPF and DMARC](https://support.dmarcreport.com/support/solutions/articles/5000882467-parked-and-inactive-domain-setup-for-mx-spf-and-dmarc)
 
+# Validación Línea base para mejorar la postura de seguridad en Exchange online
 
+**Se puede hacer una validación rapida ejecutando el siguiente escript: [Validate-EXOSecurityBaseline](https://github.com/watchdogcode/gol2026/blob/main/MDO/Scripts/Validate-EXOSecurityBaseline.ps1)**
