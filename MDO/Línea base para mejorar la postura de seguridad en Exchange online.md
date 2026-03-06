@@ -70,8 +70,11 @@ A continuación encontrará reglas básicas de flujo de correo que son **altamen
 9. Next
 10. Rule mode: **Enforce**
 11. Severity: **High**
-12. Marcar **Defer the message if rule processing doesn't complete**
-13. Next y **Finish**
+12. Marcamos **Stop processing more rules**
+13. Marcar **Defer the message if rule processing doesn't complete**
+14. Next y **Finish**
+15. Una vez creada la regla, la editamos y en Prioridad la cambiaos a 0
+16. Clic en Save
 
 #### Referencias
 
@@ -99,7 +102,11 @@ A continuación encontrará reglas básicas de flujo de correo que son **altamen
 7. Next
 8. Rule mode: **Enforce**
 9. Severity: **High**
-10. Next y **Finish**
+10. Marcamos **Stop processing more rules**
+11. Next y **Finish**
+12. Una vez creada la regla, la editamos y en Prioridad la cambiaos a 1
+13. Clic en Save
+
 
 #### Referencia
 
