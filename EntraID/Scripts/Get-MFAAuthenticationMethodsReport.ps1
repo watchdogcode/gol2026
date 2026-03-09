@@ -109,7 +109,7 @@ $processed = 0
 
 foreach ($user in $users) {
     $processed++
-    Write-Progress -Activity 'Analizando métodos MFA' -Status "Procesando $processed de $totalUsers: $($user.userPrincipalName)" -PercentComplete (($processed / [Math]::Max($totalUsers, 1)) * 100)
+    Write-Progress -Activity 'Analizando métodos MFA' -Status "Procesando $processed de ${totalUsers}: $($user.userPrincipalName)" -PercentComplete (($processed / [Math]::Max($totalUsers, 1)) * 100)
 
     $defaultMethod = 'No definido'
     $registeredMethods = @()
