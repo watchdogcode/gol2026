@@ -1317,6 +1317,7 @@ $HtmlContent = @"
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+        .header .subtitle { margin-top: 6px; font-size: 0.92em; opacity: 0.95; }
         .header .meta { font-size: 0.9em; opacity: 0.9; text-align: right; }
         
         .container { 
@@ -1487,7 +1488,10 @@ $HtmlContent = @"
 </head>
 <body>
     <div class="header">
-        <h1>Reporte Diario de Operaciones de Seguridad</h1>
+        <div>
+            <h1>Reporte Diario de Operaciones de Seguridad</h1>
+            <div class="subtitle">Technology enables security, but discipline makes it effective</div>
+        </div>
         <div class="meta">
             <div><strong>Período:</strong> $($StartDate.ToString("yyyy-MM-dd HH:mm")) - $($ReportDate.ToString("yyyy-MM-dd HH:mm"))</div>
             <div style="font-size: 0.85em; margin-top: 4px;">Tenant ID: $MaskedTenantId</div>
