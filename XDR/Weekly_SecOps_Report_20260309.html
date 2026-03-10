@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte Semanal de Seguridad</title>
+    <style>
+        :root {
+            --primary-color: #0078d4;
+            --secondary-color: #2b2b2b;
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --text-color: #323130;
+            --border-color: #e1dfdd;
+            --danger-color: #a80000;
+        }
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.5;
+        }
+        .header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+        .header .meta { font-size: 0.9em; opacity: 0.95; text-align: right; }
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 4px;
+            color: white;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.8em;
+            display: inline-block;
+            margin-bottom: 8px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+        h2 {
+            color: var(--secondary-color);
+            margin-top: 40px;
+            margin-bottom: 15px;
+            font-size: 18px;
+            border-left: 4px solid var(--primary-color);
+            padding-left: 12px;
+            display: flex;
+            align-items: center;
+        }
+        h3 {
+            color: #605e5c;
+            font-size: 16px;
+            margin-top: 22px;
+            margin-bottom: 10px;
+        }
+        .summary {
+            background-color: #e6f2ff;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #cce4ff;
+            margin-bottom: 25px;
+        }
+        .summary h3 { margin-top: 0; color: var(--secondary-color); }
+        .summary ul { margin: 0; padding-left: 20px; }
+        .summary li { margin-bottom: 8px; line-height: 1.6; }
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .kpi-card {
+            background: var(--card-bg);
+            padding: 25px 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: transform 0.2s ease;
+            border-top: 4px solid transparent;
+        }
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .kpi-card.alert { border-top-color: var(--primary-color); }
+        .kpi-card.danger { border-top-color: var(--danger-color); }
+        .kpi-val { font-size: 3em; font-weight: 700; color: var(--secondary-color); line-height: 1; margin-bottom: 5px; }
+        .kpi-label { font-size: 0.85em; color: #605e5c; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+        .table-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .table-container {
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
+        th { background-color: #f8f9fa; color: #605e5c; text-align: left; padding: 12px 15px; font-weight: 600; border-bottom: 2px solid var(--border-color); }
+        td { border-bottom: 1px solid var(--border-color); padding: 12px 15px; color: var(--text-color); }
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background-color: #f8f9fa; }
+        a { color: var(--primary-color); text-decoration: none; font-weight: 500; }
+        a:hover { text-decoration: underline; }
+        .recs {
+            background-color: #e6f2ff;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #cce4ff;
+        }
+        .recs ul { margin: 0; padding-left: 20px; }
+        .recs li { margin-bottom: 8px; line-height: 1.6; }
+        .footer { text-align: center; margin-top: 50px; color: #8a8886; font-size: 0.85em; padding-bottom: 20px; }
+        @media (max-width: 900px) {
+            .header { flex-direction: column; align-items: flex-start; gap: 12px; }
+            .header .meta { text-align: left; }
+            .table-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Reporte Semanal de Operaciones de Seguridad</h1>
+        <div class="meta">
+            <div class="status-badge" style="background-color: #107c10;">Saludable</div>
+            <div><strong>Periodo:</strong> Últimos 7 días</div>
+            <div><strong>Generado:</strong> 2026-03-09 09:17</div>
+            <div style="font-size: 0.85em; margin-top: 4px;">Tenant ID: ********************************8c2b</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="summary">
+            <h3>Resumen Ejecutivo</h3>
+            <ul>
+                <li><strong>1</strong> correos de phishing y <strong>0</strong> intentos de malware detectados esta semana.</li>
+                <li><strong>0</strong> alertas de endpoint registradas; <strong>0</strong> hosts requieren atención inmediata.</li>
+                <li><strong>0</strong> identidades mostraron señales de password spray o fuerza bruta.</li>
+                <li><strong>0</strong> nuevos consentimientos OAuth otorgados a aplicaciones.</li>
+            </ul>
+        </div>
+
+        <div class="kpi-grid">
+            <div class="kpi-card alert">
+                <div class="kpi-val">0</div>
+                <div class="kpi-label">Total de Alertas de Endpoint</div>
+            </div>
+            <div class="kpi-card danger">
+                <div class="kpi-val">1</div>
+                <div class="kpi-label">Intentos de Phishing</div>
+            </div>
+            <div class="kpi-card alert">
+                <div class="kpi-val">0</div>
+                <div class="kpi-label">Hosts Críticos (≥3 Alertas)</div>
+            </div>
+            <div class="kpi-card alert">
+                <div class="kpi-val">0</div>
+                <div class="kpi-label">Ataques de Spray de Identidad</div>
+            </div>
+            <div class="kpi-card alert">
+                <div class="kpi-val">0</div>
+                <div class="kpi-label">Nuevos Consentimientos OAuth</div>
+            </div>
+        </div>
+
+        <h2>MDO: Correo y Colaboración</h2>
+        <div class="table-grid">
+            <div class="table-container">
+                <h3 style="padding:0 15px;">Principales Campañas Activas</h3>
+                <table>
+                    <thead><tr><th>Asunto</th><th>Dominio Remitente</th><th>Conteo</th><th>Objetivos</th></tr></thead>
+                    <tbody><tr><td>[CardioScience Blog] Pendientes de moderación: "<h2>Cobertura de Medicare para TriClip: Implicaciones para pacientes con insuficiencia tricuspídea</h2>"</td><td>ae110702-973c-4b03-a910-6f3afb648e67.us1.azurecomm.net</td><td>1</td><td>1</td></tr></tbody>
+                </table>
+            </div>
+            <div class="table-container">
+                <h3 style="padding:0 15px;">Usuarios Más Atacados</h3>
+                <table>
+                    <thead><tr><th>Correo Usuario</th><th>Ataques</th></tr></thead>
+                    <tbody><tr><td><a href='https://security.microsoft.com/users/sec/UserPage?user=admin@mngenvmcap965156.onmicrosoft.com' target='_blank' title='Ver Usuario en Defender'>admin@mngenvmcap965156.onmicrosoft.com</a></td><td>1</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <h2>MDE: Seguridad de Endpoint</h2>
+        <div class="table-grid">
+            <div class="table-container">
+                <h3 style="padding:0 15px;">Alertas por Severidad</h3>
+                <table>
+                    <thead><tr><th>Severidad</th><th>Conteo</th></tr></thead>
+                    <tbody><tr><td colspan='2' style='text-align:center; color:#888; padding:15px;'>No hay datos disponibles para este periodo.</td></tr></tbody>
+                </table>
+            </div>
+            <div class="table-container">
+                <h3 style="padding:0 15px;">Hosts con Múltiples Alertas Altas/Críticas</h3>
+                <table>
+                    <thead><tr><th>Nombre Dispositivo</th><th>Conteo Alertas</th><th>Max Severidad</th></tr></thead>
+                    <tbody><tr><td colspan='3' style='text-align:center; color:#888; padding:15px;'>No hay datos disponibles para este periodo.</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+        <h3>Estado de Salud del Dispositivo (Top 25)</h3>
+        <div class="table-container">
+            <table>
+                <thead><tr><th>Nombre Dispositivo</th><th>SO</th><th>Estado Salud</th><th>Visto Por Última Vez</th></tr></thead>
+                <tbody><tr><td><a href='https://security.microsoft.com/machines/8c3b9d91724a359d5028d5c61f1a6938177be32e' target='_blank' title='Ver Dispositivo en Defender'>win10-adm</a></td><td>Windows10</td><td></td><td>2026-03-09 14:52</td></tr><tr><td><a href='https://security.microsoft.com/machines/a062332fc84cbd03744064d9aff6cf74f7fce5a7' target='_blank' title='Ver Dispositivo en Defender'>attackerubuntu</a></td><td>Linux</td><td></td><td>2026-03-09 14:39</td></tr><tr><td><a href='https://security.microsoft.com/machines/40f0d4cb1cbe64dcfcf22c4cc112997df330ab87' target='_blank' title='Ver Dispositivo en Defender'>attackerkali</a></td><td>Linux</td><td></td><td>2026-03-09 14:30</td></tr><tr><td><a href='https://security.microsoft.com/machines/53171c9f56e6677dbe9550650586a87be0338a15' target='_blank' title='Ver Dispositivo en Defender'>win10-ceo</a></td><td>Windows10</td><td></td><td>2026-03-09 14:22</td></tr><tr><td><a href='https://security.microsoft.com/machines/4bae693073d24cfc84670a1c57c30a0857cb01f7' target='_blank' title='Ver Dispositivo en Defender'>svr19-dc1</a></td><td>WindowsServer2019</td><td></td><td>2026-03-09 13:57</td></tr><tr><td><a href='https://security.microsoft.com/machines/22f7f084e1a8cc02ab8d996328594ec91eecd3a6' target='_blank' title='Ver Dispositivo en Defender'>attackerwin10</a></td><td>Windows10</td><td></td><td>2026-03-09 13:55</td></tr><tr><td><a href='https://security.microsoft.com/machines/85017d537b7328885006c730ad233cc04c52a12d' target='_blank' title='Ver Dispositivo en Defender'>elk</a></td><td>Linux</td><td></td><td>2026-03-09 13:46</td></tr><tr><td><a href='https://security.microsoft.com/machines/7f290579351f92e63b1cb2e21fdb7623af445af1' target='_blank' title='Ver Dispositivo en Defender'>w11</a></td><td>Windows11</td><td></td><td>2026-03-09 13:27</td></tr><tr><td><a href='https://security.microsoft.com/machines/722c28965678451e78dbe2d4ee928eb63340d3cf' target='_blank' title='Ver Dispositivo en Defender'>ubuntu-proxy</a></td><td>Linux</td><td></td><td>2026-03-09 13:16</td></tr></tbody>
+            </table>
+        </div>
+
+        <h2>MDI: Seguridad de Identidad</h2>
+        <div class="table-grid">
+            <div class="table-container">
+                <h3 style="padding:0 15px;">Password Spray / Fuerza Bruta</h3>
+                <table>
+                    <thead><tr><th>Cuenta</th><th>Ubicación</th><th>Fallos</th><th>IPs</th></tr></thead>
+                    <tbody><tr><td colspan='4' style='text-align:center; color:#888; padding:15px;'>No hay datos disponibles para este periodo.</td></tr></tbody>
+                </table>
+            </div>
+            <div class="table-container">
+                <h3 style="padding:0 15px;">Ubicaciones Atípicas (Viajes)</h3>
+                <table>
+                    <thead><tr><th>Cuenta</th><th>Países</th><th>Visto Por Última Vez</th></tr></thead>
+                    <tbody><tr><td colspan='3' style='text-align:center; color:#888; padding:15px;'>No hay datos disponibles para este periodo.</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <h2>MDA: Aplicaciones en la Nube y Shadow IT</h2>
+        <div class="table-grid">
+            <div class="table-container">
+                <h3 style="padding:0 15px;">Nuevos Consentimientos OAuth</h3>
+                <table>
+                    <thead><tr><th>Nombre App</th><th>ID App</th><th>Consentimientos</th><th>Usuarios</th></tr></thead>
+                    <tbody><tr><td colspan='4' style='text-align:center; color:#888; padding:15px;'>No hay datos disponibles para este periodo.</td></tr></tbody>
+                </table>
+            </div>
+            <div class="table-container">
+                <h3 style="padding:0 15px;">Nuevas Apps Descubiertas (Shadow IT)</h3>
+                <table>
+                    <thead><tr><th>Aplicación</th><th>Eventos</th><th>Usuarios</th></tr></thead>
+                    <tbody><tr><td>Microsoft Exchange Online</td><td>322</td><td>1</td></tr><tr><td>Microsoft 365</td><td>30</td><td>4</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="recs">
+            <h3>Lista de Verificación Operativa Semanal</h3>
+            <ul>
+                <li><strong>MDO:</strong> Revisar campañas de phishing y ajustar políticas de Safe Links/Attachments. Verificar usuarios más atacados para identificar posible compromiso.</li>
+                <li><strong>MDE:</strong> Investigar hosts con ≥3 alertas altas/críticas, aislar dispositivos comprometidos y validar salud del sensor EDR.</li>
+                <li><strong>MDI:</strong> Revisar cuentas con altas tasas de fallos, forzar MFA/restablecimiento y analizar ubicaciones atípicas.</li>
+                <li><strong>MDA:</strong> Auditar consentimientos OAuth nuevos, revocar permisos sospechosos y revisar uso de Shadow IT.</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            Fuente: Defender XDR - Advanced Hunting & Reporting (Ops Semanal) | Generado a las 09:17
+        </div>
+    </div>
+</body>
+</html>
