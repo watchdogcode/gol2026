@@ -25,6 +25,22 @@ Objetivo: prevenir suplantación de identidad y spoofing.
 
 Objetivo: detectar BEC incluso sin malware o URLs.
 
+
+
+# Anti‑Phishing (BEC‑ready) en Microsoft Defender for Office 365
+
+## Prerrequisitos
+
+- Defender for Office 365 Plan 1 o Plan 2
+- Rol: **Security Administrator**, **Exchange Organization Management** o equivalente
+
+---
+
+## Crear política Anti‑Phishing
+
+
+
+
 ---
 
 ### 3. Protección de identidad (Zero Trust)
