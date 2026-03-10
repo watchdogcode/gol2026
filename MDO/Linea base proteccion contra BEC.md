@@ -94,6 +94,7 @@ Garantizar integridad del mensaje y alineación DMARC mediante firma digital.
 5. Publícalos en tu DNS
 
 Ejemplo de registros DKIM
+
 selector1._domainkey.tudominio.com
 CNAME
 selector1-tudominio-com._domainkey.tutenant.onmicrosoft.com
