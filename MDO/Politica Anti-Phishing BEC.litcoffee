@@ -1,8 +1,6 @@
-# 🛡️ Guía de Seguridad Operacional Mensual/Ad-Hoc: Microsoft Defender for Office 365
+# 🛡️ Anti‑Phishing (BEC‑ready) en Microsoft Defender for Office 365
 
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
-
-# Anti‑Phishing (BEC‑ready) en Microsoft Defender for Office 365
 
 ## Prerrequisitos
 
