@@ -17,6 +17,30 @@
     Método de autenticación: 'Secret', 'Interactive', 'DeviceCode'.
     Para 'Secret', asegúrese de configurar $ClientId, $TenantId y $ClientSecret (o variables de entorno).
 
+.PARAMETER IncludeMDO
+    Incluir secciones de Microsoft Defender for Office 365. Si no se especifica ningún producto, se incluyen todos.
+
+.PARAMETER IncludeMDE
+    Incluir secciones de Microsoft Defender for Endpoint. Si no se especifica ningún producto, se incluyen todos.
+
+.PARAMETER IncludeMDI
+    Incluir secciones de Microsoft Defender for Identity y Entra ID. Si no se especifica ningún producto, se incluyen todos.
+
+.PARAMETER IncludeMDA
+    Incluir secciones de Microsoft Defender for Cloud Apps. Si no se especifica ningún producto, se incluyen todos.
+
+.EXAMPLE
+    .\New-DefenderXDRDailyReport.ps1
+    Ejecuta el reporte con todos los productos habilitados.
+
+.EXAMPLE
+    .\New-DefenderXDRDailyReport.ps1 -IncludeMDO -IncludeMDE
+    Ejecuta el reporte solo con las secciones de MDO y MDE.
+
+.EXAMPLE
+    .\New-DefenderXDRDailyReport.ps1 -IncludeMDA
+    Ejecuta el reporte solo con la sección de MDA (Cloud Apps).
+
 .NOTES
     Endpoint de API: https://api.security.microsoft.com
     Permiso requerido: AdvancedHunting.Read.All
@@ -36,8 +60,21 @@ param(
     [string]$To,
     [string]$Subject = "Reporte Diario de Seguridad - M365 Defender XDR",
     [int]$TimeoutSec = 120,
-    [bool]$FailFast = $false
+    [bool]$FailFast = $false,
+    [switch]$IncludeMDO,
+    [switch]$IncludeMDE,
+    [switch]$IncludeMDI,
+    [switch]$IncludeMDA
 )
+
+# --- SELECCIÓN DE PRODUCTOS (si no se especifica ninguno, se incluyen todos) ---
+$RunMDO = $IncludeMDO.IsPresent
+$RunMDE = $IncludeMDE.IsPresent
+$RunMDI = $IncludeMDI.IsPresent
+$RunMDA = $IncludeMDA.IsPresent
+if (-not ($RunMDO -or $RunMDE -or $RunMDI -or $RunMDA)) {
+    $RunMDO = $RunMDE = $RunMDI = $RunMDA = $true
+}
 
 # --- CONFIGURACIÓN Y VARIABLES GLOBALES ---
 $ErrorActionPreference = "Stop"
@@ -45,6 +82,141 @@ $ApiBaseUrl = "https://api.security.microsoft.com/api"
 $ResourceUrl = "https://api.security.microsoft.com"
 $ReportDate = Get-Date
 $StartDate = $ReportDate.AddHours(-$TimeWindowHours)
+
+# --- PARSER DE CATÁLOGOS KQL DESDE MARKDOWN ---
+# Carga automáticamente los catálogos KQL desde los archivos .md del repositorio.
+# Formatos soportados:
+#   MDO:     ## emoji Categoría  →  ### N. Título  →  ```kql ... ```
+#   MDI:     ## N. Título  →  ```kql ... ```  (sin categorías)
+#   EntraID: # X) Categoría  →  ## XN) Título  →  ```kql ... ```
+function Import-KqlCatalogFromMarkdown {
+    param(
+        [string]$Url,
+        [string]$LocalPath,
+        [Parameter(Mandatory)][ValidateSet('MDO','MDI','EntraID')][string]$Format
+    )
+
+    $Content = $null
+
+    # Intentar descarga desde GitHub (fuente canónica)
+    if ($Url) {
+        try {
+            Write-Log "Descargando catálogo $Format desde GitHub..."
+            $Content = (Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 15).Content
+        }
+        catch {
+            Write-Log "No se pudo descargar catálogo $Format desde GitHub: $($_.Exception.Message)" -Level WARN
+        }
+    }
+
+    # Fallback: archivo local
+    if (-not $Content -and $LocalPath -and (Test-Path $LocalPath)) {
+        Write-Log "Cargando catálogo $Format desde archivo local: $LocalPath"
+        $Content = Get-Content $LocalPath -Raw -Encoding UTF8
+    }
+
+    if (-not $Content) {
+        Write-Log "Catálogo $Format no disponible (ni GitHub ni local)" -Level WARN
+        return $null
+    }
+    $Lines     = $Content -split "`n"
+    $Catalog   = @()
+    $Category  = ""
+    $InKql     = $false
+    $KqlBuffer = ""
+    $CurrentId = $null
+    $CurrentTitle = ""
+
+    foreach ($Line in $Lines) {
+        $Trimmed = $Line.TrimEnd()
+
+        # --- Detectar categoría ---
+        switch ($Format) {
+            'MDO' {
+                # ## 🎭 Spoofing y Autenticación  (## + emoji + texto)
+                if ($Trimmed -match '^## [^\w\s#*].+') {
+                    $Cat = $Trimmed -replace '^## \S+\s*', ''
+                    if ($Cat -and $Cat -notmatch '^\*' -and $Cat -notmatch '^Índice' -and $Cat -notmatch '^Recomendaciones') {
+                        $Category = $Cat.Trim()
+                    }
+                }
+            }
+            'EntraID' {
+                # # A) Detección – Usuarios (EntraIdSignInEvents)
+                if ($Trimmed -match '^# [A-Z]\)\s+(.+)$') {
+                    $Category = $Matches[1].Trim()
+                }
+            }
+            # MDI: sin categorías, se mantiene el valor vacío
+        }
+
+        # --- Detectar encabezado de query ---
+        $QueryMatch = $false
+        switch ($Format) {
+            'MDO' {
+                # ### 1. Spoofing: From (Header) ≠ MailFrom (Envelope)
+                if ($Trimmed -match '^### (\d+)\.\s+(.+)$') {
+                    $QueryMatch = $true
+                    $CurrentId = [int]$Matches[1]
+                    $CurrentTitle = $Matches[2].Trim()
+                }
+            }
+            'MDI' {
+                # ## 1. Alertas de Defender for Identity (últimos 7d)
+                if ($Trimmed -match '^## (\d+)\.\s+(.+)$') {
+                    $QueryMatch = $true
+                    $CurrentId = [int]$Matches[1]
+                    $CurrentTitle = $Matches[2].Trim()
+                }
+            }
+            'EntraID' {
+                # ## A1) Top fallos de inicio de sesión por usuario
+                if ($Trimmed -match '^## ([A-Z]\d+)\)\s+(.+)$') {
+                    $QueryMatch = $true
+                    $CurrentId = $Matches[1].Trim()
+                    $CurrentTitle = $Matches[2].Trim()
+                }
+            }
+        }
+
+        # --- Capturar bloque KQL ---
+        if ($Trimmed -match '^```kql' -and $CurrentId) {
+            $InKql = $true
+            $KqlBuffer = ""
+            continue
+        }
+
+        if ($InKql -and $Trimmed -match '^```\s*$') {
+            $InKql = $false
+            # Emitir entrada del catálogo
+            $Entry = @{
+                Id       = $CurrentId
+                Category = if ($Category) { $Category } else { $CurrentTitle }
+                Title    = $CurrentTitle
+                Query    = $KqlBuffer.TrimEnd()
+            }
+            $Catalog += $Entry
+            $CurrentId = $null
+            $CurrentTitle = ""
+            $KqlBuffer = ""
+            continue
+        }
+
+        if ($InKql) {
+            $KqlBuffer += $Trimmed + "`n"
+        }
+    }
+
+    # Para EntraID, re-numerar secuencialmente (1, 2, 3...) ya que los IDs originales son alfanuméricos
+    if ($Format -eq 'EntraID') {
+        for ($i = 0; $i -lt $Catalog.Count; $i++) {
+            $Catalog[$i].Id = $i + 1
+        }
+    }
+
+    Write-Log "Catálogo $Format cargado desde Markdown: $($Catalog.Count) queries"
+    return $Catalog
+}
 
 # --- ENMASCARAMIENTO DE CREDENCIALES ---
 function Mask-String {
@@ -336,9 +508,13 @@ CloudAppEvents
 # 1. Autenticar
 $Token = Get-M365Token
 
-# 2. Ejecutar Consultas
+# 2. Ejecutar Consultas (filtradas por producto activo)
 $Data = @{}
 foreach ($Key in $Queries.Keys) {
+    if ($Key.StartsWith("MDO_") -and -not $RunMDO) { continue }
+    if ($Key.StartsWith("MDE_") -and -not $RunMDE) { continue }
+    if ($Key.StartsWith("MDI_") -and -not $RunMDI) { continue }
+    if ($Key.StartsWith("MDA_") -and -not $RunMDA) { continue }
     $Result = Invoke-HuntingQuery -Token $Token -Query $Queries[$Key] -Name $Key
     $Data[$Key] = $Result.Results
 }
@@ -350,16 +526,35 @@ if (-not $Kpi_TotalAlerts) { $Kpi_TotalAlerts = 0 }
 $Kpi_IncidentCount = $Data["XDR_Incidents"].Count
 if (-not $Kpi_IncidentCount) { $Kpi_IncidentCount = 0 }
 
-$Kpi_PhishDelivered = ($Data["MDO_Campaigns"] | Measure-Object -Property Events -Sum).Sum
-if (-not $Kpi_PhishDelivered) { $Kpi_PhishDelivered = 0 }
+$Kpi_PhishDelivered = 0
+if ($RunMDO) {
+    $Kpi_PhishDelivered = ($Data["MDO_Campaigns"] | Measure-Object -Property Events -Sum).Sum
+    if (-not $Kpi_PhishDelivered) { $Kpi_PhishDelivered = 0 }
+}
 
-$Kpi_CompromisedIdentities = $Data["MDI_BruteForce"].Count
-$Kpi_HighRiskUsers = $Data["MDI_HighRiskUsers"].Count
-$Kpi_NewOAuth = ($Data["MDA_OAuth"] | Measure-Object -Property Consents -Sum).Sum
-if (-not $Kpi_NewOAuth) { $Kpi_NewOAuth = 0 }
+$Kpi_CompromisedIdentities = 0
+$Kpi_HighRiskUsers = 0
+if ($RunMDI) {
+    $Kpi_CompromisedIdentities = $Data["MDI_BruteForce"].Count
+    $Kpi_HighRiskUsers = $Data["MDI_HighRiskUsers"].Count
+}
+
+$Kpi_NewOAuth = 0
+if ($RunMDA) {
+    $Kpi_NewOAuth = ($Data["MDA_OAuth"] | Measure-Object -Property Consents -Sum).Sum
+    if (-not $Kpi_NewOAuth) { $Kpi_NewOAuth = 0 }
+}
 
 # --- CATÁLOGO COMPLETO DE KQL (MDO Advanced Hunting) ---
-# Fuente: https://github.com/watchdogcode/gol2026/blob/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md
+# Se carga dinámicamente desde GitHub (rama main) o archivo local como fallback.
+# Si ambos fallan, se usa el catálogo hardcoded.
+$MdoKqlCatalog = Import-KqlCatalogFromMarkdown `
+    -Url 'https://raw.githubusercontent.com/watchdogcode/gol2026/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md' `
+    -LocalPath (Join-Path $PSScriptRoot "..\MDO\Paquete MDO KQL Advance Hunting.md") `
+    -Format MDO
+
+if (-not $MdoKqlCatalog -or $MdoKqlCatalog.Count -eq 0) {
+Write-Log "Cargando catálogo MDO desde fallback hardcoded..." -Level WARN
 $MdoKqlCatalog = @(
     # ── Spoofing y Autenticación ──
     @{ Id=1;  Category="Spoofing y Autenticación"; Title="Spoofing: From (Header) ≠ MailFrom (Envelope)"; Query=@"
@@ -670,11 +865,30 @@ EmailEvents
 | where OrgLevelAction in ("Allow","DeliverToInbox") or (DetectionMethods has "UserOverride" or DetectionMethods has "AdminOverride")
 | summarize Total=count(), DistinctSenders=dcount(SenderFromAddress) by OrgLevelAction, DetectionMethods
 | order by Total desc
+"@ },
+    # ── Validación de Correos Entregados con Amenazas ──
+    @{ Id=29; Category="Validación de Correos Entregados con Amenazas"; Title="Correos entregados con algún tipo de amenaza (Query base)"; Query=@"
+EmailEvents
+| where DeliveryAction == "Delivered"
+| where ThreatTypes != ""
+| project Timestamp, NetworkMessageId, SenderFromAddress, RecipientEmailAddress, Subject, ThreatTypes, DetectionMethods, ConfidenceLevel, DeliveryLocation
+| order by Timestamp desc
+"@ },
+    @{ Id=30; Category="Validación de Correos Entregados con Amenazas"; Title="Confirmar si fue Safe Attachments o Safe Links"; Query=@"
+EmailAttachmentInfo
+| where MalwareFilterVerdict != "Clean"
+| project Timestamp, NetworkMessageId, FileName, MalwareFilterVerdict, DetectionMethods
+"@ },
+    @{ Id=31; Category="Validación de Correos Entregados con Amenazas"; Title="Enlaces maliciosos entregados"; Query=@"
+EmailUrlInfo
+| where UrlThreatType != "None"
+| project Timestamp, NetworkMessageId, Url, UrlThreatType, DetectionMethods
 "@ }
 )
+} # fin fallback MDO
 
 # Seleccionar un KQL aleatorio del catálogo MDO
-$SelectedMdoKql = $MdoKqlCatalog | Get-Random
+$SelectedMdoKql = if ($RunMDO) { $MdoKqlCatalog | Get-Random } else { $null }
 
 # --- CATÁLOGO KQL: MDE (Advanced Hunting – Endpoint Security) ---
 $MdeKqlCatalog = @(
@@ -785,10 +999,17 @@ DeviceInfo
 | take 50
 "@ }
 )
-$SelectedMdeKql = $MdeKqlCatalog | Get-Random
+$SelectedMdeKql = if ($RunMDE) { $MdeKqlCatalog | Get-Random } else { $null }
 
 # --- CATÁLOGO KQL: MDI (Advanced Hunting – Identity Threat Detection) ---
-# Fuente: https://github.com/watchdogcode/gol2026/blob/main/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md
+# Se carga dinámicamente desde GitHub (rama main) o archivo local como fallback.
+$MdiKqlCatalog = Import-KqlCatalogFromMarkdown `
+    -Url 'https://raw.githubusercontent.com/watchdogcode/gol2026/main/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md' `
+    -LocalPath (Join-Path $PSScriptRoot "..\MDI\Paquete MDI KQL Advance Hunting.md") `
+    -Format MDI
+
+if (-not $MdiKqlCatalog -or $MdiKqlCatalog.Count -eq 0) {
+Write-Log "Cargando catálogo MDI desde fallback hardcoded..." -Level WARN
 $MdiKqlCatalog = @(
     @{ Id=1; Category="Alertas e Incidentes MDI"; Title="Alertas de Defender for Identity (últimos 7d)"; Query=@"
 let TimeRange = 7d;
@@ -892,10 +1113,19 @@ DeviceNetworkEvents
 | order by DNSQueries desc
 "@ }
 )
-$SelectedMdiKql = $MdiKqlCatalog | Get-Random
+} # fin fallback MDI
+
+$SelectedMdiKql = if ($RunMDI) { $MdiKqlCatalog | Get-Random } else { $null }
 
 # --- CATÁLOGO KQL: Entra ID (Advanced Hunting – Identity Governance) ---
-# Fuente: https://github.com/watchdogcode/gol2026/blob/main/EntraID/Paquete%20KQL%20Queries%20EntraID%20Advanced%20Hunting.md
+# Se carga dinámicamente desde GitHub (rama main) o archivo local como fallback.
+$EntraKqlCatalog = Import-KqlCatalogFromMarkdown `
+    -Url 'https://raw.githubusercontent.com/watchdogcode/gol2026/main/EntraID/Paquete%20KQL%20Queries%20EntraID%20Advanced%20Hunting.md' `
+    -LocalPath (Join-Path $PSScriptRoot "..\EntraID\Paquete KQL Queries EntraID Advanced Hunting.md") `
+    -Format EntraID
+
+if (-not $EntraKqlCatalog -or $EntraKqlCatalog.Count -eq 0) {
+Write-Log "Cargando catálogo EntraID desde fallback hardcoded..." -Level WARN
 $EntraKqlCatalog = @(
     # ── A) Detección – Usuarios ──
     @{ Id=1; Category="Detección de Usuarios"; Title="Top Fallos de Inicio de Sesión por Usuario"; Query=@"
@@ -1160,7 +1390,9 @@ CloudAppEvents
 | order by Timestamp desc
 "@ }
 )
-$SelectedEntraKql = $EntraKqlCatalog | Get-Random
+} # fin fallback EntraID
+
+$SelectedEntraKql = if ($RunMDI) { $EntraKqlCatalog | Get-Random } else { $null }
 
 # --- CATÁLOGO KQL: MDA (Advanced Hunting – Cloud App Security) ---
 $MdaKqlCatalog = @(
@@ -1262,7 +1494,7 @@ CloudAppEvents
 | order by MaxTime desc
 "@ }
 )
-$SelectedMdaKql = $MdaKqlCatalog | Get-Random
+$SelectedMdaKql = if ($RunMDA) { $MdaKqlCatalog | Get-Random } else { $null }
 
 # 4. Generar HTML
 function ConvertTo-HtmlTable {
@@ -1280,6 +1512,65 @@ function ConvertTo-HtmlTable {
         $Html += "</tr>"
     }
     return $Html
+}
+
+# --- SECCIONES CONDICIONALES (KPIs y Recomendaciones) ---
+Write-Log "Productos incluidos: $(if($RunMDO){'MDO '})$(if($RunMDE){'MDE '})$(if($RunMDI){'MDI '})$(if($RunMDA){'MDA'})"
+
+$HtmlKpiMDO = ""
+if ($RunMDO) {
+$HtmlKpiMDO = @"
+            <div class="kpi-card $(if($Kpi_PhishDelivered -gt 0){'danger'}else{'alert'})">
+                <div class="kpi-val">$Kpi_PhishDelivered</div>
+                <div class="kpi-label">Phishing Entregado</div>
+            </div>
+"@
+}
+
+$HtmlKpiMDI = ""
+if ($RunMDI) {
+$HtmlKpiMDI = @"
+            <div class="kpi-card $(if($Kpi_HighRiskUsers -gt 0){'danger'}else{'alert'})">
+                <div class="kpi-val">$Kpi_HighRiskUsers</div>
+                <div class="kpi-label">Usuarios de Alto Riesgo</div>
+            </div>
+            <div class="kpi-card $(if($Kpi_CompromisedIdentities -gt 0){'danger'}else{'alert'})">
+                <div class="kpi-val">$Kpi_CompromisedIdentities</div>
+                <div class="kpi-label">Fuerza Bruta en Identidades</div>
+            </div>
+"@
+}
+
+$HtmlKpiMDA = ""
+if ($RunMDA) {
+$HtmlKpiMDA = @"
+            <div class="kpi-card alert">
+                <div class="kpi-val">$Kpi_NewOAuth</div>
+                <div class="kpi-label">Nuevos Consentimientos OAuth</div>
+            </div>
+"@
+}
+
+$HtmlRecMDO = ""
+if ($RunMDO) {
+$HtmlRecMDO = @"
+                <li><strong>MDO:</strong> Revisar $(if($Kpi_PhishDelivered -gt 0){"las <b>$Kpi_PhishDelivered</b> campañas de phishing entregadas"}else{"las campañas de phishing"}) y validar la efectividad de ZAP. Verificar los usuarios más atacados para capacitación de concientización.</li>
+"@
+}
+
+$HtmlRecMDI = ""
+if ($RunMDI) {
+$HtmlRecMDI = @"
+                <li><strong>MDI:</strong> Investigar los <b>$Kpi_HighRiskUsers</b> usuarios con inicios de sesión de alto riesgo. Restablecer contraseñas o aplicar MFA en sesiones riesgosas.</li>
+                <li><strong>MDI:</strong> Analizar las <b>$Kpi_CompromisedIdentities</b> cuentas con éxito de fuerza bruta. Restablecer contraseñas y aplicar MFA si no está configurado.</li>
+"@
+}
+
+$HtmlRecMDA = ""
+if ($RunMDA) {
+$HtmlRecMDA = @"
+                <li><strong>MDA:</strong> Auditar los <b>$Kpi_NewOAuth</b> nuevos consentimientos OAuth. Revocar permisos de publicadores sospechosos o no verificados.</li>
+"@
 }
 
 $HtmlContent = @"
@@ -1509,23 +1800,12 @@ $HtmlContent = @"
                 <div class="kpi-val">$Kpi_IncidentCount</div>
                 <div class="kpi-label">Incidentes Activos</div>
             </div>
-            <div class="kpi-card $(if($Kpi_PhishDelivered -gt 0){'danger'}else{'alert'})">
-                <div class="kpi-val">$Kpi_PhishDelivered</div>
-                <div class="kpi-label">Phishing Entregado</div>
-            </div>
-            <div class="kpi-card $(if($Kpi_HighRiskUsers -gt 0){'danger'}else{'alert'})">
-                <div class="kpi-val">$Kpi_HighRiskUsers</div>
-                <div class="kpi-label">Usuarios de Alto Riesgo</div>
-            </div>
-            <div class="kpi-card $(if($Kpi_CompromisedIdentities -gt 0){'danger'}else{'alert'})">
-                <div class="kpi-val">$Kpi_CompromisedIdentities</div>
-                <div class="kpi-label">Fuerza Bruta en Identidades</div>
-            </div>
-            <div class="kpi-card alert">
-                <div class="kpi-val">$Kpi_NewOAuth</div>
-                <div class="kpi-label">Nuevos Consentimientos OAuth</div>
-            </div>
+$HtmlKpiMDO$HtmlKpiMDI$HtmlKpiMDA
         </div>
+"@
+
+if ($RunMDO) {
+$HtmlContent += @"
 
         <!-- ═══ Tareas Operativas MDO (Daily) ═══ -->
         <div class="ops-section">
@@ -1553,7 +1833,7 @@ $HtmlContent = @"
         <div class="ops-group" style="margin-top: 20px;">
             <div class="ops-group-header mdo">
                 <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDO
-                <span class="ops-badge daily">#$($SelectedMdoKql.Id) de 28</span>
+                <span class="ops-badge daily">#$($SelectedMdoKql.Id) de $($MdoKqlCatalog.Count)</span>
             </div>
             <div style="padding: 20px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
@@ -1563,10 +1843,14 @@ $HtmlContent = @"
                 <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedMdoKql.Query)</div>
                 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
                     <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
-                    <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md" target="_blank">&#x1f4d6; Ver Catálogo Completo (28 KQL)</a>
+                    <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/3.0/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md" target="_blank">&#x1f4d6; Ver Catálogo Completo (28 KQL)</a>
                 </div>
             </div>
         </div>
+"@
+}
+
+$HtmlContent += @"
 
         <!-- ═══════════════════════════════════════════════════════ -->
         <!-- ═══ SECCIÓN XDR: Alertas e Incidentes Consolidados ═══ -->
@@ -1589,6 +1873,10 @@ $HtmlContent = @"
                 <tbody>$(ConvertTo-HtmlTable $Data["XDR_Incidents"] @("Timestamp","Title","Severity","ServiceSource","Category","Entities","DevicesAffected"))</tbody>
             </table>
         </div>
+"@
+
+if ($RunMDE) {
+$HtmlContent += @"
 
         <!-- ═══════════════════════════════════════════════════════ -->
         <!-- ═══ SECCIÓN MDE: Seguridad de Endpoints ═══ -->
@@ -1607,7 +1895,7 @@ $HtmlContent = @"
         <div class="ops-group" style="margin-top: 20px;">
             <div class="ops-group-header mde">
                 <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDE
-                <span class="ops-badge daily">#$($SelectedMdeKql.Id) de 12</span>
+                <span class="ops-badge daily">#$($SelectedMdeKql.Id) de $($MdeKqlCatalog.Count)</span>
             </div>
             <div style="padding: 20px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
@@ -1620,6 +1908,11 @@ $HtmlContent = @"
                 </div>
             </div>
         </div>
+"@
+}
+
+if ($RunMDI) {
+$HtmlContent += @"
 
         <!-- ═══════════════════════════════════════════════════════ -->
         <!-- ═══ SECCIÓN MDI: Seguridad de Identidades ═══ -->
@@ -1667,7 +1960,7 @@ $HtmlContent = @"
         <div class="ops-group" style="margin-top: 20px;">
             <div class="ops-group-header mdi">
                 <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDI
-                <span class="ops-badge daily">#$($SelectedMdiKql.Id) de 11</span>
+                <span class="ops-badge daily">#$($SelectedMdiKql.Id) de $($MdiKqlCatalog.Count)</span>
             </div>
             <div style="padding: 20px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
@@ -1711,7 +2004,7 @@ $HtmlContent = @"
         <div class="ops-group" style="margin-top: 20px;">
             <div class="ops-group-header entra">
                 <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – Entra ID
-                <span class="ops-badge daily">#$($SelectedEntraKql.Id) de 26</span>
+                <span class="ops-badge daily">#$($SelectedEntraKql.Id) de $($EntraKqlCatalog.Count)</span>
             </div>
             <div style="padding: 20px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
@@ -1725,6 +2018,11 @@ $HtmlContent = @"
                 </div>
             </div>
         </div>
+"@
+}
+
+if ($RunMDA) {
+$HtmlContent += @"
 
         <!-- ═══════════════════════════════════════════════════════ -->
         <!-- ═══ SECCIÓN MDA: Aplicaciones en la Nube ═══ -->
@@ -1744,7 +2042,7 @@ $HtmlContent = @"
         <div class="ops-group" style="margin-top: 20px;">
             <div class="ops-group-header mda">
                 <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDA
-                <span class="ops-badge daily">#$($SelectedMdaKql.Id) de 10</span>
+                <span class="ops-badge daily">#$($SelectedMdaKql.Id) de $($MdaKqlCatalog.Count)</span>
             </div>
             <div style="padding: 20px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
@@ -1757,6 +2055,10 @@ $HtmlContent = @"
                 </div>
             </div>
         </div>
+"@
+}
+
+$HtmlContent += @"
 
         <!-- ═══════════════════════════════════════════════════════ -->
         <!-- ═══ Recomendaciones y Acciones ═══ -->
@@ -1765,10 +2067,7 @@ $HtmlContent = @"
         <h2>Recomendaciones y Acciones Diarias</h2>
         <div class="recs">
             <ul>
-                <li><strong>MDO:</strong> Revisar $(if($Kpi_PhishDelivered -gt 0){"las <b>$Kpi_PhishDelivered</b> campañas de phishing entregadas"}else{"las campañas de phishing"}) y validar la efectividad de ZAP. Verificar los usuarios más atacados para capacitación de concientización.</li>
-                <li><strong>MDI:</strong> Investigar los <b>$Kpi_HighRiskUsers</b> usuarios con inicios de sesión de alto riesgo. Restablecer contraseñas o aplicar MFA en sesiones riesgosas.</li>
-                <li><strong>MDI:</strong> Analizar las <b>$Kpi_CompromisedIdentities</b> cuentas con éxito de fuerza bruta. Restablecer contraseñas y aplicar MFA si no está configurado.</li>
-                <li><strong>MDA:</strong> Auditar los <b>$Kpi_NewOAuth</b> nuevos consentimientos OAuth. Revocar permisos de publicadores sospechosos o no verificados.</li>
+$HtmlRecMDO$HtmlRecMDI$HtmlRecMDA
             </ul>
         </div>
 
@@ -1805,4 +2104,10 @@ if ($SendMail) {
     } else {
         Write-Log "Envío de correo omitido. Faltan parámetros SMTP." -Level WARN
     }
+}
+
+# 7. Abrir Reporte en el Navegador
+if (Test-Path $OutputPath) {
+    Write-Log "Abriendo reporte en el navegador..."
+    Invoke-Item $OutputPath
 }
