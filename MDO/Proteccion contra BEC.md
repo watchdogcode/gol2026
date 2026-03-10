@@ -16,7 +16,7 @@ Objetivo: prevenir suplantación de identidad y spoofing.
 
 ---
 
-## 2. Microsoft Defender for Office 365
+## [2. Microsoft Defender for Office 365](https://github.com/watchdogcode/gol2026/blob/3.0/MDO/Politica%20Anti-Phishing%20BEC.litcoffee#%EF%B8%8F-antiphishing-becready-en-microsoft-defender-for-office-365)
 - Protección contra impersonación (usuarios y dominios)
 - Spoof intelligence
 - Mailbox intelligence
