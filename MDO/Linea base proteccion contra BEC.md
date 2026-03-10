@@ -5,9 +5,9 @@ Business Email Compromise (BEC) es un ataque de fraude dirigido que utiliza corr
 
 ---
 
-# Estrategia de Protección por Capas
+## Estrategia de Protección por Capas
 
-## [1. Autenticación del correo](https://github.com/watchdogcode/gol2026/blob/3.0/MDO/Linea%20base%20proteccion%20contra%20BEC.md#crear-pol%C3%ADtica-antiphishing)
+### [1. Autenticación del correo](https://github.com/watchdogcode/gol2026/blob/3.0/MDO/Linea%20base%20proteccion%20contra%20BEC.md#crear-pol%C3%ADtica-antiphishing)
 - SPF correctamente configurado
 - DKIM habilitado para todos los dominios
 - DMARC en modo `reject` o `quarantine`
@@ -16,7 +16,7 @@ Objetivo: prevenir suplantación de identidad y spoofing.
 
 ---
 
-## [2. Política Anti-Phishing Microsoft Defender for Office 365](https://github.com/watchdogcode/gol2026/blob/3.0/MDO/Linea%20base%20proteccion%20contra%20BEC.md#crear-pol%C3%ADtica-antiphishing)
+### [2. Política Anti-Phishing Microsoft Defender for Office 365](https://github.com/watchdogcode/gol2026/blob/3.0/MDO/Linea%20base%20proteccion%20contra%20BEC.md#crear-pol%C3%ADtica-antiphishing)
 - Protección contra impersonación (usuarios y dominios)
 - Spoof intelligence
 - Mailbox intelligence
@@ -28,7 +28,7 @@ Objetivo: detectar BEC incluso sin malware o URLs.
 
 ---
 
-## [3. Protección de identidad (Zero Trust)](https://github.com/watchdogcode/gol2026/blob/3.0/MDO/Linea%20base%20proteccion%20contra%20BEC.md#3-protecci%C3%B3n-de-identidad-zero-trust)
+### [3. Protección de identidad (Zero Trust)](https://github.com/watchdogcode/gol2026/blob/3.0/MDO/Linea%20base%20proteccion%20contra%20BEC.md#3-protecci%C3%B3n-de-identidad-zero-trust)
 - MFA obligatorio para todos los usuarios
 - MFA resistente a phishing para cuentas críticas
 - Conditional Access basado en riesgo
@@ -70,8 +70,38 @@ Objetivo: reducir efectividad de la ingeniería social.
 
 BEC no se detiene con una sola herramienta. Se mitiga combinando identidad fuerte, autenticación de correo, detección avanzada y disciplina operativa.
 ---
+---
 
 # Paso a paso
+
+## Autenticación del correo
+### Sender Policy Framework (SPF) 
+Autorizar solo a Microsoft 365 (y fuentes explícitas) a enviar correo y rechazar todo lo demás.
+**Dónde se configura**
+1. En DNS del dominio (registro TXT).
+2. Valor recomendado para Microsoft 365
+    v=spf1 include:spf.protection.outlook.com -all
+``
+### DKIM
+Garantizar integridad del mensaje y alineación DMARC mediante firma digital.
+**Dónde se habilita**
+1. Ir a https://security.microsoft.com/authentication?viewid=DKIM
+2. Selecciona tu dominio personalizado
+3. Clic en Create DKIM keys
+4. Microsoft generará 2 registros CNAME
+5. Publícalos en tu DNS
+
+Ejemplo de registros DKIM
+selector1._domainkey.tudominio.com
+CNAME
+selector1-tudominio-com._domainkey.tutenant.onmicrosoft.com
+
+selector2._domainkey.tudominio.com
+CNAME
+selector2-tudominio-com._domainkey.tutenant.onmicrosoft.com
+6. Espera propagación DNS
+7. Regresa al portal y habilita: Sign messages for this domain with DKIM signatures
+
 
 
 ## Crear política Anti‑Phishing
