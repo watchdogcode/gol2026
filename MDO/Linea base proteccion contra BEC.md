@@ -77,13 +77,15 @@ BEC no se detiene con una sola herramienta. Se mitiga combinando identidad fuert
 ## Autenticación del correo
 ### Sender Policy Framework (SPF) 
 Autorizar solo a Microsoft 365 (y fuentes explícitas) a enviar correo y rechazar todo lo demás.
+
 **Dónde se configura**
 1. En DNS del dominio (registro TXT).
 2. Valor recomendado para Microsoft 365
     v=spf1 include:spf.protection.outlook.com -all
-``
+
 ### DKIM
 Garantizar integridad del mensaje y alineación DMARC mediante firma digital.
+
 **Dónde se habilita**
 1. Ir a https://security.microsoft.com/authentication?viewid=DKIM
 2. Selecciona tu dominio personalizado
