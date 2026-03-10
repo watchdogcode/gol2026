@@ -96,12 +96,17 @@ Garantizar integridad del mensaje y alineación DMARC mediante firma digital.
 Ejemplo de registros DKIM
 
 selector1._domainkey.tudominio.com
+
 CNAME
+
 selector1-tudominio-com._domainkey.tutenant.onmicrosoft.com
 
 selector2._domainkey.tudominio.com
+
 CNAME
+
 selector2-tudominio-com._domainkey.tutenant.onmicrosoft.com
+
 6. Espera propagación DNS
 7. Regresa al portal y habilita: Sign messages for this domain with DKIM signatures
 
