@@ -108,6 +108,7 @@ CNAME
 selector2-tudominio-com._domainkey.tutenant.onmicrosoft.com
 
 6. Espera propagación DNS
+
 7. Regresa al portal y habilita: Sign messages for this domain with DKIM signatures
 
 
