@@ -7,7 +7,7 @@ Business Email Compromise (BEC) es un ataque de fraude dirigido que utiliza corr
 
 # Estrategia de Protección por Capas
 
-## [1. Autenticación del correo](https://github.com/watchdogcode/gol2026/blob/3.0/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#4-est%C3%A1ndares-spf-dkim-dmarc-y-mta-sts)
+## [1. Autenticación del correo](https://github.com/watchdogcode/gol2026/blob/3.0/MDO/Linea%20base%20proteccion%20contra%20BEC.md#crear-pol%C3%ADtica-antiphishing)
 - SPF correctamente configurado
 - DKIM habilitado para todos los dominios
 - DMARC en modo `reject` o `quarantine`
@@ -16,7 +16,7 @@ Objetivo: prevenir suplantación de identidad y spoofing.
 
 ---
 
-## [2. Política Anti-Phishing Microsoft Defender for Office 365](https://github.com/watchdogcode/gol2026/blob/3.0/MDO/Politica%20Anti-Phishing%20BEC.litcoffee#%EF%B8%8F-antiphishing-becready-en-microsoft-defender-for-office-365)
+## [2. Política Anti-Phishing Microsoft Defender for Office 365](https://github.com/watchdogcode/gol2026/blob/3.0/MDO/Linea%20base%20proteccion%20contra%20BEC.md#crear-pol%C3%ADtica-antiphishing)
 - Protección contra impersonación (usuarios y dominios)
 - Spoof intelligence
 - Mailbox intelligence
@@ -28,7 +28,7 @@ Objetivo: detectar BEC incluso sin malware o URLs.
 
 ---
 
-### 3. Protección de identidad (Zero Trust)
+## [3. Protección de identidad (Zero Trust)](https://github.com/watchdogcode/gol2026/blob/3.0/MDO/Linea%20base%20proteccion%20contra%20BEC.md#3-protecci%C3%B3n-de-identidad-zero-trust)
 - MFA obligatorio para todos los usuarios
 - MFA resistente a phishing para cuentas críticas
 - Conditional Access basado en riesgo
