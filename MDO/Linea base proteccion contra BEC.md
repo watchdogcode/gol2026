@@ -93,19 +93,13 @@ Garantizar integridad del mensaje y alineación DMARC mediante firma digital.
 4. Microsoft generará 2 registros CNAME
 5. Publícalos en tu DNS
 
-Ejemplo de registros DKIM
+**Ejemplo de registros DKIM**
 
-selector1._domainkey.tudominio.com
+| Selector | CNAME |
+|---------|------|
+| selector1._domainkey.tudominio.com | selector1-tudominio-com._domainkey.tutenant.onmicrosoft.com |
+| selector2._domainkey.tudominio.com | selector2-tudominio-com._domainkey.tutenant.onmicrosoft.com |
 
-CNAME
-
-selector1-tudominio-com._domainkey.tutenant.onmicrosoft.com
-
-selector2._domainkey.tudominio.com
-
-CNAME
-
-selector2-tudominio-com._domainkey.tutenant.onmicrosoft.com
 
 6. Espera propagación DNS
 
