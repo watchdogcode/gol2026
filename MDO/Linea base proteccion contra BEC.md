@@ -275,7 +275,8 @@ Indicar a los receptores que pongan en cuarentena los correos que fallen SPF y D
 
 Es un control que obliga a verificar pagos o cambios bancarios usando un canal distinto al correo electrónico, incluso si el mensaje parece legítimo o proviene de una cuenta real.
 
-***¿Por qué es crítico en BEC?***
+**¿Por qué es crítico en BEC?**
+
 En muchos ataques BEC:
 - El correo es legítimo (cuenta comprometida)
 - El mensaje continúa un hilo real
@@ -283,14 +284,16 @@ En muchos ataques BEC:
 
 Por diseño, el **email NO puede ser usado como prueba de autenticidad**.
 
-***¿Cuándo se debe aplicar?***
+**¿Cuándo se debe aplicar?**
+
 Debe ser **MANDATORIO** para:
 - Cambios de cuenta bancaria de proveedores
 - Pagos urgentes o fuera de patrón
 - Primer pago a un nuevo proveedor
 - Pagos solicitados por ejecutivos
 
-***¿Cómo se implementa correctamente?***
+**¿Cómo se implementa correctamente?**
+
 **Buenas prácticas:**
 - Llamar a un **número previamente registrado** (no el del correo)
 - No usar **Teams/Email** como canal de validación
@@ -319,7 +322,7 @@ El fraude es inmediato.
 
 Separar funciones **obliga a colusión**, lo cual reduce drásticamente el riesgo.
 
-***Modelo mínimo recomendado (pagos)***
+**Modelo mínimo recomendado (pagos)**
 
 | Rol | Responsable |
 |---|---|
@@ -328,7 +331,7 @@ Separar funciones **obliga a colusión**, lo cual reduce drásticamente el riesg
 | Ejecuta pago | Tesorería |
 | Revisa / reconcilia | Control financiero |
 
-***Ejemplos de separación efectiva***
+**Ejemplos de separación efectiva**
 - Quien actualiza datos bancarios **no puede** autorizar pagos
 - Quien aprueba pagos **no puede** liberarlos
 - Quien libera pagos **no puede** modificar proveedores
@@ -339,10 +342,10 @@ Separar funciones **obliga a colusión**, lo cual reduce drásticamente el riesg
 
 ### 4.3 Identificación de cuentas prioritarias (Finance, Executives, Legal)
 
-***¿Qué significa?***
+**¿Qué significa?**
 Reconocer formalmente que algunos usuarios tienen un **impacto de riesgo desproporcionado**, y requieren controles reforzados.
 
-***¿Por qué es esencial en BEC?***
+**¿Por qué es esencial en BEC?**
 Los atacantes:
 - Apuntan a **ejecutivos** (autoridad)
 - Apuntan a **finanzas** (capacidad de pago)
@@ -350,7 +353,7 @@ Los atacantes:
 
 Esto es consistente en casi todos los incidentes BEC documentados.
 
-***¿Qué implica ser “cuenta prioritaria”?***
+**¿Qué implica ser “cuenta prioritaria”?**
 
 **Procesos especiales:**
 - Doble validación obligatoria
@@ -371,7 +374,7 @@ Estas cuentas deben coincidir con:
 
 ### 4.4 Objetivo global del control
 
-***¿Qué problema resuelven estos controles?***
+**¿Qué problema resuelven estos controles?**
 Reducen el impacto cuando **TODA la capa técnica falla**:
 - El correo llega 
 - El usuario lo lee 
