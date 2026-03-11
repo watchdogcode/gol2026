@@ -47,7 +47,7 @@ Objetivo: reducir el impacto incluso si el correo llega.
 
 ---
 
-### 5. Detección y respuesta SOC
+### [5. Detección y respuesta SOC](https://github.com/watchdogcode/gol2026/blob/3.0/MDO/Linea%20base%20proteccion%20contra%20BEC.md#5-detecci%C3%B3n-y-respuesta-soc-1)
 - Monitoreo de alertas de impersonación
 - Investigación de inbox rules sospechosas
 - Uso de Threat Explorer y Advanced Hunting
