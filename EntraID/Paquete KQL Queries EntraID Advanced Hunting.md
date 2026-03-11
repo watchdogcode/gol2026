@@ -15,60 +15,60 @@ Este documento recopila una serie de consultas KQL (Kusto Query Language) diseñ
 
 ---
 ## Índice
-- [A) Detección – Usuarios (EntraIdSignInEvents)](#a-detección--usuarios-entraidsigninevents)
-  - [A1) Top fallos de inicio de sesión por usuario](#a1-top-fallos-de-inicio-de-sesión-por-usuario)
-  - [A2) Top fallos por IP (brute force / spray)](#a2-top-fallos-por-ip-brute-force--spray)
-  - [A3) Password spraying (una IP → muchos usuarios)](#a3-password-spraying-una-ip--muchos-usuarios)
-  - [A4) Intentos contra un mismo usuario desde muchas IPs (spray distribuido)](#a4-intentos-contra-un-mismo-usuario-desde-muchas-ips-spray-distribuido)
-  - [A5) Picos de fallos por ventana (detección de ráfagas)](#a5-picos-de-fallos-por-ventana-detección-de-ráfagas)
-  - [A6) Sign-ins de alto riesgo (RiskLevelAggregated)](#a6-sign-ins-de-alto-riesgo-risklevelaggregated-lowmediumhigh)
-  - [A7) Riesgo: "at risk" o "confirmed compromised" (RiskState)](#a7-riesgo-at-risk-o-confirmed-compromised-riskstate)
-  - [A8) Sign-in sin MFA cuando se esperaba MFA](#a8-sign-in-sin-mfa-cuando-se-esperaba-mfa-authenticationrequirement)
-  - [A9) Sign-in con MFA requerido pero CA no aplicado / falló](#a9-sign-in-con-mfa-requerido-pero-ca-no-aplicado--falló)
-  - [A10) Token issuer ADFS (TokenIssuerType)](#a10-token-issuer-adfs-tokenissuertype)
-  - [A11) Sign-ins desde países nuevos por usuario](#a11-sign-ins-desde-países-nuevos-por-usuario-baseline-simple)
-  - [A12) Nuevos dispositivos (EntraIdDeviceId) por usuario](#a12-nuevos-dispositivos-entraiddeviceid-por-usuario)
-  - [A13) Acceso desde dispositivos no gestionados o no compliant](#a13-acceso-desde-dispositivos-no-gestionados-o-no-compliant)
-  - [A14) Invitados / externos con actividad](#a14-invitados--externos-con-actividad-isguestuser--isexternaluser)
-  - [A15) Sign-ins con UserAgent "raro"](#a15-sign-ins-con-useragent-raro-top-user-agents-por-usuario)
-- [B) Detección – Workload Identities (EntraIdSpnSignInEvents)](#b-detección--workload-identities-entraidspnsigninevents)
-  - [B1) Fallos de autenticación de Service Principals / Managed Identity](#b1-fallos-de-autenticación-de-service-principals--managed-identity)
-  - [B2) Un SPN con muchos IPs (posible abuso / token theft)](#b2-un-spn-con-muchos-ips-posible-abuso--token-theft)
-  - [B3) Nuevos países para un SPN (baseline)](#b3-nuevos-países-para-un-spn-baseline)
-  - [B4) Managed identity sign-ins (inventario rápido)](#b4-managed-identity-sign-ins-inventario-rápido)
-- [C) Detección – Abuso de Microsoft Graph (GraphApiAuditEvents)](#c-detección--abuso-de-microsoft-graph-graphapiauditevents)
-  - [C1) Fallos 401/403 en Microsoft Graph](#c1-fallos-401403-en-microsoft-graph-enumeraciónabuso-de-permisos)
-  - [C2) Volumen anómalo de llamadas Graph por identidad](#c2-volumen-anómalo-de-llamadas-graph-por-identidad-descubrimiento)
-  - [C3) "Read-heavy" (alto ratio GET)](#c3-read-heavy-alto-ratio-get)
-  - [C4) Scopes sensibles](#c4-scopes-sensibles-ajusta-tu-lista)
-- [D) Triaje – "Pivots" rápidos (de señal a contexto)](#d-triaje--pivots-rápidos-de-señal-a-contexto)
-  - [D1) Pivote por CorrelationId](#d1-pivote-por-correlationid-sign-in-específico)
-  - [D2) Pivote por RequestId](#d2-pivote-por-requestid-sign-in)
-  - [D3) Pivote por AccountUpn (timeline de 24h)](#d3-pivote-por-accountupn-timeline-de-24h)
-  - [D4) Pivote por IP](#d4-pivote-por-ip-todas-las-cuentas-y-apps-impactadas)
-  - [D5) Pivote por Device (EntraIdDeviceId)](#d5-pivote-por-device-entraiddeviceid)
-- [E) Investigación – Correlaciones útiles (Entra ↔ Graph ↔ UEBA)](#e-investigación--correlaciones-útiles-entra--graph--ueba)
-  - [E1) Sign-ins de alto riesgo → actividad Graph en ±30 min](#e1-sign-ins-de-alto-riesgo--actividad-graph-en-30-min)
-  - [E2) Password spraying detectado (A3) → ver si hubo éxitos posteriores](#e2-password-spraying-detectado-a3--ver-si-hubo-éxitos-posteriores)
-  - [E3) CA no aplicado → qué apps y qué usuarios](#e3-ca-no-aplicado-conditionalaccessstatus2--qué-apps-y-qué-usuarios)
-  - [E4) "New country" (A11) → enriquecer con UEBA](#e4-new-country-a11--enriquecer-con-ueba-behavioranalytics)
-  - [E5) Behaviors (BehaviorInfo) asociados a identidad](#e5-behaviors-behaviorinfo-asociados-a-identidad-accountupn)
-- [F) Investigación – "Checklist" por entidad](#f-investigación--checklist-por-entidad)
-  - [F1) "Cuenta bajo investigación" (vista integral en 7 días)](#f1-cuenta-bajo-investigación-vista-integral-en-7-días)
-  - [F2) "Service principal bajo investigación" (7 días)](#f2-service-principal-bajo-investigación-7-días)
-  - [F3) "Graph activity por AccountObjectId" (7 días)](#f3-graph-activity-por-accountobjectid-7-días)
-- [G) Eventos de gestión de Entra vía CloudAppEvents](#g-eventos-de-gestión-de-entra-config--administración-vía-cloudappevents-si-tienes-defender-for-cloud-apps)
-  - [G1) Descubrir cómo se "llama" Entra en tu tenant](#g1-descubrir-cómo-se-llama-entra-en-tu-tenant-application--actiontype)
-  - [G2) Top acciones administrativas (IsAdminOperation)](#g2-top-acciones-administrativas-isadminoperation-para-la-app-de-entra-ajusta-appname)
-  - [G3) Búsqueda de acciones "consent / permission / role"](#g3-búsqueda-de-acciones-consent--permission--role-string-match-ajusta-términos)
-  - [G4) "Nueva IP" para operaciones admin](#g4-nueva-ip-para-operaciones-admin-baseline-simple)
+- [1) Detección – Usuarios (EntraIdSignInEvents)](#1-detección--usuarios-entraidsigninevents)
+  - [1.1) Top fallos de inicio de sesión por usuario](#11-top-fallos-de-inicio-de-sesión-por-usuario)
+  - [1.2) Top fallos por IP (brute force / spray)](#12-top-fallos-por-ip-brute-force--spray)
+  - [1.3) Password spraying (una IP → muchos usuarios)](#13-password-spraying-una-ip--muchos-usuarios)
+  - [1.4) Intentos contra un mismo usuario desde muchas IPs (spray distribuido)](#14-intentos-contra-un-mismo-usuario-desde-muchas-ips-spray-distribuido)
+  - [1.5) Picos de fallos por ventana (detección de ráfagas)](#15-picos-de-fallos-por-ventana-detección-de-ráfagas)
+  - [1.6) Sign-ins de alto riesgo (RiskLevelAggregated)](#16-sign-ins-de-alto-riesgo-risklevelaggregated-lowmediumhigh)
+  - [1.7) Riesgo: "at risk" o "confirmed compromised" (RiskState)](#17-riesgo-at-risk-o-confirmed-compromised-riskstate)
+  - [1.8) Sign-in sin MFA cuando se esperaba MFA](#18-sign-in-sin-mfa-cuando-se-esperaba-mfa-authenticationrequirement)
+  - [1.9) Sign-in con MFA requerido pero CA no aplicado / falló](#19-sign-in-con-mfa-requerido-pero-ca-no-aplicado--falló)
+  - [1.10) Token issuer ADFS (TokenIssuerType)](#110-token-issuer-adfs-tokenissuertype)
+  - [1.11) Sign-ins desde países nuevos por usuario](#111-sign-ins-desde-países-nuevos-por-usuario-baseline-simple)
+  - [1.12) Nuevos dispositivos (EntraIdDeviceId) por usuario](#112-nuevos-dispositivos-entraiddeviceid-por-usuario)
+  - [1.13) Acceso desde dispositivos no gestionados o no compliant](#113-acceso-desde-dispositivos-no-gestionados-o-no-compliant)
+  - [1.14) Invitados / externos con actividad](#114-invitados--externos-con-actividad-isguestuser--isexternaluser)
+  - [1.15) Sign-ins con UserAgent "raro"](#115-sign-ins-con-useragent-raro-top-user-agents-por-usuario)
+- [2) Detección – Workload Identities (EntraIdSpnSignInEvents)](#2-detección--workload-identities-entraidspnsigninevents)
+  - [2.1) Fallos de autenticación de Service Principals / Managed Identity](#21-fallos-de-autenticación-de-service-principals--managed-identity)
+  - [2.2) Un SPN con muchos IPs (posible abuso / token theft)](#22-un-spn-con-muchos-ips-posible-abuso--token-theft)
+  - [2.3) Nuevos países para un SPN (baseline)](#23-nuevos-países-para-un-spn-baseline)
+  - [2.4) Managed identity sign-ins (inventario rápido)](#24-managed-identity-sign-ins-inventario-rápido)
+- [3) Detección – Abuso de Microsoft Graph (GraphApiAuditEvents)](#3-detección--abuso-de-microsoft-graph-graphapiauditevents)
+  - [3.1) Fallos 401/403 en Microsoft Graph](#31-fallos-401403-en-microsoft-graph-enumeraciónabuso-de-permisos)
+  - [3.2) Volumen anómalo de llamadas Graph por identidad](#32-volumen-anómalo-de-llamadas-graph-por-identidad-descubrimiento)
+  - [3.3) "Read-heavy" (alto ratio GET)](#33-read-heavy-alto-ratio-get)
+  - [3.4) Scopes sensibles](#34-scopes-sensibles-ajusta-tu-lista)
+- [4) Triaje – "Pivots" rápidos (de señal a contexto)](#4-triaje--pivots-rápidos-de-señal-a-contexto)
+  - [4.1) Pivote por CorrelationId](#41-pivote-por-correlationid-sign-in-específico)
+  - [4.2) Pivote por RequestId](#42-pivote-por-requestid-sign-in)
+  - [4.3) Pivote por AccountUpn (timeline de 24h)](#43-pivote-por-accountupn-timeline-de-24h)
+  - [4.4) Pivote por IP](#44-pivote-por-ip-todas-las-cuentas-y-apps-impactadas)
+  - [4.5) Pivote por Device (EntraIdDeviceId)](#45-pivote-por-device-entraiddeviceid)
+- [5) Investigación – Correlaciones útiles (Entra ↔ Graph ↔ UEBA)](#5-investigación--correlaciones-útiles-entra--graph--ueba)
+  - [5.1) Sign-ins de alto riesgo → actividad Graph en ±30 min](#51-sign-ins-de-alto-riesgo--actividad-graph-en-30-min)
+  - [5.2) Password spraying detectado (1.3) → ver si hubo éxitos posteriores](#52-password-spraying-detectado-13--ver-si-hubo-éxitos-posteriores)
+  - [5.3) CA no aplicado → qué apps y qué usuarios](#53-ca-no-aplicado-conditionalaccessstatus2--qué-apps-y-qué-usuarios)
+  - [5.4) "New country" (1.11) → enriquecer con UEBA](#54-new-country-111--enriquecer-con-ueba-behavioranalytics)
+  - [5.5) Behaviors (BehaviorInfo) asociados a identidad](#55-behaviors-behaviorinfo-asociados-a-identidad-accountupn)
+- [6) Investigación – "Checklist" por entidad](#6-investigación--checklist-por-entidad)
+  - [6.1) "Cuenta bajo investigación" (vista integral en 7 días)](#61-cuenta-bajo-investigación-vista-integral-en-7-días)
+  - [6.2) "Service principal bajo investigación" (7 días)](#62-service-principal-bajo-investigación-7-días)
+  - [6.3) "Graph activity por AccountObjectId" (7 días)](#63-graph-activity-por-accountobjectid-7-días)
+- [7) Eventos de gestión de Entra vía CloudAppEvents](#7-eventos-de-gestión-de-entra-config--administración-vía-cloudappevents-si-tienes-defender-for-cloud-apps)
+  - [7.1) Descubrir cómo se "llama" Entra en tu tenant](#71-descubrir-cómo-se-llama-entra-en-tu-tenant-application--actiontype)
+  - [7.2) Top acciones administrativas (IsAdminOperation)](#72-top-acciones-administrativas-isadminoperation-para-la-app-de-entra-ajusta-appname)
+  - [7.3) Búsqueda de acciones "consent / permission / role"](#73-búsqueda-de-acciones-consent--permission--role-string-match-ajusta-términos)
+  - [7.4) "Nueva IP" para operaciones admin](#74-nueva-ip-para-operaciones-admin-baseline-simple)
 - [Referencias (tablas)](#referencias-tablas)
 
 ---
 
-# A) Detección – Usuarios (EntraIdSignInEvents)
+# 1) Detección – Usuarios (EntraIdSignInEvents)
 
-## A1) Top fallos de inicio de sesión por usuario
+## 1.1) Top fallos de inicio de sesión por usuario
 ```kql
 let Lookback = 1d;
 EntraIdSignInEvents
@@ -78,7 +78,7 @@ EntraIdSignInEvents
 | order by Failures desc
 ```
 
-## A2) Top fallos por IP (brute force / spray)
+## 1.2) Top fallos por IP (brute force / spray)
 ```kql
 let Lookback = 1d;
 EntraIdSignInEvents
@@ -88,7 +88,7 @@ EntraIdSignInEvents
 | order by Users desc, Failures desc
 ```
 
-## A3) Password spraying (una IP → muchos usuarios)
+## 1.3) Password spraying (una IP → muchos usuarios)
 ```kql
 let Lookback = 1d;
 let MinUsers = 15;
@@ -101,7 +101,7 @@ EntraIdSignInEvents
 | order by Users desc, Failures desc
 ```
 
-## A4) Intentos contra un mismo usuario desde muchas IPs (spray distribuido)
+## 1.4) Intentos contra un mismo usuario desde muchas IPs (spray distribuido)
 ```kql
 let Lookback = 1d;
 let MinIPs = 10;
@@ -114,7 +114,7 @@ EntraIdSignInEvents
 | order by IPs desc, Failures desc
 ```
 
-## A5) Picos de fallos por ventana (detección de ráfagas)
+## 1.5) Picos de fallos por ventana (detección de ráfagas)
 ```kql
 let Lookback = 1d;
 let Window = 10m;
@@ -127,7 +127,7 @@ EntraIdSignInEvents
 | order by Failures desc
 ```
 
-## A6) Sign-ins de alto riesgo (RiskLevelAggregated: low/medium/high)
+## 1.6) Sign-ins de alto riesgo (RiskLevelAggregated: low/medium/high)
 ```kql
 let Lookback = 7d;
 EntraIdSignInEvents
@@ -147,7 +147,7 @@ EntraIdSignInEvents
 | order by Timestamp desc
 ```
 
-## A8) Sign-in sin MFA cuando se esperaba MFA (AuthenticationRequirement)
+## 1.8) Sign-in sin MFA cuando se esperaba MFA (AuthenticationRequirement)
 ```kql
 let Lookback = 7d;
 EntraIdSignInEvents
@@ -157,7 +157,7 @@ EntraIdSignInEvents
 | order by SignIns desc
 ```
 
-## A9) Sign-in con MFA requerido pero CA no aplicado / falló
+## 1.9) Sign-in con MFA requerido pero CA no aplicado / falló
 ```kql
 let Lookback = 7d;
 EntraIdSignInEvents
@@ -168,7 +168,7 @@ EntraIdSignInEvents
 | order by Timestamp desc
 ```
 
-## A10) Token issuer ADFS (TokenIssuerType)
+## 1.10) Token issuer ADFS (TokenIssuerType)
 ```kql
 let Lookback = 14d;
 EntraIdSignInEvents
@@ -178,7 +178,7 @@ EntraIdSignInEvents
 | order by SignIns desc
 ```
 
-## A11) Sign-ins desde países nuevos por usuario (baseline simple)
+## 1.11) Sign-ins desde países nuevos por usuario (baseline simple)
 ```kql
 let Lookback = 30d;
 let Recent = 2d;
@@ -195,7 +195,7 @@ EntraIdSignInEvents
 | order by array_length(NewCountries) desc
 ```
 
-## A12) Nuevos dispositivos (EntraIdDeviceId) por usuario
+## 1.12) Nuevos dispositivos (EntraIdDeviceId) por usuario
 ```kql
 let Lookback = 30d;
 let Recent = 2d;
@@ -211,7 +211,7 @@ EntraIdSignInEvents
 | project AccountUpn, NewDevices, SampleApps
 ```
 
-## A13) Acceso desde dispositivos no gestionados o no compliant
+## 1.13) Acceso desde dispositivos no gestionados o no compliant
 ```kql
 let Lookback = 7d;
 EntraIdSignInEvents
@@ -221,7 +221,7 @@ EntraIdSignInEvents
 | order by SignIns desc
 ```
 
-## A14) Invitados / externos con actividad (IsGuestUser / IsExternalUser)
+## 1.14) Invitados / externos con actividad (IsGuestUser / IsExternalUser)
 ```kql
 let Lookback = 14d;
 EntraIdSignInEvents
@@ -231,7 +231,7 @@ EntraIdSignInEvents
 | order by SignIns desc
 ```
 
-## A15) Sign-ins con UserAgent “raro” (top user agents por usuario)
+## 1.15) Sign-ins con UserAgent "raro" (top user agents por usuario)
 ```kql
 let Lookback = 7d;
 EntraIdSignInEvents
@@ -242,9 +242,9 @@ EntraIdSignInEvents
 
 ---
 
-# B) Detección – Workload Identities (EntraIdSpnSignInEvents)
+# 2) Detección – Workload Identities (EntraIdSpnSignInEvents)
 
-## B1) Fallos de autenticación de Service Principals / Managed Identity
+## 2.1) Fallos de autenticación de Service Principals / Managed Identity
 ```kql
 let Lookback = 7d;
 EntraIdSpnSignInEvents
@@ -254,7 +254,7 @@ EntraIdSpnSignInEvents
 | order by Failures desc
 ```
 
-## B2) Un SPN con muchos IPs (posible abuso / token theft)
+## 2.2) Un SPN con muchos IPs (posible abuso / token theft)
 ```kql
 let Lookback = 7d;
 let MinIPs = 10;
@@ -265,7 +265,7 @@ EntraIdSpnSignInEvents
 | order by IPs desc, SignIns desc
 ```
 
-## B3) Nuevos países para un SPN (baseline)
+## 2.3) Nuevos países para un SPN (baseline)
 ```kql
 let Lookback = 30d;
 let Recent = 2d;
@@ -281,7 +281,7 @@ EntraIdSpnSignInEvents
 | project ServicePrincipalName, ServicePrincipalId, NewCountries, RecentIPs
 ```
 
-## B4) Managed identity sign-ins (inventario rápido)
+## 2.4) Managed identity sign-ins (inventario rápido)
 ```kql
 let Lookback = 7d;
 EntraIdSpnSignInEvents
@@ -293,9 +293,9 @@ EntraIdSpnSignInEvents
 
 ---
 
-# C) Detección – Abuso de Microsoft Graph (GraphApiAuditEvents)
+# 3) Detección – Abuso de Microsoft Graph (GraphApiAuditEvents)
 
-## C1) Fallos 401/403 en Microsoft Graph (enumeración/abuso de permisos)
+## 3.1) Fallos 401/403 en Microsoft Graph (enumeración/abuso de permisos)
 ```kql
 let Lookback = 1d;
 GraphApiAuditEvents
@@ -305,7 +305,7 @@ GraphApiAuditEvents
 | order by Attempts desc
 ```
 
-## C2) Volumen anómalo de llamadas Graph por identidad (descubrimiento)
+## 3.2) Volumen anómalo de llamadas Graph por identidad (descubrimiento)
 ```kql
 let Lookback = 1d;
 let Spike = 500;
@@ -326,7 +326,7 @@ GraphApiAuditEvents
 | order by Total desc
 ```
 
-## C4) Scopes sensibles (ajusta tu lista)
+## 3.4) Scopes sensibles (ajusta tu lista)
 ```kql
 let Lookback = 7d;
 let HighRiskScopes = dynamic([
@@ -345,9 +345,9 @@ GraphApiAuditEvents
 
 ---
 
-# D) Triaje – “Pivots” rápidos (de señal a contexto)
+# 4) Triaje – "Pivots" rápidos (de señal a contexto)
 
-## D1) Pivote por CorrelationId (sign-in específico)
+## 4.1) Pivote por CorrelationId (sign-in específico)
 ```kql
 let Correlation = "<paste-correlation-id>";
 EntraIdSignInEvents
@@ -358,7 +358,7 @@ EntraIdSignInEvents
 | order by Timestamp desc
 ```
 
-## D2) Pivote por RequestId (sign-in)
+## 4.2) Pivote por RequestId (sign-in)
 ```kql
 let ReqId = "<paste-request-id>";
 EntraIdSignInEvents
@@ -366,7 +366,7 @@ EntraIdSignInEvents
 | project *
 ```
 
-## D3) Pivote por AccountUpn (timeline de 24h)
+## 4.3) Pivote por AccountUpn (timeline de 24h)
 ```kql
 let User = "user@contoso.com";
 let Lookback = 1d;
@@ -377,7 +377,7 @@ EntraIdSignInEvents
 | order by Timestamp desc
 ```
 
-## D4) Pivote por IP (todas las cuentas y apps impactadas)
+## 4.4) Pivote por IP (todas las cuentas y apps impactadas)
 ```kql
 let Ip = "1.2.3.4";
 let Lookback = 1d;
@@ -387,7 +387,7 @@ EntraIdSignInEvents
 | summarize Events=count(), Users=make_set(AccountUpn, 50), Apps=make_set(Application, 50), Errors=make_set(tostring(ErrorCode), 20)
 ```
 
-## D5) Pivote por Device (EntraIdDeviceId)
+## 4.5) Pivote por Device (EntraIdDeviceId)
 ```kql
 let DeviceId = "<entra-device-id>";
 let Lookback = 14d;
@@ -400,9 +400,9 @@ EntraIdSignInEvents
 
 ---
 
-# E) Investigación – Correlaciones útiles (Entra ↔ Graph ↔ UEBA)
+# 5) Investigación – Correlaciones útiles (Entra ↔ Graph ↔ UEBA)
 
-## E1) Sign-ins de alto riesgo → actividad Graph en ±30 min
+## 5.1) Sign-ins de alto riesgo → actividad Graph en ±30 min
 ```kql
 let Lookback = 7d;
 let PivotWindow = 30m;
@@ -417,7 +417,7 @@ GraphApiAuditEvents
 | order by SignInTime desc, Timestamp desc
 ```
 
-## E2) Password spraying detectado (A3) → ver si hubo éxitos posteriores
+## 5.2) Password spraying detectado (1.3) → ver si hubo éxitos posteriores
 ```kql
 let Lookback = 1d;
 let Window = 1h;
@@ -435,7 +435,7 @@ EntraIdSignInEvents
 | order by Success desc
 ```
 
-## E3) CA no aplicado (ConditionalAccessStatus=2) → qué apps y qué usuarios
+## 5.3) CA no aplicado (ConditionalAccessStatus=2) → qué apps y qué usuarios
 ```kql
 let Lookback = 7d;
 EntraIdSignInEvents
@@ -445,7 +445,7 @@ EntraIdSignInEvents
 | order by Events desc
 ```
 
-## E4) “New country” (A11) → enriquecer con UEBA (BehaviorAnalytics)
+## 5.4) "New country" (1.11) → enriquecer con UEBA (BehaviorAnalytics)
 > Ejemplo de UEBA para fallos desde país “primera vez” y poco común entre pares citeturn7search157
 ```kql
 BehaviorAnalytics
@@ -454,7 +454,7 @@ BehaviorAnalytics
 | where ActivityInsights.CountryUncommonlyConnectedFromAmongPeers == True
 ```
 
-## E5) Behaviors (BehaviorInfo) asociados a identidad (AccountUpn)
+## 5.5) Behaviors (BehaviorInfo) asociados a identidad (AccountUpn)
 ```kql
 let Lookback = 14d;
 BehaviorInfo
@@ -466,9 +466,9 @@ BehaviorInfo
 
 ---
 
-# F) Investigación – “Checklist” por entidad
+# 6) Investigación – "Checklist" por entidad
 
-## F1) “Cuenta bajo investigación” (vista integral en 7 días)
+## 6.1) "Cuenta bajo investigación" (vista integral en 7 días)
 ```kql
 let User = "user@contoso.com";
 let Lookback = 7d;
@@ -479,7 +479,7 @@ EntraIdSignInEvents
           Countries=make_set(Country, 50), IPs=make_set(IPAddress, 50), Apps=make_set(Application, 50)
 ```
 
-## F2) “Service principal bajo investigación” (7 días)
+## 6.2) "Service principal bajo investigación" (7 días)
 ```kql
 let SpId = "<service-principal-id>";
 let Lookback = 7d;
@@ -489,7 +489,7 @@ EntraIdSpnSignInEvents
 | summarize SignIns=count(), Failures=countif(ErrorCode!=0), Countries=make_set(Country, 50), IPs=make_set(IPAddress, 50), Resources=make_set(ResourceDisplayName, 50)
 ```
 
-## F3) “Graph activity por AccountObjectId” (7 días)
+## 6.3) "Graph activity por AccountObjectId" (7 días)
 ```kql
 let ObjId = "<account-object-id>";
 let Lookback = 7d;
@@ -506,11 +506,11 @@ GraphApiAuditEvents
 
 ---
 
-# G) Eventos de gestión de Entra (config / administración) vía CloudAppEvents (si tienes Defender for Cloud Apps)
+# 7) Eventos de gestión de Entra (config / administración) vía CloudAppEvents (si tienes Defender for Cloud Apps)
 
 > La tabla `CloudAppEvents` se alimenta desde **Microsoft Defender for Cloud Apps** y requiere que el conector esté habilitado; si no está desplegado, las queries no devolverán datos. citeturn7search194
 
-## G1) Descubrir cómo se “llama” Entra en tu tenant (Application / ActionType)
+## 7.1) Descubrir cómo se "llama" Entra en tu tenant (Application / ActionType)
 ```kql
 let Lookback = 30d;
 CloudAppEvents
@@ -519,7 +519,7 @@ CloudAppEvents
 | order by Events desc
 ```
 
-## G2) Top acciones administrativas (IsAdminOperation) para la app de Entra (ajusta AppName)
+## 7.2) Top acciones administrativas (IsAdminOperation) para la app de Entra (ajusta AppName)
 ```kql
 let Lookback = 14d;
 let AppName = "Azure Active Directory";   // cambia según G1
@@ -531,7 +531,7 @@ CloudAppEvents
 | order by Events desc
 ```
 
-## G3) Búsqueda de acciones “consent / permission / role” (string match, ajusta términos)
+## 7.3) Búsqueda de acciones "consent / permission / role" (string match, ajusta términos)
 ```kql
 let Lookback = 30d;
 let AppName = "Azure Active Directory";   // cambia según G1
@@ -543,7 +543,7 @@ CloudAppEvents
 | order by Timestamp desc
 ```
 
-## G4) “Nueva IP” para operaciones admin (baseline simple)
+## 7.4) "Nueva IP" para operaciones admin (baseline simple)
 ```kql
 let Lookback = 60d;
 let Recent = 3d;
