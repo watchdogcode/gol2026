@@ -1,6 +1,6 @@
 # 🛡️ Principio de Menor Privilegio
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
-## Líneas base de seguridad para cuentas privilegiadas  
+
 **Microsoft Entra ID / Microsoft 365**
 
 ---
