@@ -7,10 +7,10 @@ Esta guía establece los procedimientos semanales para analizar tendencias, iden
 ---
 
 ## Índice
-- [Revisar Tendencias de Detección de Correo en Microsoft Defender for Office 365](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md#revisar-tendencias-de-detecci%C3%B3n-de-correo-en-microsoft-defender-for-office-365)
-- [Identificar Usuarios Más Atacados por Malware y Phishing](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md#identificar-usuarios-m%C3%A1s-atacados-por-malware-y-phishing)
-- [Revisar Campañas de Malware y Phishing](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md#revisar-campa%C3%B1as-de-malware-y-phishing)
-- [Validar correos entregados con amenazas](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md#validar-correos-entregados-con-amenazas)
+- [Revisar Tendencias de Detección de Correo en Microsoft Defender for Office 365](#revisar-tendencias-de-detección-de-correo-en-microsoft-defender-for-office-365)
+- [Identificar Usuarios Más Atacados por Malware y Phishing](#identificar-usuarios-más-atacados-por-malware-y-phishing)
+- [Revisar Campañas de Malware y Phishing](#revisar-campañas-de-malware-y-phishing)
+- [Validar correos entregados con amenazas](#validar-correos-entregados-con-amenazas)
 
 ---
 # Revisar Tendencias de Detección de Correo en Microsoft Defender for Office 365
@@ -310,4 +310,3 @@ EmailUrlInfo
     UrlThreatType,
     DetectionMethods
 ```
-
