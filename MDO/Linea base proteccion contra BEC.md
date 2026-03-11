@@ -124,7 +124,7 @@ Indicar a los receptores que pongan en cuarentena los correos que fallen SPF y D
 
 
 ---
-## Crear política Anti‑Phishing
+## Política Anti-Phishing Microsoft Defender for Office 365
 
 1. Ir a: https://security.microsoft.com/antiphishing
 2. Haz clic en **Create**
@@ -188,9 +188,11 @@ Indicar a los receptores que pongan en cuarentena los correos que fallen SPF y D
 
 ---
 
-## MFA obligatorio para todos – Template oficial
+## Protección de identidad (Zero Trust)
 
-### Paso a paso
+### MFA obligatorio para todos – Template oficial
+
+**Paso a paso**
 1. Ir a: https://entra.microsoft.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies/menuId//fromNav/Identity  
    Selecciona **+ New policy from template**
 2. **Categoría:** Secure foundation
@@ -214,9 +216,9 @@ Indicar a los receptores que pongan en cuarentena los correos que fallen SPF y D
 
 ---
 
-## Phishing-resistant MFA para administradores – Template dedicado
+### Phishing-resistant MFA para administradores – Template dedicado
 
-### Paso a paso (Template)
+**Paso a paso (Template)**
 1. Ir a: https://entra.microsoft.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies/menuId//fromNav/Identity
 2. **+ New policy from template**
 3. **Categoría:** Protect administrators
@@ -244,7 +246,7 @@ Indicar a los receptores que pongan en cuarentena los correos que fallen SPF y D
 
 ## Evaluación de riesgo de inicio de sesión – Template Identity Protection
 
-### Paso a paso
+**Paso a paso**
 1. Ir a: https://entra.microsoft.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies/menuId//fromNav/Identity
 2. **+ New policy from template**
 3. **Categoría:** Emerging threats
