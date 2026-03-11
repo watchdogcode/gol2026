@@ -1,12 +1,12 @@
 # 🛡️ Principio de Menor Privilegio
+## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 ## Líneas base de seguridad para cuentas privilegiadas  
 **Microsoft Entra ID / Microsoft 365**
 
 ---
 
-## 1. No more than four permanent Global Administrators
+## 1. No mas de cuatro Global Administrators permanentes
 
-### Línea base
 La organización debe mantener **un máximo de cuatro (4) cuentas con el rol Global Administrator asignado de forma permanente**.  
 Estas cuentas se distribuyen de la siguiente manera:
 
@@ -18,7 +18,7 @@ Cualquier requerimiento adicional de privilegios Global Administrator debe gesti
 
 ---
 
-###  Break Glass Accounts (2 cuentas)
+###  Cuentas de emergecia (Break Glass Accounts)
 
 Cuentas dedicadas exclusivamente a escenarios de emergencia, tales como:
 - Bloqueos por Conditional Access
@@ -35,7 +35,7 @@ Cuentas dedicadas exclusivamente a escenarios de emergencia, tales como:
 
 ---
 
-###  Global Administrators nominales (2 cuentas)
+###  Global Administrators
 
 Cuentas administrativas asociadas a personas específicas, responsables de la operación crítica del tenant.
 
@@ -47,9 +47,8 @@ Cuentas administrativas asociadas a personas específicas, responsables de la op
 
 ---
 
-## 2. Separate user and administrative accounts
+## 2. Separar las cuentas de usuario y administrativas
 
-### Línea base
 Todo personal con responsabilidades administrativas debe contar con:
 - **Una cuenta de usuario estándar** para actividades diarias (correo, Teams, navegación)
 - **Una cuenta administrativa separada**, utilizada únicamente para tareas privilegiadas
@@ -62,9 +61,8 @@ Separar identidades evita que un compromiso común derive en acceso administrati
 
 ---
 
-## 3. Use named accounts, avoiding shared accounts
+## 3. Usa cuentas nombradas, evitando cuentas compartidas
 
-### Línea base
 Todas las cuentas con privilegios administrativos deben ser **cuentas nominales**, asociadas a una persona específica.  
 El uso de **cuentas compartidas está prohibido**.
 
@@ -73,9 +71,8 @@ Las cuentas compartidas eliminan trazabilidad, impiden atribución de acciones y
 
 ---
 
-## 4. Use cloud-only accounts for any privileged role
+## 4. Utilice cuentas solo en la nube para cualquier rol privilegiado
 
-### Línea base
 Todas las cuentas con roles privilegiados (Global Admin, Privileged Role Admin, Security Admin, etc.) deben ser **cloud‑only**:
 - No sincronizadas desde Active Directory on‑premises
 - No federadas con infraestructura local
@@ -86,9 +83,8 @@ Las cuentas cloud‑only aíslan el plano de control del tenant.
 
 ---
 
-## 5. Require Multi-Factor Authentication (MFA) for all privileged accounts
+## 5. Requerir autenticación multifactor (MFA) para todas las cuentas privilegiadas
 
-### Línea base
 **Todas las cuentas privilegiadas** deben tener **MFA habilitado obligatoriamente**, incluyendo:
 - Global Administrators
 - Break Glass Accounts
