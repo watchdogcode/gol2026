@@ -6,7 +6,7 @@ Business Email Compromise (BEC) es un ataque de fraude dirigido que utiliza corr
 
 ## Estrategia de Protección por Capas
 
-### [1. Autenticación del correo](#1-autenticación-del-correo)
+**[1. Autenticación del correo](#1-autenticación-del-correo)**
 - [1.1 SPF (Sender Policy Framework)](#11-spf-sender-policy-framework)
 - [1.2 DKIM (DomainKeys Identified Mail)](#12-dkim-domainkeys-identified-mail)
 - [1.3 DMARC (Domain-based Message Authentication, Reporting & Conformance)](#13-dmarc-domain-based-message-authentication-reporting--conformance)
@@ -15,7 +15,7 @@ Objetivo: prevenir suplantación de identidad y spoofing.
 
 ---
 
-### [2. Política Anti-Phishing Microsoft Defender for Office 365](#2-política-anti-phishing-microsoft-defender-for-office-365)
+**[2. Política Anti-Phishing Microsoft Defender for Office 365](#2-política-anti-phishing-microsoft-defender-for-office-365)**
 - Protección contra impersonación (usuarios y dominios)
 - Spoof intelligence
 - Mailbox intelligence
@@ -26,7 +26,7 @@ Objetivo: detectar BEC incluso sin malware o URLs.
 
 ---
 
-### [3. Protección de identidad (Zero Trust)](#3-protección-de-identidad-zero-trust)
+**[3. Protección de identidad (Zero Trust)](#3-protección-de-identidad-zero-trust)**
 - [3.1 MFA obligatorio para todos – Template oficial](#31-mfa-obligatorio-para-todos--template-oficial)
 - [3.2 Phishing-resistant MFA para administradores](#32-phishing-resistant-mfa-para-administradores--template-dedicado)
 - [3.3 Evaluación de riesgo de inicio de sesión](#33-evaluación-de-riesgo-de-inicio-de-sesión--template-identity-protection)
@@ -35,7 +35,7 @@ Objetivo: prevenir account takeover.
 
 ---
 
-### [4. Controles de proceso de negocio](#4-controles-de-proceso-de-negocio)
+**[4. Controles de proceso de negocio](#4-controles-de-proceso-de-negocio)**
 - [4.1 Doble validación fuera de banda (Out-of-Band Verification)](#41-doble-validación-fuera-de-banda-out-of-band-verification)
 - [4.2 Separación de funciones (Segregation of Duties – SoD)](#42-separación-de-funciones-segregation-of-duties--sod)
 - [4.3 Identificación de cuentas prioritarias (Finance, Executives, Legal)](#43-identificación-de-cuentas-prioritarias-finance-executives-legal)
@@ -45,7 +45,7 @@ Objetivo: reducir el impacto incluso si el correo llega.
 
 ---
 
-### [5. Detección y respuesta SOC](#5-detección-y-respuesta-soc)
+**[5. Detección y respuesta SOC](#5-detección-y-respuesta-soc)**
 - [5.1 Monitoreo de alertas de impersonación](#51-monitoreo-de-alertas-de-impersonación)
 - [5.2 Investigación de inbox rules sospechosas](#52-investigación-de-inbox-rules-sospechosas)
 - [5.3 Uso de Threat Explorer y Advanced Hunting](#53-uso-de-threat-explorer-y-advanced-hunting)
@@ -57,7 +57,7 @@ Objetivo: detección temprana y contención rápida.
 
 ---
 
-### [6. Concientización del usuario](#6-concientización-del-usuario)
+**[6. Concientización del usuario](#6-concientización-del-usuario)**
 - [6.1 Attack Simulation Training](#61-attack-simulation-training-microsoft-defender-for-office-365)
 - [6.2 Simulaciones de CEO Fraud y Vendor Fraud](#62-simulaciones-de-ceo-fraud-y-vendor-fraud)
 - [6.3 Métricas de usuarios vulnerables](#63-métricas-de-usuarios-vulnerables)
