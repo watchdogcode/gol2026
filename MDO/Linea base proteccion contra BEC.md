@@ -82,9 +82,9 @@ Autorizar solo a Microsoft 365 (y fuentes explícitas) a enviar correo y rechaza
 1. En DNS del dominio (registro TXT).
 2. Valor recomendado para Microsoft 365
 
-| Tipo | Registro |
+| Tipo | Registro | TTL |
 |---------|------|
-| TXT | v=spf1 include:spf.protection.outlook.com -all |
+| TXT | v=spf1 include:spf.protection.outlook.com -all | 3600 |
 
 
 ### DKIM
