@@ -81,7 +81,7 @@ Autorizar solo a Microsoft 365 (y fuentes explícitas) a enviar correo y rechaza
 **Dónde se configura**
 1. En DNS del dominio (registro TXT).
 2. Valor recomendado para Microsoft 365
- 
+ | Ejemplo |
  |----|
  | v=spf1 include:spf.protection.outlook.com -all |
 
