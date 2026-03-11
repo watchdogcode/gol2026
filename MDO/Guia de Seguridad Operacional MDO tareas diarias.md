@@ -7,13 +7,12 @@ Esta guía establece los procedimientos diarias para analizar tendencias, identi
 ---
 ## Índice
 - [Monitoreo de Alertas](#monitoreo-de-alertas)
-- [Monitoreo de Alertas](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#monitoreo-de-alertas)
-- [Monitoreo de Incidentes](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#monitoreo-de-incidentes)
-- [Triage de Mensajes de Teams Reportados por Usuarios](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#triage-de-mensajes-de-teams-reportados-por-usuarios)
-- [Revisar y actuar sobre los AIRs (Investigación y Respuesta Automatizada)](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-y-actuar-sobre-los-airs-investigaci%C3%B3n-y-respuesta-automatizada)
-- [Revisar las Tendencias de Detección de Correo en Microsoft Defender for Office 365](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-las-tendencias-de-detecci%C3%B3n-de-correo-en-microsoft-defender-for-office-365)
-- [Revisar Campañas de Phishing y Malware que Resultaron en Correos Entregados](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-campa%C3%B1as-de-phishing-y-malware-que-resultaron-en-correos-entregados)
-- [Revisión de Top Targeted Users](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisi%C3%B3n-de-top-targeted-users)
+- [Monitoreo de Incidentes](#monitoreo-de-incidentes)
+- [Triage de Mensajes de Teams Reportados por Usuarios](#triage-de-mensajes-de-teams-reportados-por-usuarios)
+- [Revisar y actuar sobre los AIRs (Investigación y Respuesta Automatizada)](#revisar-y-actuar-sobre-los-airs-investigación-y-respuesta-automatizada)
+- [Revisar las Tendencias de Detección de Correo en Microsoft Defender for Office 365](#revisar-las-tendencias-de-detección-de-correo-en-microsoft-defender-for-office-365)
+- [Revisar Campañas de Phishing y Malware que Resultaron en Correos Entregados](#revisar-campañas-de-phishing-y-malware-que-resultaron-en-correos-entregados)
+- [Revisión de Top Targeted Users](#revisión-de-top-targeted-users)
 
 ---
 # Monitoreo de Alertas
