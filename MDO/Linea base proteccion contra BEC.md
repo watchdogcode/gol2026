@@ -260,6 +260,7 @@ Indicar a los receptores que pongan en cuarentena los correos que fallen SPF y D
    - Report-only → On
 
 **Resultado:** Protección adaptativa basada en señales de riesgo de Microsoft.
+
 ---
 
 ## 4. Controles de proceso de negocio
