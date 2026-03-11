@@ -57,7 +57,7 @@ Objetivo: detección temprana y contención rápida.
 
 ---
 
-### 6. Concientización del usuario
+### [6. Concientización del usuario](https://github.com/watchdogcode/gol2026/blob/3.0/MDO/Linea%20base%20proteccion%20contra%20BEC.md#6-concientizaci%C3%B3n-del-usuario-1)
 - Attack Simulation Training
 - Simulaciones de CEO Fraud y Vendor Fraud
 - Métricas de usuarios vulnerables
@@ -496,6 +496,7 @@ Estos controles permiten:
 
 > **BEC se gana o se pierde en la velocidad del SOC. Defender XDR existe para comprimir ese tiempo.**
 
+---
 
 ## 6. Concientización del usuario
 
