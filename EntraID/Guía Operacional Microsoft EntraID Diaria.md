@@ -6,11 +6,11 @@ La operación efectiva de Microsoft Entra ID requiere monitoreo continuo, contro
 
 ---
 ## Índice
-- [Monitorear eventos de inicio de sesión y autenticación](https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#monitorear-eventos-de-inicio-de-sesi%C3%B3n-y-autenticaci%C3%B3n)
-- [Revisión de Usuarios con Riesgo (Alto / Medio)](https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisi%C3%B3n-de-usuarios-con-riesgo-alto--medio)
-- [Revisión de Inicios de Sesión con Riesgo](https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisi%C3%B3n-de-inicios-de-sesi%C3%B3n-con-riesgo)
-- [Revisar alertas de Microsoft Entra Connect Health (entornos híbridos)](https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisar-alertas-de-microsoft-entra-connect-health-entornos-h%C3%ADbridos)
-- [Validar estado de componentes híbridos](https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#validar-estado-de-componentes-h%C3%ADbridos)
+- [Monitorear eventos de inicio de sesión y autenticación](#monitorear-eventos-de-inicio-de-sesión-y-autenticación)
+- [Revisión de Usuarios con Riesgo (Alto / Medio)](#revisión-de-usuarios-con-riesgo-alto--medio)
+- [Revisión de Inicios de Sesión con Riesgo](#revisión-de-inicios-de-sesión-con-riesgo)
+- [Revisar alertas de Microsoft Entra Connect Health (entornos híbridos)](#revisar-alertas-de-microsoft-entra-connect-health-entornos-híbridos)
+- [Validar estado de componentes híbridos](#validar-estado-de-componentes-híbridos)
 
 ---
 

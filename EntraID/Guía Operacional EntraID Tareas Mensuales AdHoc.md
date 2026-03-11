@@ -6,10 +6,10 @@ La operación efectiva de Microsoft Entra ID requiere monitoreo continuo, contro
 
 ---
 ## Índice
-- [Revisión de roles privilegiados](https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20EntraID%20Tareas%20Mensuales%20AdHoc.md#revisi%C3%B3n-de-roles-privilegiados)
-- [Validación de políticas de Conditional Access](https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20EntraID%20Tareas%20Mensuales%20AdHoc.md#validaci%C3%B3n-de-pol%C3%ADticas-de-conditional-access)
-- [Actualización de componentes on-premises](https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20EntraID%20Tareas%20Mensuales%20AdHoc.md#actualizaci%C3%B3n-de-componentes-on-premises)
-- [Pruebas de cambios importantes (Ad-Hoc)](https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20EntraID%20Tareas%20Mensuales%20AdHoc.md#pruebas-de-cambios-importantes-ad-hoc)
+- [Revisión de roles privilegiados](#revisión-de-roles-privilegiados)
+- [Validación de políticas de Conditional Access](#validación-de-políticas-de-conditional-access)
+- [Actualización de componentes on-premises](#actualización-de-componentes-on-premises)
+- [Pruebas de cambios importantes (Ad-Hoc)](#pruebas-de-cambios-importantes-ad-hoc)
 
 ---
 
