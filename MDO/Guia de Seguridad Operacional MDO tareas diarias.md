@@ -6,6 +6,7 @@ Esta guía establece los procedimientos diarias para analizar tendencias, identi
 
 ---
 ## Índice
+- [Monitoreo de Alertas](#monitoreo-de-alertas)
 - [Monitoreo de Alertas](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#monitoreo-de-alertas)
 - [Monitoreo de Incidentes](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#monitoreo-de-incidentes)
 - [Triage de Mensajes de Teams Reportados por Usuarios](https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#triage-de-mensajes-de-teams-reportados-por-usuarios)
