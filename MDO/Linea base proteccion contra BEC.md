@@ -82,10 +82,11 @@ Autorizar solo a Microsoft 365 (y fuentes explícitas) a enviar correo y rechaza
 1. En DNS del dominio (registro TXT).
 2. Valor recomendado para Microsoft 365
 
-v=spf1 include:spf.protection.outlook.com -all
-``
+| Tipo | Registro |
+|---------|------|
+| TXT | v=spf1 include:spf.protection.outlook.com -all |
 
----
+
 ### DKIM
 Garantizar integridad del mensaje y alineación DMARC mediante firma digital.
 
