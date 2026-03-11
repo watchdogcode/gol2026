@@ -20,8 +20,8 @@
 La organización debe mantener **un máximo de cuatro (4) cuentas con el rol Global Administrator asignado de forma permanente**.  
 Estas cuentas se distribuyen de la siguiente manera:
 
-- **Dos (2) deben ser cuentas de emergencia (Break Glass / Emergency Access Accounts)**  
-- **Dos (2) pueden ser cuentas administrativas nominales permanentes**, asignadas a personal altamente confiable
+- **Dos deben ser cuentas de emergencia (Break Glass / Emergency Access Accounts)**  
+- **Dos pueden ser cuentas administrativas nominales permanentes**, asignadas a personal altamente confiable
 
 No deben existir más cuentas con Global Administrator permanente fuera de este modelo.  
 Cualquier requerimiento adicional de privilegios Global Administrator debe gestionarse **exclusivamente mediante acceso temporal (Just‑In‑Time)** utilizando **Privileged Identity Management (PIM)**.
