@@ -15,7 +15,7 @@ Objetivo: prevenir suplantación de identidad y spoofing.
 
 ---
 
-**[2. Política Anti-Phishing Microsoft Defender for Office 365](#2-política-anti-phishing-microsoft-defender-for-office-365)**
+**2. [Política Anti-Phishing Microsoft Defender for Office 365](#2-política-anti-phishing-microsoft-defender-for-office-365)**
 - Protección contra impersonación (usuarios y dominios)
 - Spoof intelligence
 - Mailbox intelligence
@@ -26,7 +26,7 @@ Objetivo: detectar BEC incluso sin malware o URLs.
 
 ---
 
-**[3. Protección de identidad (Zero Trust)](#3-protección-de-identidad-zero-trust)**
+**3. [Protección de identidad (Zero Trust)](#3-protección-de-identidad-zero-trust)**
 - MFA obligatorio para todos – Template oficial
 - Phishing-resistant MFA para administradores
 - Evaluación de riesgo de inicio de sesión
@@ -35,7 +35,7 @@ Objetivo: prevenir account takeover.
 
 ---
 
-**[4. Controles de proceso de negocio](#4-controles-de-proceso-de-negocio)**
+**4. [Controles de proceso de negocio](#4-controles-de-proceso-de-negocio)**
 - Doble validación fuera de banda (Out-of-Band Verification)
 - Separación de funciones (Segregation of Duties – SoD)
 - Identificación de cuentas prioritarias (Finance, Executives, Legal)
@@ -45,7 +45,7 @@ Objetivo: reducir el impacto incluso si el correo llega.
 
 ---
 
-**[5. Detección y respuesta SOC](#5-detección-y-respuesta-soc)**
+**5. [Detección y respuesta SOC](#5-detección-y-respuesta-soc)**
 - Monitoreo de alertas de impersonación
 - Investigación de inbox rules sospechosas
 - Uso de Threat Explorer y Advanced Hunting
@@ -57,7 +57,7 @@ Objetivo: detección temprana y contención rápida.
 
 ---
 
-**[6. Concientización del usuario](#6-concientización-del-usuario)**
+**6. [Concientización del usuario](#6-concientización-del-usuario)**
 - Attack Simulation Training
 - Simulaciones de CEO Fraud y Vendor Fraud
 - Métricas de usuarios vulnerables
