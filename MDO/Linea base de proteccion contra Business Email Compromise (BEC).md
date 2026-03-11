@@ -512,7 +512,8 @@ Estos controles permiten:
 
 Attack Simulation Training es una capacidad de Microsoft Defender for Office 365 Plan 2 que permite ejecutar **simulaciones de ataques realistas pero inofensivos**, basadas en técnicas reales de phishing e ingeniería social, y asignar **entrenamiento automático** según el comportamiento del usuario.
 
-**### **¿Por qué es clave contra BEC?**
+**¿Por qué es clave contra BEC?**
+
 Los ataques BEC no dependen de malware, sino de factores humanos como:
 - Confianza
 - Autoridad
