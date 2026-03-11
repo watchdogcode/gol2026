@@ -73,7 +73,7 @@ BEC no se detiene con una sola herramienta. Se mitiga combinando identidad fuert
 ---
 
 ## 1. Autenticación del correo
-### SPF (Sender Policy Framework) 
+### 1.1 SPF (Sender Policy Framework) 
 Autorizar solo a Microsoft 365 (y fuentes explícitas) a enviar correo y rechazar todo lo demás.
 
 **Dónde se configura**
@@ -85,7 +85,7 @@ Autorizar solo a Microsoft 365 (y fuentes explícitas) a enviar correo y rechaza
 | TXT | v=spf1 include:spf.protection.outlook.com -all | 3600 |
 
 
-### DKIM (DomainKeys Identified Mail)
+### 1.2 DKIM (DomainKeys Identified Mail)
 Garantizar integridad del mensaje y alineación DMARC mediante firma digital.
 
 **Dónde se habilita**
@@ -107,7 +107,7 @@ Garantizar integridad del mensaje y alineación DMARC mediante firma digital.
 
 7. Regresa al portal y habilita: Sign messages for this domain with DKIM signatures
 
-### DMARC (Domain-based Message Authentication, Reporting & Conformance)
+### 1.3 DMARC (Domain-based Message Authentication, Reporting & Conformance)
 
 Indicar a los receptores que pongan en cuarentena los correos que fallen SPF y DKIM.
 
@@ -188,7 +188,7 @@ Indicar a los receptores que pongan en cuarentena los correos que fallen SPF y D
 
 ## 3. Protección de identidad (Zero Trust)
 
-### MFA obligatorio para todos – Template oficial
+### 3.1 MFA obligatorio para todos – Template oficial
 
 **Paso a paso**
 1. Ir a: https://entra.microsoft.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies/menuId//fromNav/Identity  
@@ -214,7 +214,7 @@ Indicar a los receptores que pongan en cuarentena los correos que fallen SPF y D
 
 ---
 
-### Phishing-resistant MFA para administradores – Template dedicado
+### 3.2 Phishing-resistant MFA para administradores – Template dedicado
 
 **Paso a paso (Template)**
 1. Ir a: https://entra.microsoft.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies/menuId//fromNav/Identity
@@ -242,7 +242,7 @@ Indicar a los receptores que pongan en cuarentena los correos que fallen SPF y D
 
 ---
 
-## Evaluación de riesgo de inicio de sesión – Template Identity Protection
+## 3.3 Evaluación de riesgo de inicio de sesión – Template Identity Protection
 
 **Paso a paso**
 1. Ir a: https://entra.microsoft.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies/menuId//fromNav/Identity
@@ -260,6 +260,7 @@ Indicar a los receptores que pongan en cuarentena los correos que fallen SPF y D
    - Report-only → On
 
 **Resultado:** Protección adaptativa basada en señales de riesgo de Microsoft.
+---
 
 ## 4. Controles de proceso de negocio
 
