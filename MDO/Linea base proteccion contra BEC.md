@@ -72,8 +72,6 @@ BEC no se detiene con una sola herramienta. Se mitiga combinando identidad fuert
 ---
 ---
 
-# Paso a paso
-
 ## Autenticación del correo
 ### SPF (Sender Policy Framework) 
 Autorizar solo a Microsoft 365 (y fuentes explícitas) a enviar correo y rechazar todo lo demás.
