@@ -75,7 +75,7 @@ BEC no se detiene con una sola herramienta. Se mitiga combinando identidad fuert
 # Paso a paso
 
 ## Autenticación del correo
-### Sender Policy Framework (SPF) 
+### SPF (Sender Policy Framework) 
 Autorizar solo a Microsoft 365 (y fuentes explícitas) a enviar correo y rechazar todo lo demás.
 
 **Dónde se configura**
@@ -87,7 +87,7 @@ Autorizar solo a Microsoft 365 (y fuentes explícitas) a enviar correo y rechaza
 | TXT | v=spf1 include:spf.protection.outlook.com -all | 3600 |
 
 
-### DKIM
+### DKIM (DomainKeys Identified Mail)
 Garantizar integridad del mensaje y alineación DMARC mediante firma digital.
 
 **Dónde se habilita**
@@ -109,8 +109,21 @@ Garantizar integridad del mensaje y alineación DMARC mediante firma digital.
 
 7. Regresa al portal y habilita: Sign messages for this domain with DKIM signatures
 
+### DMARC (Domain-based Message Authentication, Reporting & Conformance)
+
+Indicar a los receptores que pongan en cuarentena los correos que fallen SPF y DKIM.
+
+**Dónde se configura**
+1. En DNS del dominio (registro TXT _dmarc)
+2. Registro DMARC recomendado (Quarantine)
+
+| Tipo | Registro |
+|---------|------|
+| TXT | v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc-reports@tudominio.com; ruf=mailto:dmarc-forensic@tudominio.com; fo=1; aspf=s; adkim=s  |
 
 
+
+---
 ## Crear política Anti‑Phishing
 
 1. Ir a: https://security.microsoft.com/antiphishing
