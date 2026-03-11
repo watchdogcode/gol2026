@@ -383,3 +383,115 @@ Reducen el impacto cuando **TODA la capa técnica falla**:
 **El proceso bloquea la acción fraudulenta**.
 
 > **BEC no se detiene solo con tecnología; se detiene cuando los procesos asumen que el correo puede mentir y hacen el fraude operativamente imposible.**
+
+---
+
+## 5. Detección y respuesta SOC
+
+**Objetivo:** detección temprana y contención rápida antes de que el fraude se materialice.
+
+---
+
+### 5.1 Monitoreo de alertas de impersonación
+
+**¿Qué debe monitorear el SOC?**
+El SOC no debe esperar a que exista un fraude confirmado. En ataques BEC, la señal temprana más confiable es la **impersonación**.
+
+Alertas críticas a monitorear de forma continua:
+- User impersonation detected
+- Domain impersonation detected
+- Mailbox Intelligence detects impersonation
+- Suspicious sequence of events possibly related to BEC
+
+Estas alertas se generan en Microsoft Defender for Office 365 y se correlacionan automáticamente en Defender XDR cuando existe alta confianza de ataque.
+
+**¿Por qué es crítico?**
+BEC rara vez contiene malware o URLs. Si el SOC espera señales tradicionales, el pago fraudulento ya ocurrió. La velocidad es el factor decisivo.
+
+---
+
+### 5.2 Investigación de inbox rules sospechosas
+
+**¿Por qué las inbox rules son clave en BEC?**
+En ataques BEC reales, los atacantes utilizan reglas de buzón para ocultar su actividad y manipular conversaciones sensibles.
+
+Patrones comunes:
+- Mover correos a carpetas no visibles
+- Marcar correos como leídos automáticamente
+- Reenviar mensajes a cuentas externas
+- Filtrar por palabras clave financieras (invoice, payment, wire)
+- Eliminar correos enviados para borrar evidencia
+
+Una sola regla sospechosa es suficiente para escalar el incidente.
+
+---
+
+### 5.3 Uso de Threat Explorer y Advanced Hunting
+
+**Threat Explorer (análisis inmediato)**
+Threat Explorer permite al SOC:
+- Identificar todos los correos relacionados con un incidente
+- Determinar quién recibió, respondió o reenvi el mensaje
+- Evaluar el blast radius
+- Confirmar impacto operativo
+
+Es la herramienta principal para análisis rápido y toma de decisiones.
+
+**Advanced Hunting (detección proactiva)**
+Advanced Hunting se utiliza para:
+- Detectar actividad BEC sin alerta explícita
+- Analizar comportamiento histórico
+- Correlacionar señales de identidad y correo
+
+Hunting reduce significativamente el Mean Time To Detect (MTTD).
+
+---
+
+### 5.4 Correlación en Defender XDR
+
+**¿Por qué XDR es crítico para BEC?**
+Un ataque BEC no es un solo evento, sino una cadena:
+- Inicio de sesión sospechoso
+- Lectura de correos
+- Creación de inbox rules
+- Envío y eliminación de mensajes
+- Comunicación con finanzas
+
+Defender XDR correlaciona automáticamente estas señales y genera un único incidente de alta confianza.
+
+**Beneficios operativos para el SOC**
+- Reducción de ruido
+- Mayor precisión
+- Respuesta acelerada
+- Capacidad de disrupción automática manteniendo control humano
+
+---
+
+### 5.5 Flujo operativo SOC resumido
+
+**Detección**
+1. Alerta de impersonación
+2. Correlación automática en XDR
+
+**Investigación**
+3. Revisión de inbox rules
+4. Análisis en Threat Explorer
+5. Hunting avanzado si es necesario
+
+**Contención**
+6. Reset de credenciales
+7. Eliminación de reglas maliciosas
+8. Bloqueo de la conversación fraudulenta
+
+Antes de que el equipo financiero ejecute cualquier pago.
+
+---
+
+### 5.6 Resultado esperado
+
+Estos controles permiten:
+- Detectar BEC en minutos
+- Contener antes del impacto financiero
+- Operar con señales reales y correlacionadas
+
+> **BEC se gana o se pierde en la velocidad del SOC. Defender XDR existe para comprimir ese tiempo.**
