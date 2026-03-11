@@ -7,7 +7,7 @@ Business Email Compromise (BEC) es un ataque de fraude dirigido que utiliza corr
 
 ## Estrategia de Protección por Capas
 
-### [1. Autenticación del correo](1.Autenticación del correo)
+### [1. Autenticación del correo](https://github.com/watchdogcode/gol2026/blob/3.0/MDO/Linea%20base%20proteccion%20contra%20BEC.md#1-autenticaci%C3%B3n-del-correo)
 - SPF correctamente configurado
 - DKIM habilitado para todos los dominios
 - DMARC en modo `reject` o `quarantine`
