@@ -142,6 +142,8 @@ Durante cada revisión se debe confirmar lo siguiente:
 ### Justificación
 Las revisiones periódicas previenen la acumulación de privilegios innecesarios (*privilege creep*), detectan cuentas huérfanas y aseguran que los controles de seguridad se mantienen vigentes a lo largo del tiempo.
 
+Con este script se puede validar[**Get-M365RoleReport**](https://github.com/watchdogcode/gol2026/blob/main/EntraID/Scripts/Get-M365RoleReport.ps1)
+
 ---
 
 ##  Resumen Ejecutivo
