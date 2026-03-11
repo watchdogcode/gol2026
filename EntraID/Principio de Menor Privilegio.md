@@ -11,7 +11,8 @@
 3. [Usa cuentas nombradas, evitando cuentas compartidas](#3-usa-cuentas-nombradas-evitando-cuentas-compartidas)
 4. [Utilice cuentas solo en la nube para cualquier rol privilegiado](#4-utilice-cuentas-solo-en-la-nube-para-cualquier-rol-privilegiado)
 5. [Requerir autenticación multifactor (MFA) para todas las cuentas privilegiadas](#5-requerir-autenticación-multifactor-mfa-para-todas-las-cuentas-privilegiadas)
-6. [Resumen Ejecutivo](#resumen-ejecutivo)
+6. [Validación semestral de cuentas privilegiadas](#6-validación-semestral-de-cuentas-privilegiadas)
+7. [Resumen Ejecutivo](#resumen-ejecutivo)
 
 ---
 
@@ -124,6 +125,25 @@ Siempre que sea posible, se debe utilizar **MFA resistente a phishing (Phishing�
 
 ---
 
+## 6. Validación semestral de cuentas privilegiadas
+
+Todas las cuentas con roles administrativos deben ser revisadas **al menos cada seis (6) meses** para verificar que siguen siendo necesarias y apropiadas.
+
+Durante cada revisión se debe confirmar lo siguiente:
+
+| Criterio | Descripción |
+|----------|-------------|
+| **El administrador aún existe en la organización** | La persona asociada a la cuenta sigue siendo empleado o colaborador activo. Cuentas de personal que ya no pertenece a la organización deben ser revocadas de inmediato. |
+| **El rol sigue siendo relevante** | La función laboral del administrador aún justifica el nivel de privilegio asignado. Cambios de puesto o responsabilidades pueden hacer innecesario el rol. |
+| **Aún necesitan el acceso (prevenir privilege creep)** | Confirmar que el administrador utiliza activamente los privilegios. Acumulación de roles sin uso genera riesgo innecesario. |
+| **No existe un rol de menor privilegio disponible** | Microsoft 365 incorpora nuevos roles con frecuencia. Verificar si existe un rol más acotado que cubra las necesidades actuales y reasignar en consecuencia. |
+| **MFA está habilitado y registrado** | Verificar que la autenticación multifactor está activa y que el administrador tiene métodos de autenticación registrados y funcionales. |
+
+### Justificación
+Las revisiones periódicas previenen la acumulación de privilegios innecesarios (*privilege creep*), detectan cuentas huérfanas y aseguran que los controles de seguridad se mantienen vigentes a lo largo del tiempo.
+
+---
+
 ##  Resumen Ejecutivo
 
 | Control | Objetivo | Beneficio |
@@ -134,5 +154,6 @@ Siempre que sea posible, se debe utilizar **MFA resistente a phishing (Phishing�
 | Cuentas nominales | Trazabilidad | Auditoría e investigación |
 | Cuentas cloud‑only | Aislamiento | Protección híbrida |
 | MFA obligatorio (phishing‑resistant) | Prevención de ATO | Protección de identidades críticas |
+| Validación semestral | Higiene de privilegios | Detectar cuentas huérfanas y privilege creep |
 
 ---
