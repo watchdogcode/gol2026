@@ -119,7 +119,7 @@ Indicar a los receptores que pongan en cuarentena los correos que fallen SPF y D
 |---------|------|
 | TXT | v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc-reports@tudominio.com; ruf=mailto:dmarc-forensic@tudominio.com; fo=1; aspf=s; adkim=s  |
 
-[**Para mayor detalle consultar](https://github.com/watchdogcode/gol2026/blob/3.0/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#%EF%B8%8F-seguridad-integral-de-correo-electr%C3%B3nico-en-microsoft-365)
+[**Para mayor detalle consultar**](https://github.com/watchdogcode/gol2026/blob/3.0/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#%EF%B8%8F-seguridad-integral-de-correo-electr%C3%B3nico-en-microsoft-365)
 
 ---
 ## 2. Política Anti-Phishing Microsoft Defender for Office 365
