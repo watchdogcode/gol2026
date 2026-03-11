@@ -137,7 +137,7 @@ EntraIdSignInEvents
 | order by Timestamp desc
 ```
 
-## A7) Riesgo: “at risk” o “confirmed compromised” (RiskState)
+## 1.7) Riesgo: “at risk” o “confirmed compromised” (RiskState)
 ```kql
 let Lookback = 14d;
 EntraIdSignInEvents
@@ -316,7 +316,7 @@ GraphApiAuditEvents
 | order by Requests desc
 ```
 
-## C3) “Read-heavy” (alto ratio GET)
+## 3.3) “Read-heavy” (alto ratio GET)
 ```kql
 let Lookback = 1d;
 GraphApiAuditEvents
