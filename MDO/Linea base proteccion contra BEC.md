@@ -38,7 +38,7 @@ Objetivo: prevenir account takeover.
 
 ---
 
-### 4. Controles de proceso de negocio
+### [4. Controles de proceso de negocio](https://github.com/watchdogcode/gol2026/blob/3.0/MDO/Linea%20base%20proteccion%20contra%20BEC.md#4-controles-de-proceso-de-negocio-1)
 - Doble validación fuera de banda para pagos y cambios bancarios
 - Separación de funciones
 - Identificación de cuentas prioritarias (Finance, Executives)
@@ -271,7 +271,6 @@ Indicar a los receptores que pongan en cuarentena los correos que fallen SPF y D
 
 ## 4.1 Doble validación fuera de banda (Out-of-Band Verification)
 
-### ¿Qué es?
 Es un control que obliga a verificar pagos o cambios bancarios usando un canal distinto al correo electrónico, incluso si el mensaje parece legítimo o proviene de una cuenta real.
 
 ### ¿Por qué es crítico en BEC?
@@ -297,7 +296,7 @@ Debe ser **MANDATORIO** para:
 - Requerir **segunda aprobación** posterior
 
 **Error común:**
-- “Confirmar” respondiendo el mismo email ❌ (inútil)
+- “Confirmar” respondiendo el mismo email  (inútil)
 
 > Este control por sí solo ha prevenido innumerables fraudes financieros documentados.
 
@@ -305,7 +304,7 @@ Debe ser **MANDATORIO** para:
 
 ## 4.2 Separación de funciones (Segregation of Duties – SoD)
 
-### ¿Qué es?
+
 Es el principio de que **ninguna persona debe poder iniciar, aprobar y ejecutar una transacción crítica por sí sola**.
 
 ### ¿Por qué es clave contra BEC?
@@ -372,10 +371,10 @@ Estas cuentas deben coincidir con:
 
 ### ¿Qué problema resuelven estos controles?
 Reducen el impacto cuando **TODA la capa técnica falla**:
-- El correo llega ✅
-- El usuario lo lee ✅
-- Parece legítimo ✅
+- El correo llega 
+- El usuario lo lee 
+- Parece legítimo 
 
-👉 **El proceso bloquea la acción fraudulenta**.
+**El proceso bloquea la acción fraudulenta**.
 
 > **BEC no se detiene solo con tecnología; se detiene cuando los procesos asumen que el correo puede mentir y hacen el fraude operativamente imposible.**
