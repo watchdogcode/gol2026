@@ -362,3 +362,5 @@ Revisa el orden exacto de aplicación de las políticas:
 ### Para políticas Preset:
 - Se gestionan exclusivamente desde:
   - https://security.microsoft.com/presetSecurityPolicies
+
+    > Internal Tools 2026

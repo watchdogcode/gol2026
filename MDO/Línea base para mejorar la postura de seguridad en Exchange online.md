@@ -567,3 +567,5 @@ En organizaciones grandes es común:
 # Validación Línea base para mejorar la postura de seguridad en Exchange online
 
 **Se puede hacer una validación rapida ejecutando el siguiente escript: [Validate-EXOSecurityBaseline](https://github.com/watchdogcode/gol2026/blob/main/MDO/Scripts/Validate-EXOSecurityBaseline.ps1)**
+
+  > Internal Tools 2026

@@ -567,3 +567,5 @@ CloudAppEvents
 - Entra SPN sign-ins (`EntraIdSpnSignInEvents`) citeturn7search176
 - Graph API audit (`GraphApiAuditEvents`) citeturn7search166
 - Schema tables overview (para validar columnas en tu tenant) citeturn7search177
+
+  > Internal Tools 2026
