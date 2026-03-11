@@ -5,6 +5,20 @@
 
 ---
 
+## Índice
+- [1. No mas de cuatro Global Administrators permanentes](#1-no-mas-de-cuatro-global-administrators-permanentes)
+  - [Cuentas de emergencia (Break Glass Accounts)](#cuentas-de-emergecia-break-glass-accounts)
+  - [Global Administrators](#global-administrators)
+- [2. Separar las cuentas de usuario y administrativas](#2-separar-las-cuentas-de-usuario-y-administrativas)
+- [3. Usa cuentas nombradas, evitando cuentas compartidas](#3-usa-cuentas-nombradas-evitando-cuentas-compartidas)
+- [4. Utilice cuentas solo en la nube para cualquier rol privilegiado](#4-utilice-cuentas-solo-en-la-nube-para-cualquier-rol-privilegiado)
+- [5. Requerir autenticación multifactor (MFA) para todas las cuentas privilegiadas](#5-requerir-autenticación-multifactor-mfa-para-todas-las-cuentas-privilegiadas)
+  - [Métodos de autenticación recomendados](#métodos-de-autenticación-recomendados)
+  - [Consideraciones para Break Glass Accounts](#consideraciones-para-break-glass-accounts)
+- [Resumen Ejecutivo](#resumen-ejecutivo)
+
+---
+
 ## 1. No mas de cuatro Global Administrators permanentes
 
 La organización debe mantener **un máximo de cuatro (4) cuentas con el rol Global Administrator asignado de forma permanente**.  
