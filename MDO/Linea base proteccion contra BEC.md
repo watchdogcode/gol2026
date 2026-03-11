@@ -259,4 +259,123 @@ Indicar a los receptores que pongan en cuarentena los correos que fallen SPF y D
 7. **Enable**
    - Report-only → On
 
-✅ **Resultado:** Protección adaptativa basada en señales de riesgo de Microsoft.
+**Resultado:** Protección adaptativa basada en señales de riesgo de Microsoft.
+
+## 4. Controles de proceso de negocio
+
+**Objetivo:** reducir el impacto incluso si el correo malicioso llega al usuario.
+
+**Principio clave:** asumir que el correo puede estar comprometido y diseñar procesos que no dependan del email como mecanismo de autorización.
+
+---
+
+## 4.1 Doble validación fuera de banda (Out-of-Band Verification)
+
+### ¿Qué es?
+Es un control que obliga a verificar pagos o cambios bancarios usando un canal distinto al correo electrónico, incluso si el mensaje parece legítimo o proviene de una cuenta real.
+
+### ¿Por qué es crítico en BEC?
+En muchos ataques BEC:
+- El correo es legítimo (cuenta comprometida)
+- El mensaje continúa un hilo real
+- El tono y firma coinciden
+
+Por diseño, el **email NO puede ser usado como prueba de autenticidad**.
+
+### ¿Cuándo se debe aplicar?
+Debe ser **MANDATORIO** para:
+- Cambios de cuenta bancaria de proveedores
+- Pagos urgentes o fuera de patrón
+- Primer pago a un nuevo proveedor
+- Pagos solicitados por ejecutivos
+
+### ¿Cómo se implementa correctamente?
+**Buenas prácticas:**
+- Llamar a un **número previamente registrado** (no el del correo)
+- No usar **Teams/Email** como canal de validación
+- Documentar la verificación
+- Requerir **segunda aprobación** posterior
+
+**Error común:**
+- “Confirmar” respondiendo el mismo email ❌ (inútil)
+
+> Este control por sí solo ha prevenido innumerables fraudes financieros documentados.
+
+---
+
+## 4.2 Separación de funciones (Segregation of Duties – SoD)
+
+### ¿Qué es?
+Es el principio de que **ninguna persona debe poder iniciar, aprobar y ejecutar una transacción crítica por sí sola**.
+
+### ¿Por qué es clave contra BEC?
+BEC busca un **único punto de decisión**. Si el proceso permite que una sola persona:
+- Reciba el correo
+- Cambie datos
+- Autorice el pago
+
+El fraude es inmediato.
+
+Separar funciones **obliga a colusión**, lo cual reduce drásticamente el riesgo.
+
+### Modelo mínimo recomendado (pagos)
+
+| Rol | Responsable |
+|---|---|
+| Solicita / recibe instrucción | Finanzas / AP |
+| Aprueba | Manager / Finance Lead |
+| Ejecuta pago | Tesorería |
+| Revisa / reconcilia | Control financiero |
+
+### Ejemplos de separación efectiva
+- Quien actualiza datos bancarios **no puede** autorizar pagos
+- Quien aprueba pagos **no puede** liberarlos
+- Quien libera pagos **no puede** modificar proveedores
+
+> Este modelo está alineado con marcos de control financiero y prevención de fraude.
+
+---
+
+## 4.3 Identificación de cuentas prioritarias (Finance, Executives, Legal)
+
+### ¿Qué significa?
+Reconocer formalmente que algunos usuarios tienen un **impacto de riesgo desproporcionado**, y requieren controles reforzados.
+
+### ¿Por qué es esencial en BEC?
+Los atacantes:
+- Apuntan a **ejecutivos** (autoridad)
+- Apuntan a **finanzas** (capacidad de pago)
+- Apuntan a **legal** (acceso a información sensible)
+
+Esto es consistente en casi todos los incidentes BEC documentados.
+
+### ¿Qué implica ser “cuenta prioritaria”?
+
+**Procesos especiales:**
+- Doble validación obligatoria
+- Prohibición de aprobaciones solo por email
+- Verificación reforzada en cambios críticos
+
+**Gobierno:**
+- Lista oficial mantenida por **Seguridad + Finanzas**
+- Revisión periódica (los roles cambian)
+
+**Alineación técnica:**
+Estas cuentas deben coincidir con:
+- Anti‑phishing impersonation
+- Alertas de alta severidad
+- MFA fuerte
+
+---
+
+## 4.4 Objetivo global del control
+
+### ¿Qué problema resuelven estos controles?
+Reducen el impacto cuando **TODA la capa técnica falla**:
+- El correo llega ✅
+- El usuario lo lee ✅
+- Parece legítimo ✅
+
+👉 **El proceso bloquea la acción fraudulenta**.
+
+> **BEC no se detiene solo con tecnología; se detiene cuando los procesos asumen que el correo puede mentir y hacen el fraude operativamente imposible.**
