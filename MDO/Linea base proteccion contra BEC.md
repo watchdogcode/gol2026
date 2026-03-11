@@ -72,7 +72,7 @@ BEC no se detiene con una sola herramienta. Se mitiga combinando identidad fuert
 
 ---
 
-## Autenticación del correo
+## 1. Autenticación del correo
 ### SPF (Sender Policy Framework) 
 Autorizar solo a Microsoft 365 (y fuentes explícitas) a enviar correo y rechazar todo lo demás.
 
@@ -122,7 +122,7 @@ Indicar a los receptores que pongan en cuarentena los correos que fallen SPF y D
 
 
 ---
-## Política Anti-Phishing Microsoft Defender for Office 365
+## 2. Política Anti-Phishing Microsoft Defender for Office 365
 
 1. Ir a: https://security.microsoft.com/antiphishing
 2. Haz clic en **Create**
@@ -186,7 +186,7 @@ Indicar a los receptores que pongan en cuarentena los correos que fallen SPF y D
 
 ---
 
-## Protección de identidad (Zero Trust)
+## 3. Protección de identidad (Zero Trust)
 
 ### MFA obligatorio para todos – Template oficial
 
