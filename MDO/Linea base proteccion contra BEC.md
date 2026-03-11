@@ -69,7 +69,7 @@ Objetivo: reducir efectividad de la ingeniería social.
 ## Resumen Ejecutivo
 
 BEC no se detiene con una sola herramienta. Se mitiga combinando identidad fuerte, autenticación de correo, detección avanzada y disciplina operativa.
----
+
 ---
 
 ## Autenticación del correo
