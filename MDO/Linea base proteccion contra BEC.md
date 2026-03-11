@@ -495,3 +495,101 @@ Estos controles permiten:
 - Operar con señales reales y correlacionadas
 
 > **BEC se gana o se pierde en la velocidad del SOC. Defender XDR existe para comprimir ese tiempo.**
+
+
+## 6. Concientización del usuario
+
+**Objetivo:** reducir la efectividad de la ingeniería social mediante entrenamiento continuo, simulaciones realistas y métricas accionables.
+
+---
+
+### 6.1 Attack Simulation Training (Microsoft Defender for Office 365)
+
+Attack Simulation Training es una capacidad de Microsoft Defender for Office 365 Plan 2 que permite ejecutar **simulaciones de ataques realistas pero inofensivos**, basadas en técnicas reales de phishing e ingeniería social, y asignar **entrenamiento automático** según el comportamiento del usuario.
+
+**### **¿Por qué es clave contra BEC?**
+Los ataques BEC no dependen de malware, sino de factores humanos como:
+- Confianza
+- Autoridad
+- Urgencia
+
+Attack Simulation Training permite:
+- Exponer a los usuarios a escenarios reales
+- Medir quién cae en ingeniería social
+- Corregir comportamientos mediante entrenamiento contextual
+
+> Es el equivalente humano del threat hunting.
+
+---
+
+### 6.2 Simulaciones de CEO Fraud y Vendor Fraud
+
+**Simulación: CEO Fraud**
+
+**Objetivo del ataque simulado:**
+- Suplantar a un ejecutivo
+- Solicitar una acción urgente (pago, transferencia, compra)
+
+**Qué se evalúa:**
+- Si el usuario responde al correo
+- Si sigue el proceso de verificación fuera de banda
+- Si reporta correctamente el mensaje
+
+---
+
+**Simulación: Vendor Fraud**
+
+**Objetivo del ataque simulado:**
+- Suplantar a un proveedor legítimo
+- Solicitar cambio de cuenta bancaria
+
+**Qué se evalúa:**
+- Detección de anomalías en el mensaje
+- Uso de validación fuera de banda
+- Reporte oportuno al SOC
+
+Estas simulaciones entrenan exactamente los vectores más utilizados en BEC.
+
+---
+
+### 6.3 Métricas de usuarios vulnerables
+
+**¿Qué métricas se obtienen?**
+Después de cada simulación, Defender genera reportes que permiten identificar:
+- Usuarios que abrieron el mensaje
+- Usuarios que respondieron o ejecutaron acciones riesgosas
+- Usuarios que reportaron correctamente
+- Tendencias por rol, grupo o campaña
+
+**¿Por qué son críticas estas métricas?**
+Permiten:
+- Identificar usuarios de alto riesgo
+- Priorizar entrenamiento dirigido
+- Ajustar controles técnicos y de proceso
+
+> No todos los usuarios tienen el mismo nivel de riesgo, y BEC explota esa diferencia.
+
+---
+
+### 6.4 Uso operativo de métricas por el SOC
+
+El SOC debe:
+- Correlacionar usuarios vulnerables con alertas reales
+- Ajustar políticas de phishing y simulaciones
+- Elevar controles adicionales para:
+  - Finanzas
+  - Ejecutivos
+  - Legal
+
+La concientización se vuelve un proceso continuo, no un evento aislado.
+
+---
+
+### 6.5 Resultado esperado
+
+Cuando este bloque está correctamente implementado:
+- Disminuye la tasa de éxito de ingeniería social
+- Aumenta el reporte temprano de correos sospechosos
+- El SOC recibe señales más rápidas y confiables
+
+> **La concientización transforma al usuario de eslabón débil en sensor activo de seguridad.**
