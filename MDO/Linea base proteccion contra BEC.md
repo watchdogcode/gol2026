@@ -85,11 +85,6 @@ Autorizar solo a Microsoft 365 (y fuentes explícitas) a enviar correo y rechaza
 v=spf1 include:spf.protection.outlook.com -all
 ``
 
-### ✅ Cómo se verá renderizado
-
-```txt
-v=spf1 include:spf.protection.outlook.com -all
-
 ### DKIM
 Garantizar integridad del mensaje y alineación DMARC mediante firma digital.
 
