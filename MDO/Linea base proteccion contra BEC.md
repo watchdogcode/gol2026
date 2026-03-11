@@ -28,7 +28,7 @@ Objetivo: detectar BEC incluso sin malware o URLs.
 
 ---
 
-### [3. Protección de identidad (Zero Trust)](https://github.com/watchdogcode/gol2026/blob/3.0/MDO/Linea%20base%20proteccion%20contra%20BEC.md#3-protecci%C3%B3n-de-identidad-zero-trust)
+### [3. Protección de identidad (Zero Trust)](https://github.com/watchdogcode/gol2026/blob/3.0/MDO/Linea%20base%20proteccion%20contra%20BEC.md#protecci%C3%B3n-de-identidad-zero-trust)
 - MFA obligatorio para todos los usuarios
 - MFA resistente a phishing para cuentas críticas
 - Conditional Access basado en riesgo
