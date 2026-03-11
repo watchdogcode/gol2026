@@ -11,7 +11,7 @@
 3. [Usa cuentas nombradas, evitando cuentas compartidas](#3-usa-cuentas-nombradas-evitando-cuentas-compartidas)
 4. [Utilice cuentas solo en la nube para cualquier rol privilegiado](#4-utilice-cuentas-solo-en-la-nube-para-cualquier-rol-privilegiado)
 5. [Requerir autenticación multifactor (MFA) para todas las cuentas privilegiadas](#5-requerir-autenticación-multifactor-mfa-para-todas-las-cuentas-privilegiadas)
-[Resumen Ejecutivo](#resumen-ejecutivo)
+6. [Resumen Ejecutivo](#resumen-ejecutivo)
 
 ---
 
