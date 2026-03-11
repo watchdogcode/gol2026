@@ -11,12 +11,12 @@
 ---
 
 ## Índice
-1. [Introducción](https://github.com/watchdogcode/gol2026/blob/main/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#1-introducci%C3%B3n)
-2. [Reglas básicas de flujo de correo – Microsoft 365](https://github.com/watchdogcode/gol2026/blob/main/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#2-reglas-b%C3%A1sicas-de-flujo-de-correo--microsoft-365)
-3. [RejectDirectSend en Exchange Online](https://github.com/watchdogcode/gol2026/blob/main/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#3-rejectdirectsend-en-exchange-online)
-4. [Estándares SPF, DKIM, DMARC y MTA-STS](https://github.com/watchdogcode/gol2026/blob/main/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#4-est%C3%A1ndares-spf-dkim-dmarc-y-mta-sts)
-5. [Dominios estacionados (Parked Domains)](https://github.com/watchdogcode/gol2026/blob/main/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#5--dominios-estacionados-parked-domains)
-6. [Validación Línea base para mejorar la postura de seguridad en Exchange online](https://github.com/watchdogcode/gol2026/blob/main/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#validaci%C3%B3n-l%C3%ADnea-base-para-mejorar-la-postura-de-seguridad-en-exchange-online)
+1. [Introducción](#1-introducción)
+2. [Reglas básicas de flujo de correo – Microsoft 365](#2-reglas-básicas-de-flujo-de-correo--microsoft-365)
+3. [RejectDirectSend en Exchange Online](#3-rejectdirectsend-en-exchange-online)
+4. [Estándares SPF, DKIM, DMARC y MTA-STS](#4-estándares-spf-dkim-dmarc-y-mta-sts)
+5. [Dominios estacionados (Parked Domains)](#5--dominios-estacionados-parked-domains)
+6. [Validación Línea base para mejorar la postura de seguridad en Exchange online](#validación-línea-base-para-mejorar-la-postura-de-seguridad-en-exchange-online)
 
 
 ---
