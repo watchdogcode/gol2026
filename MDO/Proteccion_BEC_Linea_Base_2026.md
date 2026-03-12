@@ -29,7 +29,7 @@ La mitigación requiere **disciplina + tecnología + procesos**.
 ---
 
 # 1. Autenticación del correo  
-## En conjunto, estos mecanismos protegen la marca, reducen el riesgo de fraude y garantizan que el correo crítico del negocio llegue de forma segura a su destino
+### En conjunto, estos mecanismos protegen la marca, reducen el riesgo de fraude y garantizan que el correo crítico del negocio llegue de forma segura a su destino
 
 ### 1.1 SPF
 ```
@@ -58,7 +58,7 @@ Para mayor detalle consultar [**Estándares SPF, DKIM, DMARC y MTA-STS**](https:
 ---
 
 # 2. Anti‑Phishing – Microsoft Defender for Office 365
-## Esta medida es esencial para bloquear intentos de suplantación altamente específicos y sofisticados, donde el atacante imita a ejecutivos, proveedores o áreas clave para inducir acciones fraudulentas
+### Esta medida es esencial para bloquear intentos de suplantación altamente específicos y sofisticados, donde el atacante imita a ejecutivos, proveedores o áreas clave para inducir acciones fraudulentas
 
 ### Phishing threshold
 **3 – More aggressive**
