@@ -100,8 +100,23 @@ Recomendación:
 - Elimina correos entregados que luego se clasifican como maliciosos
 
 ---
-
 # 4. Protección de identidad (Zero Trust)
+## ✔ MFA obligatorio
+Recomendado usar template: 
+-Categoria: **Secure foundation**
+- Template: **Require multifactor authentication for all users**
+## ✔ MFA resistente a phishing (administradores)
+## ✔ Identity Protection
+Detecta inicios de sesión riesgosos
+
+## ✔ Bloqueo de Autenticación Heredada (Legacy Authentication)
+La autenticación heredada no soporta MFA y es un vector común de ataques de fuerza bruta y password spraying.
+Recomendación:
+- Deshabilitar POP, IMAP, SMTP AUTH, MAPI, EWS sin OAuth.
+- Política de Acceso Condicional: **Block legacy authentication**.
+- Excluir únicamente cuentas break-glass.
+
+
 
 ## ✔ 4.1 MFA obligatorio (todos)
 Template: **Secure foundation**
