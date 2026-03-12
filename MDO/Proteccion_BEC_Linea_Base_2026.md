@@ -189,7 +189,7 @@ La mitigación efectiva de BEC requiere:
 
 ---
 
-Política Anti-Phishing Microsoft Defender for Office 365
+## Política Anti-Phishing Microsoft Defender for Office 365
 
 1. Ir a: https://security.microsoft.com/antiphishing
 2. Haz clic en **Create**
