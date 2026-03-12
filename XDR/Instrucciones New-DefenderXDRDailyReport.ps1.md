@@ -44,6 +44,7 @@ Además incluye:
 Métodos soportados:
 
 - `Secret` (predeterminado)
+- `Certificate`
 - `Interactive`
 - `DeviceCode`
 
@@ -51,6 +52,7 @@ Métodos soportados:
 
 - Si no envías `-AuthMode`, se usa `Secret`.
 - En `Secret`, debes proporcionar `TenantId`, `ClientId` y `ClientSecret` (directos o por variables de entorno).
+- En `Certificate`, debes proporcionar `TenantId`, `ClientId` y certificado por `CertificateThumbprint` o `CertificatePath`.
 - En `DeviceCode` sin módulos, debes proporcionar `TenantId` y `ClientId`.
 
 ---
@@ -64,7 +66,10 @@ Métodos soportados:
 | `TenantId` | String | Tenant ID de Entra ID | `$env:AZURE_TENANT_ID` |
 | `ClientId` | String | App/Client ID | `$env:AZURE_CLIENT_ID` |
 | `ClientSecret` | String | Secreto de la app | `$env:AZURE_CLIENT_SECRET` |
-| `AuthMode` | String | Método de autenticación: `Secret`, `Interactive`, `DeviceCode` | `Secret` |
+| `CertificateThumbprint` | String | Thumbprint del certificado en `CurrentUser/My` o `LocalMachine/My` | `$env:AZURE_CLIENT_CERT_THUMBPRINT` |
+| `CertificatePath` | String | Ruta a certificado `PFX/P12` para autenticación por certificado | `$env:AZURE_CLIENT_CERT_PATH` |
+| `CertificatePassword` | SecureString | Password del PFX (si aplica) | N/A |
+| `AuthMode` | String | Método de autenticación: `Secret`, `Certificate`, `Interactive`, `DeviceCode` | `Secret` |
 | `SendMail` | Bool | Envía reporte por SMTP | `$false` |
 | `SmtpServer` | String | Servidor SMTP | N/A |
 | `From` | String | Remitente de correo | N/A |
@@ -119,7 +124,30 @@ Install-Module Az.Accounts -Scope CurrentUser -Force
 .\New-DefenderXDRDailyReport.ps1 -AuthMode Interactive -TimeWindowHours 48
 ```
 
-### D. Device Code (sin browser local)
+### D. Certificado por Thumbprint
+
+```powershell
+.\New-DefenderXDRDailyReport.ps1 `
+  -AuthMode Certificate `
+  -TenantId "00000000-0000-0000-0000-000000000000" `
+  -ClientId "11111111-1111-1111-1111-111111111111" `
+  -CertificateThumbprint "127DDC6252A52CC38DA4B55006182654024E2DE8"
+```
+
+### E. Certificado por archivo PFX
+
+```powershell
+$CertPassword = Read-Host "Password del PFX" -AsSecureString
+
+.\New-DefenderXDRDailyReport.ps1 `
+  -AuthMode Certificate `
+  -TenantId "00000000-0000-0000-0000-000000000000" `
+  -ClientId "11111111-1111-1111-1111-111111111111" `
+  -CertificatePath "C:\certs\xdr-app-cert.pfx" `
+  -CertificatePassword $CertPassword
+```
+
+### F. Device Code (sin browser local)
 
 ```powershell
 # Recomendado con Az.Accounts:
@@ -131,7 +159,7 @@ Install-Module Az.Accounts -Scope CurrentUser -Force
   -ClientId "11111111-1111-1111-1111-111111111111"
 ```
 
-### E. Envío por correo SMTP
+### G. Envío por correo SMTP
 
 ```powershell
 .\New-DefenderXDRDailyReport.ps1 `
@@ -211,6 +239,16 @@ La consulta KQL mostrada en cada sección es la del día: `(Get-Date).DayOfYear 
 - **Sin sesión Azure en Interactive/DeviceCode**
   - Instalar `Az.Accounts` o usar `DeviceCode` fallback REST con `TenantId` y `ClientId`.
 
+- **Fallo en autenticación Certificate**
+  - Verificar que el certificado tenga **clave privada RSA** y sea accesible por el usuario que ejecuta el script.
+  - Verificar que `TenantId` y `ClientId` correspondan al App Registration correcto.
+  - Si usas `CertificateThumbprint`, confirmar que exista en `CurrentUser/My` o `LocalMachine/My`.
+
+- **AADSTS700027 / invalid_client (key was not found)**
+  - Cargar el certificado público (`.cer`) del mismo certificado usado para firmar en: Entra ID → App registrations → tu app → Certificates & secrets.
+  - Validar que el thumbprint del certificado cargado coincida con el que reporta el error.
+  - Esperar propagación de claves (1-5 minutos) y reintentar.
+
 - **Consultas vacías / sin datos**
   - Ajustar `-TimeWindowHours` (ej. `24`, `72`, `168`, `720` según necesidad).
 
@@ -229,9 +267,21 @@ La consulta KQL mostrada en cada sección es la del día: `(Get-Date).DayOfYear 
 
 ```powershell
 .\New-DefenderXDRDailyReport.ps1 `
+  -AuthMode Secret `
   -TenantId $env:AZURE_TENANT_ID `
   -ClientId $env:AZURE_CLIENT_ID `
   -ClientSecret $env:AZURE_CLIENT_SECRET `
+  -TimeWindowHours 24
+```
+
+Alternativa por certificado (sin secret):
+
+```powershell
+.\New-DefenderXDRDailyReport.ps1 `
+  -AuthMode Certificate `
+  -TenantId $env:AZURE_TENANT_ID `
+  -ClientId $env:AZURE_CLIENT_ID `
+  -CertificateThumbprint $env:AZURE_CLIENT_CERT_THUMBPRINT `
   -TimeWindowHours 24
 ```
 

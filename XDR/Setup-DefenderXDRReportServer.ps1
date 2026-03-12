@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Setup-DefenderReportServer.ps1
+    Setup-DefenderXDRReportServer.ps1
     Script de configuracion inicial para Defender XDR Daily & Weekly Reporting.
 
 .DESCRIPTION
@@ -10,7 +10,7 @@
 
     Acciones que realiza:
       1. Crea estructura de directorios segura
-      2. Solicita y almacena credenciales (DPAPI-encrypted)
+            2. Solicita y almacena credenciales (secret en DPAPI o certificado por thumbprint)
       3. Valida permisos de App Registration contra la API
       4. Copia los scripts a la ruta de ejecucion
       5. Configura notificaciones por correo (opcional)
@@ -37,9 +37,9 @@
     Omite la configuracion de notificaciones por correo.
 
 .EXAMPLE
-    .\Setup-DefenderReportServer.ps1
-    .\Setup-DefenderReportServer.ps1 -SkipScheduledTasks
-    .\Setup-DefenderReportServer.ps1 -SkipEmail -SkipValidation
+    .\Setup-DefenderXDRReportServer.ps1
+    .\Setup-DefenderXDRReportServer.ps1 -SkipScheduledTasks
+    .\Setup-DefenderXDRReportServer.ps1 -SkipEmail -SkipValidation
 
 .NOTES
     Debe ejecutarse con la cuenta de servicio que ejecutara los reportes programados.
@@ -92,6 +92,92 @@ function Write-Fail {
 function Write-Info {
     param([string]$Message)
     Write-Host "  $Message" -ForegroundColor Cyan
+}
+
+function ConvertTo-Base64Url {
+    param([byte[]]$Bytes)
+    $B64 = [Convert]::ToBase64String($Bytes)
+    $B64 = $B64.TrimEnd('=')
+    $B64 = $B64.Replace('+', '-').Replace('/', '_')
+    return $B64
+}
+
+function Get-CertificateByThumbprint {
+    param([Parameter(Mandatory)][string]$Thumbprint)
+
+    $NormalizedThumb = ($Thumbprint -replace '\s','').ToUpperInvariant()
+    foreach ($StoreLocation in @('CurrentUser', 'LocalMachine')) {
+        $Store = [System.Security.Cryptography.X509Certificates.X509Store]::new('My', $StoreLocation)
+        try {
+            $Store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadOnly)
+            $Found = $Store.Certificates | Where-Object { $_.Thumbprint -eq $NormalizedThumb } | Select-Object -First 1
+            if ($Found) { return $Found }
+        }
+        finally {
+            $Store.Close()
+        }
+    }
+
+    return $null
+}
+
+function New-ClientAssertionJwt {
+    param(
+        [Parameter(Mandatory)][System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+        [Parameter(Mandatory)][string]$ClientId,
+        [Parameter(Mandatory)][string]$TenantId
+    )
+
+    if (-not $Certificate.HasPrivateKey) {
+        throw "El certificado no contiene clave privada."
+    }
+
+    $Rsa = $null
+    try {
+        $Rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($Certificate)
+    }
+    catch {
+        $Rsa = $null
+    }
+
+    if (-not $Rsa -and $Certificate.PrivateKey -is [System.Security.Cryptography.RSA]) {
+        $Rsa = [System.Security.Cryptography.RSA]$Certificate.PrivateKey
+    }
+
+    if (-not $Rsa) {
+        throw "No se pudo obtener la clave privada RSA del certificado."
+    }
+
+    $Now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    $Audience = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
+
+    $Header = @{
+        alg = 'RS256'
+        typ = 'JWT'
+        x5t = (ConvertTo-Base64Url -Bytes $Certificate.GetCertHash())
+    }
+    $Payload = @{
+        aud = $Audience
+        iss = $ClientId
+        sub = $ClientId
+        jti = ([Guid]::NewGuid().ToString())
+        nbf = $Now - 300
+        exp = $Now + 600
+    }
+
+    $HeaderJson = ($Header | ConvertTo-Json -Compress)
+    $PayloadJson = ($Payload | ConvertTo-Json -Compress)
+    $EncodedHeader = ConvertTo-Base64Url -Bytes ([Text.Encoding]::UTF8.GetBytes($HeaderJson))
+    $EncodedPayload = ConvertTo-Base64Url -Bytes ([Text.Encoding]::UTF8.GetBytes($PayloadJson))
+    $UnsignedToken = "$EncodedHeader.$EncodedPayload"
+
+    $SignatureBytes = $Rsa.SignData(
+        [Text.Encoding]::UTF8.GetBytes($UnsignedToken),
+        [System.Security.Cryptography.HashAlgorithmName]::SHA256,
+        [System.Security.Cryptography.RSASignaturePadding]::Pkcs1
+    )
+    $EncodedSignature = ConvertTo-Base64Url -Bytes $SignatureBytes
+    return "$UnsignedToken.$EncodedSignature"
 }
 
 # ============================================================
@@ -166,7 +252,7 @@ $ClientId = Read-Host "  Ingrese Client ID (App Registration)"
 Write-Host ""
 Write-Info "Metodos de autenticacion disponibles:"
 Write-Host "    1. Client Secret  (Recomendado para ejecucion automatizada via Task Scheduler)" -ForegroundColor White
-Write-Host "    2. Certificado    (Recomendado para alta seguridad, soportado solo por Weekly)" -ForegroundColor White
+Write-Host "    2. Certificado    (Recomendado para alta seguridad, soportado por Daily y Weekly)" -ForegroundColor White
 Write-Host "    3. Device Code    (Para testing manual o servidores sin browser)" -ForegroundColor White
 Write-Host "    4. Interactivo    (Login browser popup, solo para ejecucion manual)" -ForegroundColor White
 Write-Host "    5. Saltar         (Configurare las credenciales despues)" -ForegroundColor White
@@ -200,46 +286,21 @@ if ($AuthChoice -eq "1") {
 }
 elseif ($AuthChoice -eq "2") {
     Write-Info "Configurando autenticacion por Certificado..."
-    $CertThumbprint = Read-Host "  Ingrese la huella digital (Thumbprint) del certificado"
+    $CertThumbprint = ((Read-Host "  Ingrese la huella digital (Thumbprint) del certificado") -replace '\s','').ToUpperInvariant()
 
-    # Validar que el certificado existe en el almacen del usuario
-    $CertFound = Get-ChildItem Cert:\CurrentUser\My | Where-Object Thumbprint -eq $CertThumbprint
-    if ($CertFound) {
-        Write-Ok "Certificado encontrado: $($CertFound.Subject) (Expira: $($CertFound.NotAfter.ToString('yyyy-MM-dd')))"
-        if ($CertFound.NotAfter -lt (Get-Date).AddDays(30)) {
-            Write-Fail "ADVERTENCIA: El certificado expira en menos de 30 dias"
-        }
+    # Validar que el certificado existe en CurrentUser/My o LocalMachine/My
+    $CertFound = Get-CertificateByThumbprint -Thumbprint $CertThumbprint
+    if (-not $CertFound) {
+        throw "Certificado no encontrado. Verifique thumbprint y almacén (CurrentUser/My o LocalMachine/My)."
     }
-    else {
-        $CertFound = Get-ChildItem Cert:\LocalMachine\My -ErrorAction SilentlyContinue | Where-Object Thumbprint -eq $CertThumbprint
-        if ($CertFound) {
-            Write-Ok "Certificado encontrado en LocalMachine: $($CertFound.Subject)"
-        }
-        else {
-            Write-Fail "Certificado no encontrado en el almacen. Verifique el thumbprint."
-            Write-Host "    El certificado debe estar en Cert:\CurrentUser\My o Cert:\LocalMachine\My" -ForegroundColor DarkYellow
-        }
+
+    Write-Ok "Certificado encontrado: $($CertFound.Subject) (Expira: $($CertFound.NotAfter.ToString('yyyy-MM-dd')))"
+    if ($CertFound.NotAfter -lt (Get-Date).AddDays(30)) {
+        Write-Fail "ADVERTENCIA: El certificado expira en menos de 30 dias"
     }
 
     $AuthMode       = "Certificate"
     $UseCertificate = $true
-
-    Write-Host ""
-    Write-Host "  NOTA: El modo Certificate solo es soportado por el reporte semanal." -ForegroundColor DarkYellow
-    Write-Host "    El reporte diario se ejecutara con DeviceCode o requiere Client Secret." -ForegroundColor DarkYellow
-
-    $DailyAuthFallback = Read-Host "  Desea configurar tambien Client Secret para el reporte diario? [S/n]"
-    if ($DailyAuthFallback -notin @("n", "N")) {
-        $SecretInput = Read-Host "  Ingrese Client Secret" -AsSecureString
-        $SecretInput | ConvertFrom-SecureString | Out-File $SecretFile -Force
-
-        $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecretInput)
-        $PlainSecretForValidation = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
-        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
-
-        Write-Ok "Secret para reporte diario guardado en: $SecretFile"
-        $UseSecret = $true
-    }
 }
 elseif ($AuthChoice -eq "3") {
     $AuthMode = "DeviceCode"
@@ -275,11 +336,8 @@ Write-Host "    Auth Mode   : $AuthMode" -ForegroundColor White
 Write-Step "3/9" "Guardando configuracion..."
 
 # Determinar AuthMode efectivo para cada script
-# Daily: soporta Secret, Interactive, DeviceCode (NO Certificate)
-# Weekly: soporta Secret, Interactive, DeviceCode, Certificate
-$DailyAuthMode = if ($AuthMode -eq "Certificate") {
-    if ($UseSecret) { "Secret" } else { "DeviceCode" }
-} else { $AuthMode }
+# Daily y Weekly soportan Secret, Interactive, DeviceCode y Certificate.
+$DailyAuthMode = $AuthMode
 
 $WeeklyAuthMode = $AuthMode
 
@@ -330,6 +388,7 @@ else {
 
             $AuthUri = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
             $TokenResponse = $null
+            $AccessToken = $null
 
             if ($UseSecret -and $PlainSecretForValidation) {
                 # Validar con Client Secret
@@ -343,19 +402,22 @@ else {
                 Write-Ok "Autenticacion con Client Secret exitosa (token expira en $($TokenResponse.expires_in)s)"
             }
             elseif ($UseCertificate -and $CertThumbprint) {
-                # Validar con Certificado (requiere MSAL.PS o Az.Accounts)
-                if (Get-Module -ListAvailable -Name "Az.Accounts") {
-                    Connect-AzAccount -ServicePrincipal -TenantId $TenantId -ApplicationId $ClientId `
-                        -CertificateThumbprint $CertThumbprint -ErrorAction Stop | Out-Null
-                    $TokenData = Get-AzAccessToken -ResourceUrl "https://api.security.microsoft.com" -ErrorAction Stop
-                    $AccessToken = if ($TokenData.Token -is [System.Security.SecureString]) {
-                        $TokenData.Token | ConvertFrom-SecureString -AsPlainText
-                    } else { $TokenData.Token }
-                    Write-Ok "Autenticacion con Certificado exitosa"
+                # Validar con Certificado usando client_assertion (misma estrategia que scripts de reporte)
+                $Cert = Get-CertificateByThumbprint -Thumbprint $CertThumbprint
+                if (-not $Cert) {
+                    throw "Certificado no encontrado para validacion. Thumbprint: $CertThumbprint"
                 }
-                else {
-                    Write-Skip "Validacion de certificado requiere Az.Accounts. Instale con: Install-Module Az.Accounts"
+
+                $ClientAssertion = New-ClientAssertionJwt -Certificate $Cert -ClientId $ClientId -TenantId $TenantId
+                $Body = @{
+                    grant_type            = 'client_credentials'
+                    client_id             = $ClientId
+                    scope                 = 'https://api.security.microsoft.com/.default'
+                    client_assertion_type = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
+                    client_assertion      = $ClientAssertion
                 }
+                $TokenResponse = Invoke-RestMethod -Method Post -Uri $AuthUri -Body $Body -ErrorAction Stop
+                Write-Ok "Autenticacion con Certificado exitosa"
             }
 
             # Test Advanced Hunting (si se obtuvo token)
@@ -378,6 +440,10 @@ else {
         }
         catch {
             Write-Fail "Error en validacion: $($_.Exception.Message)"
+            if ($_.ErrorDetails.Message -match 'AADSTS700027') {
+                Write-Host "    AADSTS700027: El certificado no esta registrado en la App Registration." -ForegroundColor DarkYellow
+                Write-Host "    Cargue el .cer en Entra ID > App registrations > Certificates & secrets." -ForegroundColor DarkYellow
+            }
             Write-Host "    Verifique que la App Registration tenga:" -ForegroundColor DarkYellow
             Write-Host "      - Permiso: AdvancedHunting.Read.All (Application)" -ForegroundColor DarkYellow
             Write-Host "      - Admin Consent otorgado en el tenant" -ForegroundColor DarkYellow
@@ -486,7 +552,7 @@ if (-not (Test-Path `$ConfigFile)) { Write-Error "Config no encontrado: `$Config
 `$OutputDir = Join-Path `$Config.ReportsPath "Daily"
 if (-not (Test-Path `$OutputDir)) { New-Item -ItemType Directory -Path `$OutputDir -Force | Out-Null }
 
-# Determinar AuthMode para el Daily (no soporta Certificate)
+# Determinar AuthMode para el Daily
 `$DailyAuth = `$Config.DailyAuthMode
 if (-not `$DailyAuth) { `$DailyAuth = `$Config.AuthMode }
 
@@ -520,6 +586,10 @@ if ((`$DailyAuth -eq "Secret") -and `$Config.SecretFile) {
 }
 
 if (`$ClientSecretPlain) { `$Params['ClientSecret'] = `$ClientSecretPlain }
+
+if (`$DailyAuth -eq "Certificate" -and `$Config.CertThumbprint) {
+    `$Params['CertificateThumbprint'] = `$Config.CertThumbprint
+}
 
 # Agregar parametros de correo si estan configurados
 if (`$Config.SendMail -eq `$true -and `$Config.SmtpServer) {
@@ -783,7 +853,7 @@ if ($UseSecret) {
     Write-Host "    Secret (DPAPI): $SecretFile  (usuario: $env:USERNAME)"
 }
 if ($UseCertificate) {
-    Write-Host "    Certificado  : $CertThumbprint (LocalMachine\My)"
+    Write-Host "    Certificado  : $CertThumbprint (CurrentUser/My o LocalMachine/My)"
 }
 
 Write-Host "`n  Autenticacion:" -ForegroundColor Yellow

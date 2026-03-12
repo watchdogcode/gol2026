@@ -8,14 +8,39 @@
     consultas de hunting diarias y genera un reporte ejecutivo profesional en HTML.
 
 .PARAMETER TimeWindowHours
-    Ventana de tiempo en horas para el análisis (Por defecto: 24).
+    Ventana de tiempo en horas para el análisis (Por defecto: 720).
 
 .PARAMETER OutputPath
     Ruta completa para el archivo HTML de salida.
 
+.PARAMETER TenantId
+    Tenant ID de Entra ID. Toma por defecto $env:AZURE_TENANT_ID.
+
+.PARAMETER ClientId
+    App/Client ID de la aplicación registrada. Toma por defecto $env:AZURE_CLIENT_ID.
+
+.PARAMETER ClientSecret
+    Secreto de la aplicación para AuthMode Secret. Toma por defecto $env:AZURE_CLIENT_SECRET.
+
 .PARAMETER AuthMode
-    Método de autenticación: 'Secret', 'Interactive', 'DeviceCode'.
-    Para 'Secret', asegúrese de configurar $ClientId, $TenantId y $ClientSecret (o variables de entorno).
+    Método de autenticación: 'Secret', 'Certificate', 'Interactive', 'DeviceCode'.
+    Para 'Secret', configure $ClientId, $TenantId y $ClientSecret.
+    Para 'Certificate', configure $ClientId, $TenantId y el certificado por thumbprint o ruta PFX.
+
+.PARAMETER CertificateThumbprint
+    Thumbprint del certificado en CurrentUser/My o LocalMachine/My.
+
+.PARAMETER CertificatePath
+    Ruta a archivo PFX/P12 para autenticación por certificado.
+
+.PARAMETER CertificatePassword
+    Password SecureString para abrir CertificatePath (opcional si el PFX no tiene password).
+
+.PARAMETER TimeoutSec
+    Timeout por consulta a la API (segundos). Por defecto: 120.
+
+.PARAMETER FailFast
+    Si es $true, detiene ejecución ante el primer error de consulta.
 
 .PARAMETER IncludeMDO
     Incluir secciones de Microsoft Defender for Office 365. Si no se especifica ningún producto, se incluyen todos.
@@ -31,7 +56,16 @@
 
 .EXAMPLE
     .\New-DefenderXDRDailyReport.ps1
-    Ejecuta el reporte con todos los productos habilitados.
+    Ejecuta el reporte con AuthMode Secret (default) y todos los productos habilitados.
+
+.EXAMPLE
+    .\New-DefenderXDRDailyReport.ps1 -AuthMode Certificate -TenantId "<tenant>" -ClientId "<appId>" -CertificateThumbprint "<thumbprint>"
+    Ejecuta el reporte usando autenticación por certificado desde el store de certificados.
+
+.EXAMPLE
+    $pwd = Read-Host "Password del PFX" -AsSecureString
+    .\New-DefenderXDRDailyReport.ps1 -AuthMode Certificate -TenantId "<tenant>" -ClientId "<appId>" -CertificatePath "C:\certs\app.pfx" -CertificatePassword $pwd
+    Ejecuta el reporte usando un certificado PFX.
 
 .EXAMPLE
     .\New-DefenderXDRDailyReport.ps1 -IncludeMDO -IncludeMDE
@@ -52,7 +86,10 @@ param(
     [string]$TenantId = $env:AZURE_TENANT_ID,
     [string]$ClientId = $env:AZURE_CLIENT_ID,
     [string]$ClientSecret = $env:AZURE_CLIENT_SECRET,
-    [ValidateSet("Secret", "Interactive", "DeviceCode")]
+    [string]$CertificateThumbprint = $env:AZURE_CLIENT_CERT_THUMBPRINT,
+    [string]$CertificatePath = $env:AZURE_CLIENT_CERT_PATH,
+    [System.Security.SecureString]$CertificatePassword,
+    [ValidateSet("Secret", "Certificate", "Interactive", "DeviceCode")]
     [string]$AuthMode = "Secret",
     [bool]$SendMail = $false,
     [string]$SmtpServer,
@@ -240,6 +277,8 @@ function Mask-String {
 $MaskedTenantId  = Mask-String $TenantId
 $MaskedClientId  = Mask-String $ClientId
 $MaskedSecret    = if ($ClientSecret) { '********' } else { '(no configurado)' }
+$MaskedCertThumb = if ($CertificateThumbprint) { Mask-String $CertificateThumbprint 6 } else { '(no configurado)' }
+$MaskedCertPath  = if ($CertificatePath) { $CertificatePath } else { '(no configurado)' }
 
 # --- FUNCIÓN DE REGISTRO (LOG) ---
 function Write-Log {
@@ -253,10 +292,127 @@ Write-Log "=== Contexto de Seguridad ==="
 Write-Log "  Tenant ID   : $MaskedTenantId"
 Write-Log "  Client ID   : $MaskedClientId"
 Write-Log "  Secret      : $MaskedSecret"
+Write-Log "  Cert Thumb  : $MaskedCertThumb"
+Write-Log "  Cert Path   : $MaskedCertPath"
 Write-Log "  Auth Mode   : $AuthMode"
 Write-Log "=============================="
 
 # --- AUTENTICACIÓN ---
+function ConvertTo-Base64Url {
+    param([byte[]]$Bytes)
+
+    $B64 = [Convert]::ToBase64String($Bytes)
+    $B64 = $B64.TrimEnd('=')
+    $B64 = $B64.Replace('+', '-').Replace('/', '_')
+    return $B64
+}
+
+function Get-CertificateForAuth {
+    if ($CertificatePath) {
+        if (-not (Test-Path $CertificatePath)) {
+            throw "No se encontró el certificado en ruta: $CertificatePath"
+        }
+
+        if ($CertificatePassword) {
+            return [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
+                $CertificatePath,
+                $CertificatePassword,
+                [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable
+            )
+        }
+
+        return [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
+            $CertificatePath,
+            $null,
+            [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable
+        )
+    }
+
+    if (-not $CertificateThumbprint) {
+        throw "Para AuthMode 'Certificate', especifique -CertificateThumbprint o -CertificatePath."
+    }
+
+    $NormalizedThumb = ($CertificateThumbprint -replace '\s','').ToUpperInvariant()
+    foreach ($StoreLocation in @('CurrentUser', 'LocalMachine')) {
+        $Store = [System.Security.Cryptography.X509Certificates.X509Store]::new('My', $StoreLocation)
+        try {
+            $Store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadOnly)
+            $Found = $Store.Certificates | Where-Object { $_.Thumbprint -eq $NormalizedThumb } | Select-Object -First 1
+            if ($Found) {
+                return $Found
+            }
+        }
+        finally {
+            $Store.Close()
+        }
+    }
+
+    throw "No se encontró un certificado con thumbprint '$CertificateThumbprint' en CurrentUser/My o LocalMachine/My."
+}
+
+function New-ClientAssertionJwt {
+    param(
+        [Parameter(Mandatory)][System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+        [Parameter(Mandatory)][string]$ClientId,
+        [Parameter(Mandatory)][string]$TenantId
+    )
+
+    if (-not $Certificate.HasPrivateKey) {
+        throw "El certificado no contiene clave privada."
+    }
+
+    $Rsa = $null
+    try {
+        # Compatibilidad amplia: en algunos hosts GetRSAPrivateKey no está disponible como método de instancia.
+        $Rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($Certificate)
+    }
+    catch {
+        $Rsa = $null
+    }
+
+    if (-not $Rsa -and $Certificate.PrivateKey -is [System.Security.Cryptography.RSA]) {
+        $Rsa = [System.Security.Cryptography.RSA]$Certificate.PrivateKey
+    }
+
+    if (-not $Rsa) {
+        throw "No se pudo obtener la clave privada RSA del certificado. Verifique que tenga clave privada exportable y algoritmo RSA."
+    }
+
+    $Now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    $Audience = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
+
+    $Header = @{
+        alg = 'RS256'
+        typ = 'JWT'
+        x5t = (ConvertTo-Base64Url -Bytes $Certificate.GetCertHash())
+    }
+
+    $Payload = @{
+        aud = $Audience
+        iss = $ClientId
+        sub = $ClientId
+        jti = ([Guid]::NewGuid().ToString())
+        nbf = $Now - 300
+        exp = $Now + 600
+    }
+
+    $HeaderJson = ($Header | ConvertTo-Json -Compress)
+    $PayloadJson = ($Payload | ConvertTo-Json -Compress)
+
+    $EncodedHeader = ConvertTo-Base64Url -Bytes ([Text.Encoding]::UTF8.GetBytes($HeaderJson))
+    $EncodedPayload = ConvertTo-Base64Url -Bytes ([Text.Encoding]::UTF8.GetBytes($PayloadJson))
+    $UnsignedToken = "$EncodedHeader.$EncodedPayload"
+
+    $SignatureBytes = $Rsa.SignData(
+        [Text.Encoding]::UTF8.GetBytes($UnsignedToken),
+        [System.Security.Cryptography.HashAlgorithmName]::SHA256,
+        [System.Security.Cryptography.RSASignaturePadding]::Pkcs1
+    )
+    $EncodedSignature = ConvertTo-Base64Url -Bytes $SignatureBytes
+
+    return "$UnsignedToken.$EncodedSignature"
+}
+
 function Get-M365Token {
     Write-Log "Obteniendo Token de Acceso vía $AuthMode..."
     
@@ -271,6 +427,26 @@ function Get-M365Token {
                 client_secret = $ClientSecret
                 scope         = "$ResourceUrl/.default"
             }
+            $TokenReq = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token" -Body $Body -ErrorAction Stop
+            return $TokenReq.access_token
+        }
+        elseif ($AuthMode -eq "Certificate") {
+            if (-not ($TenantId -and $ClientId)) {
+                throw "Para autenticación 'Certificate', se requieren TenantId y ClientId."
+            }
+
+            $Cert = Get-CertificateForAuth
+            Write-Log "Usando certificado '$($Cert.Subject)' (thumbprint: $($Cert.Thumbprint)) para autenticación por certificado."
+
+            $ClientAssertion = New-ClientAssertionJwt -Certificate $Cert -ClientId $ClientId -TenantId $TenantId
+            $Body = @{
+                grant_type            = 'client_credentials'
+                client_id             = $ClientId
+                scope                 = "$ResourceUrl/.default"
+                client_assertion_type = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
+                client_assertion      = $ClientAssertion
+            }
+
             $TokenReq = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token" -Body $Body -ErrorAction Stop
             return $TokenReq.access_token
         }
@@ -356,7 +532,25 @@ function Get-M365Token {
         }
     }
     catch {
-        Write-Log "Error de Autenticación: $_" -Level ERROR
+        $RawMessage = $_.Exception.Message
+        $ErrorJson = $null
+        try { $ErrorJson = $_.ErrorDetails.Message | ConvertFrom-Json } catch {}
+
+        if ($ErrorJson -and $ErrorJson.error_codes -contains 700027) {
+            Write-Log "Error de Autenticación (AADSTS700027): certificado no registrado en la aplicación." -Level ERROR
+            Write-Log "AppId objetivo: $ClientId" -Level ERROR
+            Write-Log "Acción requerida: cargue el certificado público (.cer) del mismo certificado usado para firmar en Entra ID > App registrations > Certificates & secrets." -Level ERROR
+            Write-Log "Verifique que TenantId/AppId coincidan con el registro donde cargó el certificado y espere la propagación de claves (1-5 min)." -Level ERROR
+
+            if ($ErrorJson.error_description -match "Thumbprint of key used by client:\s*'([^']+)'") {
+                Write-Log "Thumbprint enviado por el cliente: $($Matches[1])" -Level ERROR
+            }
+
+            Write-Log $ErrorJson.error_description -Level ERROR
+        }
+        else {
+            Write-Log "Error de Autenticación: $RawMessage" -Level ERROR
+        }
         throw $_
     }
 }

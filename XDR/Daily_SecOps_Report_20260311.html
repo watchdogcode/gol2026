@@ -254,7 +254,7 @@
             <div class="subtitle">Technology enables security, but discipline makes it effective</div>
         </div>
         <div class="meta">
-            <div><strong>Período:</strong> 2026-02-09 22:48 - 2026-03-11 22:48</div>
+            <div><strong>Período:</strong> 2026-02-09 23:21 - 2026-03-11 23:21</div>
             <div style="font-size: 0.85em; margin-top: 4px;">Tenant ID: ********************************8c2b</div>
         </div>
     </div>
@@ -316,24 +316,22 @@
         <div class="ops-group" style="margin-top: 20px;">
             <div class="ops-group-header mdo">
                 <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDO
-                <span class="ops-badge daily">#24 de 31</span>
+                <span class="ops-badge daily">#10 de 31</span>
             </div>
             <div style="padding: 20px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <span style="background:#e6f2ff; color:#0078d4; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Detección de Anomalías & Comportamiento</span>
+                    <span style="background:#e6f2ff; color:#0078d4; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Phishing, BEC & Ingeniería Social</span>
                 </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Clics desde Ubicaciones Atípicas</h3>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Spear-phishing a VIPs</h3>
                 <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let Lookback = 14d;
-let baseline = UrlClickEvents
-  | where Timestamp between (ago(60d) .. ago(Lookback))
-  | summarize BaselineCountries=make_set(RecipientCountry) by RecipientEmailAddress;
-UrlClickEvents
+let vip_list = dynamic(["ceo@contoso.com","cfo@contoso.com","board.alias@contoso.com"]);
+EmailEvents
 | where Timestamp > ago(Lookback)
-| join kind=leftouter baseline on RecipientEmailAddress
-| extend Known=set_has_element(BaselineCountries, RecipientCountry)
-| where Known == false
-| summarize Clicks=count() by RecipientEmailAddress, RecipientCountry
-| order by Clicks desc</div>
+| where RecipientEmailAddress in (vip_list)
+| where DeliveryLocation in ("Inbox","Folder","JunkFolder")
+| extend AuthFail = not( AuthenticationDetails has "dmarc=pass" and AuthenticationDetails has "spf=pass" )
+| summarize Total=count(), DistinctSenders=dcount(SenderFromAddress), WithAuthIssues=countif(AuthFail), HighConfidencePhish=countif(ThreatTypes has "Phish" and DetectionMethods has "ZAP" or DetectionMethods has "PhishFilter") by RecipientEmailAddress
+| order by HighConfidencePhish desc, WithAuthIssues desc</div>
                 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
                     <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
                     <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/3.0/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md" target="_blank">&#x1f4d6; Ver Catálogo Completo (28 KQL)</a>
@@ -357,20 +355,19 @@ UrlClickEvents
         <div class="ops-group" style="margin-top: 20px;">
             <div class="ops-group-header mde">
                 <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDE
-                <span class="ops-badge daily">#3 de 12</span>
+                <span class="ops-badge daily">#11 de 12</span>
             </div>
             <div style="padding: 20px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <span style="background:#fce4ec; color:#d83b01; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Procesos Sospechosos</span>
+                    <span style="background:#fce4ec; color:#d83b01; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Vulnerabilidades</span>
                 </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Ejecución de LOLBins (Living Off The Land)</h3>
-                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let TimeRange = 7d;
-let lolbins = dynamic(["certutil.exe","mshta.exe","regsvr32.exe","rundll32.exe","wscript.exe","cscript.exe","msiexec.exe","bitsadmin.exe","forfiles.exe","pcalua.exe"]);
-DeviceProcessEvents
-| where Timestamp >= ago(TimeRange)
-| where FileName in~ (lolbins)
-| summarize Count=count(), Devices=dcount(DeviceName), Users=dcount(AccountName) by FileName, FolderPath
-| order by Count desc</div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Top CVEs Críticos Explotables</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">DeviceTvmSoftwareVulnerabilities
+| where VulnerabilitySeverityLevel == "Critical"
+| where IsExploitAvailable == true
+| summarize AffectedDevices=dcount(DeviceName), Software=make_set(SoftwareName, 10) by CveId
+| order by AffectedDevices desc
+| take 20</div>
                 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
                     <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
                 </div>
@@ -422,19 +419,21 @@ DeviceProcessEvents
         <div class="ops-group" style="margin-top: 20px;">
             <div class="ops-group-header mdi">
                 <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDI
-                <span class="ops-badge daily">#9 de 11</span>
+                <span class="ops-badge daily">#11 de 11</span>
             </div>
             <div style="padding: 20px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <span style="background:#fff3e0; color:#e97a00; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Cambios de UPN sospechosos</span>
+                    <span style="background:#fff3e0; color:#e97a00; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">DNS tunneling / exfiltración</span>
                 </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Cambios de UPN sospechosos</h3>
-                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let TimeRange = 7d;
-IdentityDirectoryEvents
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">DNS tunneling / exfiltración</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let TimeRange = 1d;
+DeviceNetworkEvents
 | where Timestamp >= ago(TimeRange)
-| where ActionType has_any ("UPN", "User principal name", "UserPrincipalName")
-| project Timestamp, AccountUpn, TargetAccountUpn, ActionType, AdditionalFields, DeviceName
-| order by Timestamp desc</div>
+| where RemotePort == 53
+| summarize DNSQueries = count(), DistinctDomains = dcount(RemoteUrl)
+    by DeviceName, InitiatingProcessAccountName
+| where DNSQueries > 1000 or DistinctDomains > 500
+| order by DNSQueries desc</div>
                 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
                     <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
                     <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md" target="_blank">&#x1f4d6; Ver Catálogo Completo (11 KQL)</a>
@@ -471,17 +470,24 @@ IdentityDirectoryEvents
         <div class="ops-group" style="margin-top: 20px;">
             <div class="ops-group-header entra">
                 <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – Entra ID
-                <span class="ops-badge daily">#32 de 40</span>
+                <span class="ops-badge daily">#29 de 40</span>
             </div>
             <div style="padding: 20px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
                     <span style="background:#e8f5e9; color:#107c10; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Investigación – Correlaciones útiles (Entra ↔ Graph ↔ UEBA)</span>
                 </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">"New country" (1.11) → enriquecer con UEBA (BehaviorAnalytics)</h3>
-                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">BehaviorAnalytics
-| where ActivityType == "FailedLogOn"
-| where ActivityInsights.FirstTimeUserConnectedFromCountry == True
-| where ActivityInsights.CountryUncommonlyConnectedFromAmongPeers == True</div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Sign-ins de alto riesgo → actividad Graph en ±30 min</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let Lookback = 7d;
+let PivotWindow = 30m;
+let risky = EntraIdSignInEvents
+| where Timestamp >= ago(Lookback)
+| where RiskLevelAggregated in (50,100) or RiskState in (4,5)
+| project SignInTime=Timestamp, AccountUpn, AccountObjectId, IPAddress, Country, Application, CorrelationId;
+GraphApiAuditEvents
+| join kind=inner (risky) on AccountObjectId
+| where Timestamp between (SignInTime - PivotWindow .. SignInTime + PivotWindow)
+| project SignInTime, Timestamp, AccountUpn, ApplicationId, IPAddress, RequestMethod, RequestUri, Scopes, ResponseStatusCode
+| order by SignInTime desc, Timestamp desc</div>
                 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
                     <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
                     <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Paquete%20KQL%20Queries%20EntraID%20Advanced%20Hunting.md" target="_blank">&#x1f4d6; Ver Catálogo Completo (26 KQL)</a>
@@ -506,24 +512,20 @@ IdentityDirectoryEvents
         <div class="ops-group" style="margin-top: 20px;">
             <div class="ops-group-header mda">
                 <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDA
-                <span class="ops-badge daily">#4 de 10</span>
+                <span class="ops-badge daily">#7 de 10</span>
             </div>
             <div style="padding: 20px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <span style="background:#ede7f6; color:#8764b8; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Shadow IT</span>
+                    <span style="background:#ede7f6; color:#8764b8; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Descarga y Exfiltración</span>
                 </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Aplicaciones Nuevas (Primera Vez Vistas en 7d)</h3>
-                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let Lookback = 7d;
-let Baseline = 60d;
-let recent = CloudAppEvents
-| where Timestamp >= ago(Lookback)
-| summarize FirstSeen=min(Timestamp), Events=count() by Application;
-let historical = CloudAppEvents
-| where Timestamp between (ago(Baseline) .. ago(Lookback))
-| summarize PrevEvents=count() by Application;
-recent
-| join kind=leftanti historical on Application
-| order by Events desc</div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Descargas Masivas desde Cloud Apps</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let TimeRange = 7d;
+CloudAppEvents
+| where Timestamp >= ago(TimeRange)
+| where ActionType has_any ("Download","FileDownloaded","Export")
+| summarize Downloads=count(), Apps=dcount(Application) by AccountDisplayName, AccountObjectId
+| where Downloads > 50
+| order by Downloads desc</div>
                 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
                     <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
                 </div>
