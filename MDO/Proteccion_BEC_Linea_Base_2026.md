@@ -39,17 +39,18 @@ v=spf1 include:spf.protection.outlook.com -all
 ## ✔ 1.2 DKIM
 Habilitado obligatoriamente en todos los dominios.
 ```
-selector1._domainkey.tudominio.com`  | selector1-tudominio-com._domainkey.tutenant.onmicrosoft.com
+selector1._domainkey.tudominio.com  | selector1-tudominio-com._domainkey.tutenant.onmicrosoft.com
+selector2._domainkey.tudominio.com  | selector2-tudominio-com._domainkey.tutenant.onmicrosoft.com
 ```
 
 ## ✔ 1.3 DMARC
 Mínimo aceptable:
 ```
-v=DMARC1; p=quarantine; pct=100; aspf=s; adkim=s; fo=1
+v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc-reports@tudominio.com; ruf=mailto:dmarc-forensic@tudominio.com; fo=1; aspf=s; adkim=s
 ```
 Ideal:
 ```
-v=DMARC1; p=reject; pct=100; aspf=s; adkim=s
+v=DMARC1; p=reject; pct=100; rua=mailto:dmarc-reports@tudominio.com; ruf=mailto:dmarc-forensic@tudominio.com; fo=1; aspf=s; adkim=s
 ```
 
 ---
