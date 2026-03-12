@@ -31,19 +31,19 @@ La mitigación requiere **disciplina + tecnología + procesos**.
 # 1. Autenticación del correo  
 *(Base técnica anti‑spoofing)*
 
-## ✔ 1.1 SPF
+## 1.1 SPF
 ```
 v=spf1 include:spf.protection.outlook.com -all
 ```
 
-## ✔ 1.2 DKIM
+## 1.2 DKIM
 Habilitado obligatoriamente en todos los dominios.
 ```
 selector1._domainkey.tudominio.com  | selector1-tudominio-com._domainkey.tutenant.onmicrosoft.com
 selector2._domainkey.tudominio.com  | selector2-tudominio-com._domainkey.tutenant.onmicrosoft.com
 ```
 
-## ✔ 1.3 DMARC
+## 1.3 DMARC
 Mínimo aceptable:
 ```
 v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc-reports@tudominio.com; ruf=mailto:dmarc-forensic@tudominio.com; fo=1; aspf=s; adkim=s
@@ -82,33 +82,33 @@ Para mayor detalle consultar [**Estándares SPF, DKIM, DMARC y MTA-STS**](https:
 
 # 3. Safe Links, Safe Attachments y ZAP
 
-## ✔ 3.1 Safe Links
+## 3.1 Safe Links
 Protección en tiempo real:
 - Outlook, Teams, SharePoint, OneDrive
 - Click‑time scanning
 - Bloquear URL original
 - Registrar clics
 
-## ✔ 3.2 Safe Attachments
+## 3.2 Safe Attachments
 Recomendación:
 - **Dynamic Delivery**
 - Modo **Block**
 - Activar para SharePoint / OneDrive / Teams
 
-## ✔ 3.3 Zero‑Hour Auto Purge (ZAP)
+## 3.3 Zero‑Hour Auto Purge (ZAP)
 - Activado globalmente
 - Elimina correos entregados que luego se clasifican como maliciosos
 
 ---
 # 4. Protección de identidad (Zero Trust)
-## ✔ MFA obligatorio
+## 4.1 MFA obligatorio
 Recomendado usar template: **Require multifactor authentication for all users**
-## ✔ MFA resistente a phishing (administradores)
+## 4.2 MFA resistente a phishing (administradores)
 Recomendado usar template: **Require phishing-resistant multifactor authentication for administrators**
-## ✔ Identity Protection
+## 4.3 Identity Protection
 Detecta inicios de sesión riesgosos
 Recomendado usar template: **Require multifactor authentication for risky sign-ins**
-## ✔ Bloqueo de Autenticación Heredada (Legacy Authentication)
+## 4.4 Bloqueo de Autenticación Heredada (Legacy Authentication)
 La autenticación heredada no soporta MFA y es un vector común de ataques de fuerza bruta y password spraying.
 Recomendado usar template: xxx
 Recomendación:
