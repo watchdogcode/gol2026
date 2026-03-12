@@ -1,4 +1,4 @@
-# 🛡️ Protección contra Business Email Compromise (BEC) – Línea Base 2026
+# Protección contra Business Email Compromise (BEC) 🛡️
 
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 
@@ -38,6 +38,10 @@ v=spf1 include:spf.protection.outlook.com -all
 
 ## ✔ 1.2 DKIM
 Habilitado obligatoriamente en todos los dominios.
+``
+selector1._domainkey.tudominio.com`  | selector1-tudominio-com._domainkey.tutenant.onmicrosoft.com
+
+```
 
 ## ✔ 1.3 DMARC
 Mínimo aceptable:
