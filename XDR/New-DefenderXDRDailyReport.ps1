@@ -97,12 +97,17 @@ function Import-KqlCatalogFromMarkdown {
     )
 
     $Content = $null
+    $LoadedFrom = $null
 
     # Intentar descarga desde GitHub (fuente canónica)
     if ($Url) {
         try {
+            if ($Url -match '^https://github\.com/.+/blob/.+$') {
+                $Url = $Url -replace '^https://github\.com/', 'https://raw.githubusercontent.com/' -replace '/blob/', '/'
+            }
             Write-Log "Descargando catálogo $Format desde GitHub..."
             $Content = (Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 15).Content
+            if ($Content) { $LoadedFrom = 'GitHub' }
         }
         catch {
             Write-Log "No se pudo descargar catálogo $Format desde GitHub: $($_.Exception.Message)" -Level WARN
@@ -113,6 +118,7 @@ function Import-KqlCatalogFromMarkdown {
     if (-not $Content -and $LocalPath -and (Test-Path $LocalPath)) {
         Write-Log "Cargando catálogo $Format desde archivo local: $LocalPath"
         $Content = Get-Content $LocalPath -Raw -Encoding UTF8
+        if ($Content) { $LoadedFrom = 'Local' }
     }
 
     if (-not $Content) {
@@ -142,8 +148,8 @@ function Import-KqlCatalogFromMarkdown {
                 }
             }
             'EntraID' {
-                # # A) Detección – Usuarios (EntraIdSignInEvents)
-                if ($Trimmed -match '^# [A-Z]\)\s+(.+)$') {
+                # Compatibilidad: # A) ... (formato legado) y # 1) ... (formato actual)
+                if ($Trimmed -match '^# (?:[A-Z]|\d+)\)\s+(.+)$') {
                     $Category = $Matches[1].Trim()
                 }
             }
@@ -170,8 +176,8 @@ function Import-KqlCatalogFromMarkdown {
                 }
             }
             'EntraID' {
-                # ## A1) Top fallos de inicio de sesión por usuario
-                if ($Trimmed -match '^## ([A-Z]\d+)\)\s+(.+)$') {
+                # Compatibilidad: ## A1) ... (formato legado) y ## 1.1) ... (formato actual)
+                if ($Trimmed -match '^## ((?:[A-Z]\d+|\d+\.\d+))\)\s+(.+)$') {
                     $QueryMatch = $true
                     $CurrentId = $Matches[1].Trim()
                     $CurrentTitle = $Matches[2].Trim()
@@ -212,6 +218,11 @@ function Import-KqlCatalogFromMarkdown {
         for ($i = 0; $i -lt $Catalog.Count; $i++) {
             $Catalog[$i].Id = $i + 1
         }
+    }
+
+    if ($Catalog.Count -eq 0 -and $LoadedFrom -eq 'GitHub' -and $LocalPath -and (Test-Path $LocalPath)) {
+        Write-Log "Catálogo $Format en GitHub sin queries parseables. Reintentando archivo local..." -Level WARN
+        return Import-KqlCatalogFromMarkdown -Url $null -LocalPath $LocalPath -Format $Format
     }
 
     Write-Log "Catálogo $Format cargado desde Markdown: $($Catalog.Count) queries"
@@ -520,22 +531,26 @@ foreach ($Key in $Queries.Keys) {
 }
 
 # 3. Calcular KPIs
-$Kpi_TotalAlerts = ($Data["XDR_AllAlerts"] | Measure-Object -Property Count -Sum).Sum
-if (-not $Kpi_TotalAlerts) { $Kpi_TotalAlerts = 0 }
-
 $Kpi_IncidentCount = $Data["XDR_Incidents"].Count
 if (-not $Kpi_IncidentCount) { $Kpi_IncidentCount = 0 }
 
-$Kpi_PhishDelivered = 0
+$Kpi_MdoAlerts = 0
 if ($RunMDO) {
-    $Kpi_PhishDelivered = ($Data["MDO_Campaigns"] | Measure-Object -Property Events -Sum).Sum
-    if (-not $Kpi_PhishDelivered) { $Kpi_PhishDelivered = 0 }
+    $Kpi_MdoAlerts = ($Data["XDR_AllAlerts"] | Where-Object { $_.ServiceSource -match "Defender for Office 365|Office 365" } | Measure-Object -Property Count -Sum).Sum
+    if (-not $Kpi_MdoAlerts) { $Kpi_MdoAlerts = 0 }
 }
 
-$Kpi_CompromisedIdentities = 0
+$Kpi_MdeAlerts = 0
+if ($RunMDE) {
+    $Kpi_MdeAlerts = ($Data["XDR_AllAlerts"] | Where-Object { $_.ServiceSource -match "Defender for Endpoint|Endpoint" } | Measure-Object -Property Count -Sum).Sum
+    if (-not $Kpi_MdeAlerts) { $Kpi_MdeAlerts = 0 }
+}
+
+$Kpi_MdiAlerts = 0
 $Kpi_HighRiskUsers = 0
 if ($RunMDI) {
-    $Kpi_CompromisedIdentities = $Data["MDI_BruteForce"].Count
+    $Kpi_MdiAlerts = ($Data["XDR_AllAlerts"] | Where-Object { $_.ServiceSource -match "Defender for Identity" } | Measure-Object -Property Count -Sum).Sum
+    if (-not $Kpi_MdiAlerts) { $Kpi_MdiAlerts = 0 }
     $Kpi_HighRiskUsers = $Data["MDI_HighRiskUsers"].Count
 }
 
@@ -544,6 +559,104 @@ if ($RunMDA) {
     $Kpi_NewOAuth = ($Data["MDA_OAuth"] | Measure-Object -Property Consents -Sum).Sum
     if (-not $Kpi_NewOAuth) { $Kpi_NewOAuth = 0 }
 }
+
+# --- Severidad máxima por workload para colorear KPIs ---
+function Get-SeverityRank {
+    param([string]$Severity)
+
+    switch -Regex (($Severity | ForEach-Object { $_.ToString().Trim().ToLower() })) {
+        'critical'      { return 5 }
+        '^high$'        { return 4 }
+        '^medium$'      { return 3 }
+        '^low$'         { return 2 }
+        'informational|info' { return 1 }
+        default         { return 0 }
+    }
+}
+
+function Get-HighestSeverity {
+    param($Rows)
+
+    if (-not $Rows -or $Rows.Count -eq 0) { return $null }
+
+    $Top = $Rows |
+        Sort-Object -Property @{ Expression = { Get-SeverityRank $_.Severity }; Descending = $true } |
+        Select-Object -First 1
+
+    return [string]$Top.Severity
+}
+
+function Get-KpiSeverityClass {
+    param([string]$Severity)
+
+    switch -Regex (($Severity | ForEach-Object { $_.ToString().Trim().ToLower() })) {
+        'critical'      { return 'critical' }
+        '^high$'        { return 'high' }
+        '^medium$'      { return 'medium' }
+        '^low$'         { return 'low' }
+        'informational|info' { return 'info' }
+        default         { return 'none' }
+    }
+}
+
+function Get-KpiClassFromRiskLevel {
+    param([int]$RiskLevel)
+
+    if ($RiskLevel -ge 100) { return 'critical' }
+    if ($RiskLevel -ge 50)  { return 'high' }
+    if ($RiskLevel -gt 0)   { return 'medium' }
+    return 'none'
+}
+
+$AllAlerts = @($Data["XDR_AllAlerts"])
+
+$XdrMaxSeverity = Get-HighestSeverity -Rows @($Data["XDR_Incidents"])
+$Kpi_XdrSeverityClass = Get-KpiSeverityClass -Severity $XdrMaxSeverity
+$Kpi_XdrSeverityLabel = if ($XdrMaxSeverity) { $XdrMaxSeverity } else { 'Sin alertas' }
+
+$Kpi_MdoSeverityClass = 'none'
+$Kpi_MdoSeverityLabel = 'Sin alertas'
+if ($RunMDO) {
+    $MdoAlerts = @($AllAlerts | Where-Object { $_.ServiceSource -match 'Defender for Office 365|Office 365' })
+    $MdoMaxSeverity = Get-HighestSeverity -Rows $MdoAlerts
+    $Kpi_MdoSeverityClass = Get-KpiSeverityClass -Severity $MdoMaxSeverity
+    if ($MdoMaxSeverity) { $Kpi_MdoSeverityLabel = $MdoMaxSeverity }
+}
+
+$Kpi_MdeSeverityClass = 'none'
+$Kpi_MdeSeverityLabel = 'Sin alertas'
+if ($RunMDE) {
+    $MdeAlerts = @($AllAlerts | Where-Object { $_.ServiceSource -match 'Defender for Endpoint|Endpoint' })
+    $MdeMaxSeverity = Get-HighestSeverity -Rows $MdeAlerts
+    $Kpi_MdeSeverityClass = Get-KpiSeverityClass -Severity $MdeMaxSeverity
+    if ($MdeMaxSeverity) { $Kpi_MdeSeverityLabel = $MdeMaxSeverity }
+}
+
+$Kpi_MdiSeverityClass = 'none'
+$Kpi_MdiSeverityLabel = 'Sin alertas'
+if ($RunMDI) {
+    $MdiAlerts = @($AllAlerts | Where-Object { $_.ServiceSource -match 'Defender for Identity|Identity' })
+    $MdiMaxSeverity = Get-HighestSeverity -Rows $MdiAlerts
+    $Kpi_MdiSeverityClass = Get-KpiSeverityClass -Severity $MdiMaxSeverity
+    if ($MdiMaxSeverity) { $Kpi_MdiSeverityLabel = $MdiMaxSeverity }
+}
+
+$Kpi_MdaSeverityClass = 'none'
+$Kpi_MdaSeverityLabel = 'Sin alertas'
+if ($RunMDA) {
+    $MdaAlerts = @($AllAlerts | Where-Object { $_.ServiceSource -match 'Defender for Cloud Apps|Cloud Apps|Microsoft Cloud App Security|MCAS' })
+    $MdaMaxSeverity = Get-HighestSeverity -Rows $MdaAlerts
+    $Kpi_MdaSeverityClass = Get-KpiSeverityClass -Severity $MdaMaxSeverity
+    if ($MdaMaxSeverity) { $Kpi_MdaSeverityLabel = $MdaMaxSeverity }
+}
+
+$Kpi_EntraMaxRiskLevel = 0
+if ($RunMDI -and $Data["MDI_HighRiskUsers"] -and $Data["MDI_HighRiskUsers"].Count -gt 0) {
+    $Kpi_EntraMaxRiskLevel = (($Data["MDI_HighRiskUsers"] | Measure-Object -Property RiskLevelAggregated -Maximum).Maximum)
+    if (-not $Kpi_EntraMaxRiskLevel) { $Kpi_EntraMaxRiskLevel = 0 }
+}
+$Kpi_EntraSeverityClass = Get-KpiClassFromRiskLevel -RiskLevel $Kpi_EntraMaxRiskLevel
+$Kpi_EntraSeverityLabel = if ($Kpi_EntraMaxRiskLevel -eq 100) { 'High (100)' } elseif ($Kpi_EntraMaxRiskLevel -eq 50) { 'Medium (50)' } elseif ($Kpi_EntraMaxRiskLevel -gt 0) { "Riesgo $Kpi_EntraMaxRiskLevel" } else { 'Sin riesgo' }
 
 # --- CATÁLOGO COMPLETO DE KQL (MDO Advanced Hunting) ---
 # Se carga dinámicamente desde GitHub (rama main) o archivo local como fallback.
@@ -1520,9 +1633,21 @@ Write-Log "Productos incluidos: $(if($RunMDO){'MDO '})$(if($RunMDE){'MDE '})$(if
 $HtmlKpiMDO = ""
 if ($RunMDO) {
 $HtmlKpiMDO = @"
-            <div class="kpi-card $(if($Kpi_PhishDelivered -gt 0){'danger'}else{'alert'})">
-                <div class="kpi-val">$Kpi_PhishDelivered</div>
-                <div class="kpi-label">Phishing Entregado</div>
+            <div class="kpi-card $Kpi_MdoSeverityClass">
+                <div class="kpi-val">$Kpi_MdoAlerts</div>
+                <div class="kpi-label">Alertas Defender for Office</div>
+                <div class="kpi-severity">Máx: $Kpi_MdoSeverityLabel</div>
+            </div>
+"@
+}
+
+$HtmlKpiMDE = ""
+if ($RunMDE) {
+$HtmlKpiMDE = @"
+            <div class="kpi-card $Kpi_MdeSeverityClass">
+                <div class="kpi-val">$Kpi_MdeAlerts</div>
+                <div class="kpi-label">Alertas Defender for Endpoint</div>
+                <div class="kpi-severity">Máx: $Kpi_MdeSeverityLabel</div>
             </div>
 "@
 }
@@ -1530,13 +1655,15 @@ $HtmlKpiMDO = @"
 $HtmlKpiMDI = ""
 if ($RunMDI) {
 $HtmlKpiMDI = @"
-            <div class="kpi-card $(if($Kpi_HighRiskUsers -gt 0){'danger'}else{'alert'})">
+            <div class="kpi-card $Kpi_EntraSeverityClass">
                 <div class="kpi-val">$Kpi_HighRiskUsers</div>
-                <div class="kpi-label">Usuarios de Alto Riesgo</div>
+                <div class="kpi-label">Usuarios en Riesgos Entra ID</div>
+                <div class="kpi-severity">Máx: $Kpi_EntraSeverityLabel</div>
             </div>
-            <div class="kpi-card $(if($Kpi_CompromisedIdentities -gt 0){'danger'}else{'alert'})">
-                <div class="kpi-val">$Kpi_CompromisedIdentities</div>
-                <div class="kpi-label">Fuerza Bruta en Identidades</div>
+            <div class="kpi-card $Kpi_MdiSeverityClass">
+                <div class="kpi-val">$Kpi_MdiAlerts</div>
+                <div class="kpi-label">Alertas Defender for Identity</div>
+                <div class="kpi-severity">Máx: $Kpi_MdiSeverityLabel</div>
             </div>
 "@
 }
@@ -1544,32 +1671,11 @@ $HtmlKpiMDI = @"
 $HtmlKpiMDA = ""
 if ($RunMDA) {
 $HtmlKpiMDA = @"
-            <div class="kpi-card alert">
+            <div class="kpi-card $Kpi_MdaSeverityClass">
                 <div class="kpi-val">$Kpi_NewOAuth</div>
-                <div class="kpi-label">Nuevos Consentimientos OAuth</div>
+                <div class="kpi-label">Consentimientos OAuth Defender for Cloud Apps</div>
+                <div class="kpi-severity">Máx: $Kpi_MdaSeverityLabel</div>
             </div>
-"@
-}
-
-$HtmlRecMDO = ""
-if ($RunMDO) {
-$HtmlRecMDO = @"
-                <li><strong>MDO:</strong> Revisar $(if($Kpi_PhishDelivered -gt 0){"las <b>$Kpi_PhishDelivered</b> campañas de phishing entregadas"}else{"las campañas de phishing"}) y validar la efectividad de ZAP. Verificar los usuarios más atacados para capacitación de concientización.</li>
-"@
-}
-
-$HtmlRecMDI = ""
-if ($RunMDI) {
-$HtmlRecMDI = @"
-                <li><strong>MDI:</strong> Investigar los <b>$Kpi_HighRiskUsers</b> usuarios con inicios de sesión de alto riesgo. Restablecer contraseñas o aplicar MFA en sesiones riesgosas.</li>
-                <li><strong>MDI:</strong> Analizar las <b>$Kpi_CompromisedIdentities</b> cuentas con éxito de fuerza bruta. Restablecer contraseñas y aplicar MFA si no está configurado.</li>
-"@
-}
-
-$HtmlRecMDA = ""
-if ($RunMDA) {
-$HtmlRecMDA = @"
-                <li><strong>MDA:</strong> Auditar los <b>$Kpi_NewOAuth</b> nuevos consentimientos OAuth. Revocar permisos de publicadores sospechosos o no verificados.</li>
 "@
 }
 
@@ -1589,6 +1695,12 @@ $HtmlContent = @"
             --text-color: #323130;
             --border-color: #e1dfdd;
             --danger-color: #a80000;
+            --critical-color: #7a0018;
+            --high-color: #d13438;
+            --medium-color: #ff8c00;
+            --low-color: #8764b8;
+            --info-color: #0078d4;
+            --none-color: #107c10;
         }
         body { 
             font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; 
@@ -1631,25 +1743,65 @@ $HtmlContent = @"
         /* Cuadrícula de KPIs */
         .kpi-grid { 
             display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
+            grid-template-columns: repeat(auto-fit, minmax(220px, 250px)); 
+            justify-content: center;
+            align-items: stretch;
             gap: 20px; 
-            margin-bottom: 30px; 
+            margin: 0 auto 30px auto;
         }
         .kpi-card { 
             background: var(--card-bg); 
-            padding: 25px 20px; 
-            border-radius: 8px; 
+            min-height: 150px;
+            padding: 24px 18px; 
+            border-radius: 10px; 
             text-align: center; 
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05); 
             transition: transform 0.2s ease;
             border-top: 4px solid transparent;
         }
         .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .kpi-card.alert { border-top-color: var(--primary-color); }
-        .kpi-card.danger { border-top-color: var(--danger-color); }
+        .kpi-card.critical { border-top-color: var(--critical-color); }
+        .kpi-card.high { border-top-color: var(--high-color); }
+        .kpi-card.medium { border-top-color: var(--medium-color); }
+        .kpi-card.low { border-top-color: var(--low-color); }
+        .kpi-card.info { border-top-color: var(--info-color); }
+        .kpi-card.none { border-top-color: var(--none-color); }
         
-        .kpi-val { font-size: 3em; font-weight: 700; color: var(--secondary-color); line-height: 1; margin-bottom: 5px; }
-        .kpi-label { font-size: 0.85em; color: #605e5c; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+        .kpi-val { font-size: 3em; font-weight: 700; color: var(--secondary-color); line-height: 1; margin-bottom: 10px; }
+        .kpi-label {
+            font-size: 0.85em;
+            color: #605e5c;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            line-height: 1.35;
+            text-align: center;
+            max-width: 190px;
+            min-height: 2.8em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .kpi-severity {
+            margin-top: 10px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.72em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: #ffffff;
+        }
+        .kpi-card.critical .kpi-severity { background: var(--critical-color); }
+        .kpi-card.high .kpi-severity { background: var(--high-color); }
+        .kpi-card.medium .kpi-severity { background: var(--medium-color); }
+        .kpi-card.low .kpi-severity { background: var(--low-color); }
+        .kpi-card.info .kpi-severity { background: var(--info-color); }
+        .kpi-card.none .kpi-severity { background: var(--none-color); }
         
         /* Tablas */
         .table-container {
@@ -1792,15 +1944,12 @@ $HtmlContent = @"
     <div class="container">
         <!-- KPIs -->
         <div class="kpi-grid">
-            <div class="kpi-card $(if($Kpi_TotalAlerts -gt 0){'danger'}else{'alert'})">
-                <div class="kpi-val">$Kpi_TotalAlerts</div>
-                <div class="kpi-label">Total Alertas XDR</div>
-            </div>
-            <div class="kpi-card $(if($Kpi_IncidentCount -gt 0){'danger'}else{'alert'})">
+            <div class="kpi-card $Kpi_XdrSeverityClass">
                 <div class="kpi-val">$Kpi_IncidentCount</div>
                 <div class="kpi-label">Incidentes Activos</div>
+                <div class="kpi-severity">Máx: $Kpi_XdrSeverityLabel</div>
             </div>
-$HtmlKpiMDO$HtmlKpiMDI$HtmlKpiMDA
+$HtmlKpiMDO$HtmlKpiMDE$HtmlKpiMDI$HtmlKpiMDA
         </div>
 "@
 
@@ -1849,31 +1998,6 @@ $HtmlContent += @"
         </div>
 "@
 }
-
-$HtmlContent += @"
-
-        <!-- ═══════════════════════════════════════════════════════ -->
-        <!-- ═══ SECCIÓN XDR: Alertas e Incidentes Consolidados ═══ -->
-        <!-- ═══════════════════════════════════════════════════════ -->
-
-        <h2>XDR: Alertas e Incidentes Consolidados</h2>
-
-        <h3>Alertas por Servicio y Severidad</h3>
-        <div class="table-container">
-            <table>
-                <thead><tr><th>Servicio</th><th>Severidad</th><th>Cantidad</th></tr></thead>
-                <tbody>$(ConvertTo-HtmlTable $Data["XDR_AllAlerts"] @("ServiceSource","Severity","Count"))</tbody>
-            </table>
-        </div>
-
-        <h3>Top 25 Alertas Recientes</h3>
-        <div class="table-container">
-            <table>
-                <thead><tr><th>Hora</th><th>Alerta</th><th>Severidad</th><th>Servicio</th><th>Categoría</th><th>Entidades</th><th>Dispositivos</th></tr></thead>
-                <tbody>$(ConvertTo-HtmlTable $Data["XDR_Incidents"] @("Timestamp","Title","Severity","ServiceSource","Category","Entities","DevicesAffected"))</tbody>
-            </table>
-        </div>
-"@
 
 if ($RunMDE) {
 $HtmlContent += @"
@@ -2061,14 +2185,17 @@ $HtmlContent += @"
 $HtmlContent += @"
 
         <!-- ═══════════════════════════════════════════════════════ -->
-        <!-- ═══ Recomendaciones y Acciones ═══ -->
+        <!-- ═══ SECCIÓN XDR: Alertas e Incidentes Consolidados ═══ -->
         <!-- ═══════════════════════════════════════════════════════ -->
 
-        <h2>Recomendaciones y Acciones Diarias</h2>
-        <div class="recs">
-            <ul>
-$HtmlRecMDO$HtmlRecMDI$HtmlRecMDA
-            </ul>
+        <h2>XDR: Alertas e Incidentes Consolidados</h2>
+
+        <h3>Alertas por Servicio y Severidad</h3>
+        <div class="table-container">
+            <table>
+                <thead><tr><th>Servicio</th><th>Severidad</th><th>Cantidad</th></tr></thead>
+                <tbody>$(ConvertTo-HtmlTable $Data["XDR_AllAlerts"] @("ServiceSource","Severity","Count"))</tbody>
+            </table>
         </div>
 
         <div class="footer">
@@ -2106,8 +2233,3 @@ if ($SendMail) {
     }
 }
 
-# 7. Abrir Reporte en el Navegador
-if (Test-Path $OutputPath) {
-    Write-Log "Abriendo reporte en el navegador..."
-    Invoke-Item $OutputPath
-}
