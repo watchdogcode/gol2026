@@ -16,9 +16,11 @@ Esta guía está alineada con el estado actual del script `XDR/New-DefenderXDRDa
 
 Además incluye:
 
-- KPIs ejecutivos
-- Tareas operativas con enlaces (MDO, MDI y Entra ID)
-- Recomendaciones KQL diarias por carga de trabajo
+- KPIs ejecutivos con **coloración dinámica por severidad máxima** detectada en cada workload
+- Tareas operativas con enlaces directos al portal (MDO, MDI, Entra ID)
+- Recomendación KQL diaria por carga de trabajo (rotatoria, extraída de los catálogos del repositorio)
+- Carga dinámica de catálogos KQL desde GitHub o archivo local (con fallback hardcoded)
+- Soporte para ejecutar **solo los workloads seleccionados** mediante switches por producto
 
 ---
 
@@ -42,6 +44,7 @@ Además incluye:
 Métodos soportados:
 
 - `Secret` (predeterminado)
+- `Certificate`
 - `Interactive`
 - `DeviceCode`
 
@@ -49,6 +52,7 @@ Métodos soportados:
 
 - Si no envías `-AuthMode`, se usa `Secret`.
 - En `Secret`, debes proporcionar `TenantId`, `ClientId` y `ClientSecret` (directos o por variables de entorno).
+- En `Certificate`, debes proporcionar `TenantId`, `ClientId` y certificado por `CertificateThumbprint` o `CertificatePath`.
 - En `DeviceCode` sin módulos, debes proporcionar `TenantId` y `ClientId`.
 
 ---
@@ -62,20 +66,29 @@ Métodos soportados:
 | `TenantId` | String | Tenant ID de Entra ID | `$env:AZURE_TENANT_ID` |
 | `ClientId` | String | App/Client ID | `$env:AZURE_CLIENT_ID` |
 | `ClientSecret` | String | Secreto de la app | `$env:AZURE_CLIENT_SECRET` |
-| `AuthMode` | String | Método de autenticación | `Secret` |
+| `CertificateThumbprint` | String | Thumbprint del certificado en `CurrentUser/My` o `LocalMachine/My` | `$env:AZURE_CLIENT_CERT_THUMBPRINT` |
+| `CertificatePath` | String | Ruta a certificado `PFX/P12` para autenticación por certificado | `$env:AZURE_CLIENT_CERT_PATH` |
+| `CertificatePassword` | SecureString | Password del PFX (si aplica) | N/A |
+| `AuthMode` | String | Método de autenticación: `Secret`, `Certificate`, `Interactive`, `DeviceCode` | `Secret` |
 | `SendMail` | Bool | Envía reporte por SMTP | `$false` |
 | `SmtpServer` | String | Servidor SMTP | N/A |
 | `From` | String | Remitente de correo | N/A |
 | `To` | String | Destinatario(s) | N/A |
 | `Subject` | String | Asunto del correo | `Reporte Diario de Seguridad - M365 Defender XDR` |
-| `TimeoutSec` | Int | Timeout por consulta | `120` |
-| `FailFast` | Bool | Detener ejecución ante primer fallo | `$false` |
+| `TimeoutSec` | Int | Timeout por consulta API | `120` |
+| `FailFast` | Bool | Detener ejecución ante el primer fallo de consulta | `$false` |
+| `IncludeMDO` | Switch | Incluir secciones de Defender for Office 365 | — |
+| `IncludeMDE` | Switch | Incluir secciones de Defender for Endpoint | — |
+| `IncludeMDI` | Switch | Incluir secciones de Defender for Identity y Entra ID | — |
+| `IncludeMDA` | Switch | Incluir secciones de Defender for Cloud Apps | — |
+
+> **Nota:** Si no se especifica ningún switch de producto (`-IncludeMDO/MDE/MDI/MDA`), el script incluye **todos** los workloads automáticamente.
 
 ---
 
 ## 5) Ejemplos de Ejecución
 
-### A. Ejecución estándar (Secret por defecto)
+### A. Ejecución estándar — todos los workloads (Secret por defecto)
 
 ```powershell
 .\New-DefenderXDRDailyReport.ps1 `
@@ -84,7 +97,26 @@ Métodos soportados:
   -ClientSecret "tu_client_secret"
 ```
 
-### B. Interactivo (requiere Az.Accounts)
+### B. Solo workloads seleccionados
+
+```powershell
+# Solo MDO y MDE
+.\New-DefenderXDRDailyReport.ps1 `
+  -TenantId "..." -ClientId "..." -ClientSecret "..." `
+  -IncludeMDO -IncludeMDE
+
+# Solo Identidades (MDI + Entra ID)
+.\New-DefenderXDRDailyReport.ps1 `
+  -TenantId "..." -ClientId "..." -ClientSecret "..." `
+  -IncludeMDI
+
+# Solo Cloud Apps
+.\New-DefenderXDRDailyReport.ps1 `
+  -TenantId "..." -ClientId "..." -ClientSecret "..." `
+  -IncludeMDA
+```
+
+### C. Interactivo (requiere Az.Accounts)
 
 ```powershell
 Install-Module Az.Accounts -Scope CurrentUser -Force
@@ -92,7 +124,30 @@ Install-Module Az.Accounts -Scope CurrentUser -Force
 .\New-DefenderXDRDailyReport.ps1 -AuthMode Interactive -TimeWindowHours 48
 ```
 
-### C. Device Code (sin browser local)
+### D. Certificado por Thumbprint
+
+```powershell
+.\New-DefenderXDRDailyReport.ps1 `
+  -AuthMode Certificate `
+  -TenantId "00000000-0000-0000-0000-000000000000" `
+  -ClientId "11111111-1111-1111-1111-111111111111" `
+  -CertificateThumbprint "127DDC6252A52CC38DA4B55006182654024E2DE8"
+```
+
+### E. Certificado por archivo PFX
+
+```powershell
+$CertPassword = Read-Host "Password del PFX" -AsSecureString
+
+.\New-DefenderXDRDailyReport.ps1 `
+  -AuthMode Certificate `
+  -TenantId "00000000-0000-0000-0000-000000000000" `
+  -ClientId "11111111-1111-1111-1111-111111111111" `
+  -CertificatePath "C:\certs\xdr-app-cert.pfx" `
+  -CertificatePassword $CertPassword
+```
+
+### F. Device Code (sin browser local)
 
 ```powershell
 # Recomendado con Az.Accounts:
@@ -104,7 +159,7 @@ Install-Module Az.Accounts -Scope CurrentUser -Force
   -ClientId "11111111-1111-1111-1111-111111111111"
 ```
 
-### D. Envío por correo SMTP
+### G. Envío por correo SMTP
 
 ```powershell
 .\New-DefenderXDRDailyReport.ps1 `
@@ -127,18 +182,53 @@ Install-Module Az.Accounts -Scope CurrentUser -Force
 
 | Sección | Descripción |
 | :--- | :--- |
-| **KPIs** | Total Alertas XDR, Incidentes Activos, Phishing Entregado, Usuarios Alto Riesgo, Fuerza Bruta, OAuth. |
-| **MDO** | Tareas operativas diarias + recomendación KQL diaria. |
-| **XDR Consolidado** | Alertas por servicio/severidad y top de alertas recientes. |
-| **MDE** | Alertas por severidad + recomendación KQL diaria. |
-| **MDI** | Tareas operativas + fuerza bruta + usuarios de alto riesgo + recomendación KQL diaria. |
-| **Entra ID** | Tareas operativas + recomendación KQL diaria. |
-| **MDA** | Nuevos consentimientos OAuth + recomendación KQL diaria. |
-| **Recomendaciones** | Acciones operativas sugeridas para el día. |
+| **KPIs** | Incidentes Activos (XDR), Alertas MDO, Alertas MDE, Usuarios en Riesgo Entra ID, Alertas MDI, Consentimientos OAuth MDA. Cada KPI muestra el badge **"Máx: [severidad]"** y se colorea según la alerta de mayor severidad detectada en el workload. |
+| **Tareas Operativas MDO** | Checklist de tareas diarias MDO con enlaces al portal. |
+| **KQL diario MDO** | Recomendación KQL rotatoria del día para Defender for Office 365. |
+| **XDR Consolidado** | Alertas por servicio/severidad y top de incidentes recientes. |
+| **MDE — Endpoints** | Alertas por severidad + recomendación KQL diaria de Defender for Endpoint. |
+| **MDI — Identidades** | Tareas operativas MDI + fuerza bruta + usuarios de alto riesgo + recomendación KQL diaria. |
+| **Entra ID — Gobernanza** | Tareas operativas Entra ID + recomendación KQL diaria. |
+| **MDA — Cloud Apps** | Nuevos consentimientos OAuth + recomendación KQL diaria. |
+
+### Coloración de KPIs por severidad
+
+El color del borde superior de cada KPI card refleja la criticidad máxima detectada:
+
+| Color | Clase CSS | Severidad |
+| :--- | :--- | :--- |
+| Guinda oscuro | `critical` | Critical |
+| Rojo | `high` | High |
+| Naranja | `medium` | Medium |
+| Morado | `low` | Low |
+| Azul | `info` | Informational |
+| Verde | `none` | Sin alertas |
+
+Para Entra ID (usuarios en riesgo), la clase se deriva del campo numérico `RiskLevelAggregated`: ≥100 → `critical`, ≥50 → `high`, >0 → `medium`, 0 → `none`.
 
 ---
 
-## 7) Solución de Problemas Rápida
+## 7) Catálogos KQL Dinámicos
+
+El script carga los catálogos KQL de consultas avanzadas en el siguiente orden de prioridad:
+
+1. **GitHub** (rama `main` del repositorio): descarga automática vía HTTPS.
+2. **Archivo local**: ruta relativa `../MDO/`, `../MDI/` o `../EntraID/` respecto al directorio del script.
+3. **Fallback hardcoded**: catálogo embebido en el script si ninguna fuente anterior está disponible. Se emite un `[WARN]` en el log.
+
+Los catálogos soportados son:
+
+| Formato | Archivo fuente | URL GitHub |
+| :--- | :--- | :--- |
+| MDO | `MDO/Paquete MDO KQL Advance Hunting.md` | `watchdogcode/gol2026` rama `main` |
+| MDI | `MDI/Paquete MDI KQL Advance Hunting.md` | `watchdogcode/gol2026` rama `main` |
+| EntraID | `EntraID/Paquete KQL Queries EntraID Advanced Hunting.md` | `watchdogcode/gol2026` rama `main` |
+
+La consulta KQL mostrada en cada sección es la del día: `(Get-Date).DayOfYear % $Catalog.Count`.
+
+---
+
+## 8) Solución de Problemas Rápida
 
 - **401 Unauthorized**
   - Validar permisos `AdvancedHunting.Read.All` + Admin Consent.
@@ -149,21 +239,49 @@ Install-Module Az.Accounts -Scope CurrentUser -Force
 - **Sin sesión Azure en Interactive/DeviceCode**
   - Instalar `Az.Accounts` o usar `DeviceCode` fallback REST con `TenantId` y `ClientId`.
 
+- **Fallo en autenticación Certificate**
+  - Verificar que el certificado tenga **clave privada RSA** y sea accesible por el usuario que ejecuta el script.
+  - Verificar que `TenantId` y `ClientId` correspondan al App Registration correcto.
+  - Si usas `CertificateThumbprint`, confirmar que exista en `CurrentUser/My` o `LocalMachine/My`.
+
+- **AADSTS700027 / invalid_client (key was not found)**
+  - Cargar el certificado público (`.cer`) del mismo certificado usado para firmar en: Entra ID → App registrations → tu app → Certificates & secrets.
+  - Validar que el thumbprint del certificado cargado coincida con el que reporta el error.
+  - Esperar propagación de claves (1-5 minutos) y reintentar.
+
 - **Consultas vacías / sin datos**
   - Ajustar `-TimeWindowHours` (ej. `24`, `72`, `168`, `720` según necesidad).
 
 - **No envía correo**
   - Revisar que `-SendMail $true` y parámetros `-SmtpServer`, `-From`, `-To` estén completos.
 
+- **`[WARN] Cargando catálogo [X] desde fallback hardcoded...`**
+  - El script no pudo descargar el catálogo KQL desde GitHub ni encontrarlo en ruta local.
+  - Verificar conectividad a `https://raw.githubusercontent.com`.
+  - Verificar que los archivos `.md` existan en `../MDO/`, `../MDI/` o `../EntraID/` relativos al script.
+  - El catálogo hardcoded se usará como respaldo sin afectar la ejecución.
+
 ---
 
-## 8) Ejecución recomendada para automatización
+## 9) Ejecución recomendada para automatización
 
 ```powershell
 .\New-DefenderXDRDailyReport.ps1 `
+  -AuthMode Secret `
   -TenantId $env:AZURE_TENANT_ID `
   -ClientId $env:AZURE_CLIENT_ID `
   -ClientSecret $env:AZURE_CLIENT_SECRET `
+  -TimeWindowHours 24
+```
+
+Alternativa por certificado (sin secret):
+
+```powershell
+.\New-DefenderXDRDailyReport.ps1 `
+  -AuthMode Certificate `
+  -TenantId $env:AZURE_TENANT_ID `
+  -ClientId $env:AZURE_CLIENT_ID `
+  -CertificateThumbprint $env:AZURE_CLIENT_CERT_THUMBPRINT `
   -TimeWindowHours 24
 ```
 
