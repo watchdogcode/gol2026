@@ -102,30 +102,20 @@ Recomendación:
 ---
 # 4. Protección de identidad (Zero Trust)
 ## ✔ MFA obligatorio
-Recomendado usar template:
--Categoria: **Secure foundation**
-- Template: **Require multifactor authentication for all users**
+Recomendado usar template: **Require multifactor authentication for all users**
 ## ✔ MFA resistente a phishing (administradores)
+Recomendado usar template: **Require phishing-resistant multifactor authentication for administrators**
 ## ✔ Identity Protection
 Detecta inicios de sesión riesgosos
-
+Recomendado usar template: **Require multifactor authentication for risky sign-ins**
 ## ✔ Bloqueo de Autenticación Heredada (Legacy Authentication)
 La autenticación heredada no soporta MFA y es un vector común de ataques de fuerza bruta y password spraying.
+Recomendado usar template: xxx
 Recomendación:
 - Deshabilitar POP, IMAP, SMTP AUTH, MAPI, EWS sin OAuth.
 - Política de Acceso Condicional: **Block legacy authentication**.
 - Excluir únicamente cuentas break-glass.
 
-
-
-## ✔ 4.1 MFA obligatorio (todos)
-Template: **Secure foundation**
-
-## ✔ 4.2 MFA resistente a phishing (administradores)
-Template: **Phishing‑resistant MFA for admins**
-
-## ✔ 4.3 Identity Protection
-Template: **Require MFA for risky sign‑ins**
 
 ---
 
