@@ -102,7 +102,7 @@ Recomendación:
 ---
 # 4. Protección de identidad (Zero Trust)
 ## ✔ MFA obligatorio
-Recomendado usar template: 
+Recomendado usar template:
 -Categoria: **Secure foundation**
 - Template: **Require multifactor authentication for all users**
 ## ✔ MFA resistente a phishing (administradores)
