@@ -29,7 +29,7 @@ La mitigación requiere **disciplina + tecnología + procesos**.
 ---
 
 # 1. Autenticación del correo  
-*(Base técnica anti‑spoofing)*
+### En conjunto, estos mecanismos protegen la marca, reducen el riesgo de fraude y garantizan que el correo crítico del negocio llegue de forma segura a su destino
 
 ## 1.1 SPF
 ```
