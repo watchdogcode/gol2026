@@ -74,8 +74,11 @@ Para mayor detalle consultar [**Estándares SPF, DKIM, DMARC y MTA-STS**](https:
 ## Phishing threshold
 Este umbral controla la sensibilidad para aplicar modelos de aprendizaje automático a los mensajes para determinar un veredicto de phishing.
 1 - Standard
+
 2 - Aggressive
+
 **3 – More aggressive** (Recomendado)
+
 4 - Most aggressive
 
 ### Impersonation Protection
