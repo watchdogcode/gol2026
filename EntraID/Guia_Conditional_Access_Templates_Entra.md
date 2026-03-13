@@ -45,7 +45,7 @@ Proteger cuentas administrativas con MFA resistente a phishing.
 - Exclude: Break-glass
 - Enable policy: **Report-only**
 
-⚠️ Registrar previamente FIDO2 o Windows Hello for Business.
+**Registrar previamente FIDO2 o Windows Hello for Business.**
 
 ---
 
