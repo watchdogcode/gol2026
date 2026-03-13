@@ -96,4 +96,4 @@ Bloquear autenticación heredada que no soporta MFA.
 
 ---
 
-**Autor:** Ernesto Cobos
+
