@@ -112,10 +112,14 @@ Para validar que ZAP este bien configurado se puede consultar a través de esre 
 
 ---
 # 4. Protección de identidad (Zero Trust)
-**4.1 MFA obligatorio**
+**MFA obligatorio**
+
 Recomendado usar template: **Require multifactor authentication for all users**
-## 4.2 MFA resistente a phishing (administradores)
+
+**MFA resistente a phishing (administradores)**
+
 Recomendado usar template: **Require phishing-resistant multifactor authentication for administrators**
+
 ## 4.3 Identity Protection
 Detecta inicios de sesión riesgosos
 Recomendado usar template: **Require multifactor authentication for risky sign-ins**
