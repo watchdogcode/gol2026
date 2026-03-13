@@ -1,4 +1,4 @@
-# 🛡️ Guía de Seguridad Operacional Diaria: Microsoft Defender for Office 365
+# Guía de Seguridad Operacional Diaria: Microsoft Defender for Office 365 🛡️
 
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 
