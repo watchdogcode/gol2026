@@ -5,6 +5,7 @@ Esta guía establece los procedimientos semanales para analizar tendencias de am
 
 
 ## Alcance
+
 Esta guía describe actividades **operativas semanales** para Microsoft Defender for Endpoint (MDE), enfocadas en:
 
 ---
