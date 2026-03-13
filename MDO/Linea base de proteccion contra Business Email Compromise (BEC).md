@@ -132,7 +132,7 @@ Referencia: [**Politica Safe Attachments**](Políticas/Política%20de%20Safe%20A
 - Activado globalmente
 - Elimina correos entregados que luego se clasifican como maliciosos
 
-Para validar que ZAP este bien configurado se puede consultar a través de esre escript [Validate-ZAPConfiguration]
+Para validar que ZAP este bien configurado se puede consultar a través de esre escript [**Validate-ZAPConfiguration**](Scripts/Validate-ZAPConfiguration.ps1)
 
 ---
 # 4. Protección de identidad (Zero Trust)
