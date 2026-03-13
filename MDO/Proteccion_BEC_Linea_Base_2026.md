@@ -90,6 +90,8 @@ Protección en tiempo real:
 - Bloquear URL original
 - Registrar clics
 
+Referencia: [Politica Safe links]
+
 ## 3.2 Safe Attachments
 Recomendación:
 - **Dynamic Delivery**
