@@ -132,22 +132,16 @@ Recomendación:
 ## ✔ Doble validación fuera de banda
 
 ### Es un control que obliga a verificar transacciones críticas usando un canal distinto al correo electrónico, aunque el mensaje:
-
-Parezca legítimo
-
-Continúe un hilo real
-
-Use firmas, tono y lenguaje correctos
+- Parezca legítimo
+- Continúe un hilo real
+- Use firmas, tono y lenguaje correctos
 
 **Esto es crítico porque en ataques BEC modernos:**
+- El atacante sí controla la cuenta
+- El correo sí es real
+- Las herramientas técnicas pueden no bloquearlo 
 
-El atacante sí controla la cuenta
-
-El correo sí es real
-
-Las herramientas técnicas pueden no bloquearlo 
-
-Obligatorio en:
+**Obligatorio en:**
 - Cambios bancarios
 - Pagos urgentes
 - Nuevos proveedores
