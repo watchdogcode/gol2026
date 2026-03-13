@@ -99,7 +99,7 @@ Elija cómo desea filtrar los correos electrónicos de remitentes que están sup
 
 **Activado y respetando DMARC**
 
-[Paso a paso para crear Política Anti-Phishing](#política-anti-Phishing-microsoft-defender-for-office-365)
+Cómo crear [**Política Anti-Phishing**](Políticas/Política%20Anti-Phishing%20MDO.md)
 
 ---
 
