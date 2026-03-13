@@ -1,4 +1,4 @@
-# 🛡️ Guía de Seguridad Operacional Diaria: Microsoft Defender for Endpoint
+# Guía de Seguridad Operacional Diaria: Microsoft Defender for Endpoint 🛡️
 
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 

@@ -1,4 +1,4 @@
-# 🛡️ Guía de Seguridad Operacional Semanal: Microsoft Defender for Endpoint
+# Guía de Seguridad Operacional Semanal: Microsoft Defender for Endpoint 🛡️
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 
 Esta guía establece los procedimientos semanales para analizar tendencias de amenazas, ejecutar hunting proactivo, gestionar vulnerabilidades y revisar la postura de seguridad de endpoints en Microsoft Defender for Endpoint (MDE).
