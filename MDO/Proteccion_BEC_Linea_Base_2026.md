@@ -36,13 +36,13 @@ La mitigación requiere **disciplina + tecnología + procesos**.
 ## SPF
 SPF (Sender Policy Framework) define qué servidores están autorizados a enviar correo en nombre de tu dominio.
 
-Configuración básica donde se destaca -all:
+Configuración básica, donde se destaca -all:
 ```
 v=spf1 include:spf.protection.outlook.com -all
 ```
 
 ## DKIM
-DKIM (DomainKeys Identified Mail) agrega una firma digital a cada correo saliente
+DKIM (DomainKeys Identified Mail) agrega una firma digital a cada correo saliente.
 
 Habilitado obligatoriamente en todos los dominios.
 ```
@@ -73,7 +73,10 @@ Para mayor detalle consultar [**Estándares SPF, DKIM, DMARC y MTA-STS**](https:
 
 ## Phishing threshold
 Este umbral controla la sensibilidad para aplicar modelos de aprendizaje automático a los mensajes para determinar un veredicto de phishing.
-**3 – More aggressive**
+1 - Standard
+2 - Aggressive
+**3 – More aggressive** (Recomendado)
+4 - Most aggressive
 
 ### Impersonation Protection
 La protección contra suplantación recibió fuertes señales de que los siguientes mensajes son sospechosos
