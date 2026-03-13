@@ -49,7 +49,7 @@ A continuación encontrará reglas básicas de flujo de correo que son **altamen
 
 ## Regla de flujo de correo para bloquear correos enviados a mydominio.onmicrosoft.com y mydominio.mail.onmicrosoft.com
 
-### Opción 1: Script automatizado descargue el script que ejecuta esta tarea: [Block-onmicrosoftEmails](https://github.com/watchdogcode/gol2026/blob/main/MDO/Scripts/Block-OnMicrosoftEmails.ps1)
+### Opción 1: Script automatizado descargue el script que ejecuta esta tarea: [Block-onmicrosoftEmails](../Scripts/Block-OnMicrosoftEmails.ps1)
 
 ### Opción 2: Creación manual
 
@@ -87,7 +87,7 @@ A continuación encontrará reglas básicas de flujo de correo que son **altamen
 
 ## Regla de flujo de correo para bloquear correos que no pueden ser inspeccionados
 
-### Opción 1: Script automatizado descargue el script que ejecuta esta tarea: [Attachments Can’t be inspected](https://github.com/watchdogcode/gol2026/blob/main/MDO/Scripts/Attachmentscannotbeinspected.ps1)
+### Opción 1: Script automatizado descargue el script que ejecuta esta tarea: [Attachments Can't be inspected](../Scripts/Attachmentscannotbeinspected.ps1)
 
 ### Opción 2: Creación manual
 
@@ -457,7 +457,7 @@ Permite visibilidad operativa.
 
 ## Script de validación
 
-Puedes validar SPF, DKIM, DMARC y MTA-STS con el siguiente script: [Domain-Health-Check.ps1](https://github.com/watchdogcode/gol2026/blob/main/MDO/Scripts/Domain-Health-Check.ps1)
+Puedes validar SPF, DKIM, DMARC y MTA-STS con el siguiente script: [Domain-Health-Check.ps1](../Scripts/Domain-Health-Check.ps1)
 
 #### Referencia
 - [SMTP MTA Strict Transport Security (MTA-STS)](https://www.rfc-editor.org/rfc/rfc8461)
@@ -566,6 +566,6 @@ En organizaciones grandes es común:
 
 # Validación Línea base para mejorar la postura de seguridad en Exchange online
 
-**Se puede hacer una validación rapida ejecutando el siguiente escript: [Validate-EXOSecurityBaseline](https://github.com/watchdogcode/gol2026/blob/main/MDO/Scripts/Validate-EXOSecurityBaseline.ps1)**
+**Se puede hacer una validación rapida ejecutando el siguiente escript: [Validate-EXOSecurityBaseline](../Scripts/Validate-EXOSecurityBaseline.ps1)**
 
   > Internal Tools 2026
