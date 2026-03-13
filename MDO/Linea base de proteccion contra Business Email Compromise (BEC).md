@@ -142,28 +142,26 @@ Proteja su organización de contenido malicioso en archivos adjuntos de correo e
 
 Requiere que **todos los usuarios** completen **autenticación multifactor (MFA)** al acceder a los recursos de la organización, como una medida base para reducir el riesgo de compromiso de credenciales
 
-> Recomendado usar template: **Require multifactor authentication for all users**
+> Recomendado usar template: [**Require multifactor authentication for all users**](../EntraID/Políticas/Linea%20base%20Conditional%20Access%20Policies.md#require-multifactor-authentication-for-all-users)
 
 ## MFA resistente a phishing (administradores)
 
 Requiere que las **cuentas administrativas** utilicen **métodos de MFA resistentes al phishing** para proteger los roles con mayor impacto sobre la seguridad del tenant.
 
-> Recomendado usar template: **Require phishing-resistant multifactor authentication for administrators**
+> Recomendado usar template: [**Require phishing-resistant multifactor authentication for administrators**](../EntraID/Políticas/Linea%20base%20Conditional%20Access%20Policies.md#require-phishing-resistant-multifactor-authentication-for-administrators)
 
 ## Detecta inicios de sesión riesgosos
 
 Requiere MFA cuando Microsoft Entra ID detecta un **riesgo medio o alto en el inicio de sesión**, utilizando señales de riesgo para aplicar protección adaptativa.
 
-> Recomendado usar template: **Require multifactor authentication for risky sign-ins**
+> Recomendado usar template: [**Require multifactor authentication for risky sign-ins**](../EntraID/Políticas/Linea%20base%20Conditional%20Access%20Policies.md#require-multifactor-authentication-for-risky-sign-ins)
 
 ## Bloqueo de Autenticación Heredada (Legacy Authentication)
 
 Bloquea los intentos de inicio de sesión que usan **protocolos de autenticación heredados**, los cuales no admiten MFA y son comúnmente utilizados en ataques de fuerza bruta y password spray
 
-> Recomendado usar template: **Block legacy authentication**
+> Recomendado usar template: [**Block legacy authentication**](../EntraID/Políticas/Linea%20base%20Conditional%20Access%20Policies.md#block-legacy-authentication)
 
-
-> Guía para [**Conditional Access Policies**](../EntraID/Políticas/Linea%20base%20Conditional%20Access%20Policies.md)
 
 ---
 
