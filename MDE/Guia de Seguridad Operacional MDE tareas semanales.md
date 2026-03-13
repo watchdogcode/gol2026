@@ -366,3 +366,4 @@ Desde el Action Center y los incidentes:
 4. Archivar el reporte para auditoría y línea base
 
 > El reporte semanal es el insumo principal para la toma de decisiones de seguridad y la mejora continua de la postura de protección endpoint.
+---
