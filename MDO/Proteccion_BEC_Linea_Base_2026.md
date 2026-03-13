@@ -161,7 +161,7 @@ Recomendación:
 > Nadie debería poder iniciar, aprobar y ejecutar una transacción sensible sin que otra persona intervenga.
 ---
 
-Evita que:
+**Evita que:**
 - Una sola persona ejecute todo el proceso.
 - Un atacante (o un error humano)
 - Pueda completar un fraude de principio a fin
@@ -170,7 +170,7 @@ Evita que:
 En ataques BEC, el objetivo del atacante es **un único punto de decisión.**
 Si ese punto existe, el fraude ocurre inmediatamente
 
-### Ejemplo SIN separación de funciones (Riesgoso)
+**Ejemplo SIN separación de funciones (Riesgoso)**
 - La persona recibe el correo (“pago urgente”)
 - Cambia los datos bancarios
 - Autoriza el pago
@@ -178,7 +178,7 @@ Si ese punto existe, el fraude ocurre inmediatamente
 
 > El atacante gana con una sola cuenta comprometida.
 
-### Ejemplo CON separación de funciones (SoD)
+**Ejemplo CON separación de funciones (SoD)**
 
 | Paso                    | Rol distinto |
 |-------------------------|--------------|
@@ -188,7 +188,11 @@ Si ese punto existe, el fraude ocurre inmediatamente
 | Ejecutar el pago        | Usuario D    |
 
  En este modelo, **el atacante necesitaría comprometer a varias personas al mismo tiempo**, lo cual **reduce drásticamente el riesgo de fraude** y eleva significativamente la barrera de ataque.
-``
+
+> Idea clave
+> SoD no es burocracia.
+> Es una barrera estructural contra el fraude.
+> Por eso aparece en estándares como ISO 27001, SOX, PCI-DSS y NIST
 
 
 
