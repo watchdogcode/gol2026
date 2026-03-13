@@ -3,6 +3,9 @@
 
 Esta guía establece los procedimientos semanales para analizar tendencias de amenazas, ejecutar hunting proactivo, gestionar vulnerabilidades y revisar la postura de seguridad de endpoints en Microsoft Defender for Endpoint (MDE).
 
+
+## Alcance
+Esta guía describe actividades **operativas semanales** para Microsoft Defender for Endpoint (MDE), enfocadas en:
 ---
 ## Índice
 - [Análisis de Tendencias de Amenazas](https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20semanales.md#an%C3%A1lisis-de-tendencias-de-amenazas)

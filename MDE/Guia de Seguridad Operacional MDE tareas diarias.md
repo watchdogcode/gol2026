@@ -4,6 +4,21 @@
 
 Esta guía establece los procedimientos diarios para monitorear alertas, gestionar dispositivos en riesgo, validar la salud del sensor EDR y responder a incidentes en Microsoft Defender for Endpoint (MDE).
 
+
+## Alcance
+Esta guía describe actividades **operativas dirias** para Microsoft Defender for Endpoint (MDE), enfocadas en:
+
+---
+
+## Índice
+
+1. [Monitoreo de Incidentes y Alertas](#monitoreo-de-incidentes-y-alertas)
+2. [Gestión y Clasificación de Alertas](#gestión-y-clasificación-de-alertas)  
+3. [Dispositivos en Riesgo](#dispositivos-en-riesgo) 
+4. [Salud del Sensor y Cobertura EDR](#salud-del-sensor-y-cobertura-edr)  
+5. [Acciones de Respuesta a Incidentes](#acciones-de-respuesta-a-incidentes)  
+6. [Revisión de Threat Analytics](#revisión-de-threat-analytics)   
+
 ---
 
 # Monitoreo de Incidentes y Alertas
