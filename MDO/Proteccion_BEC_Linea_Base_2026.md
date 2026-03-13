@@ -113,26 +113,32 @@ Para validar que ZAP este bien configurado se puede consultar a través de esre 
 
 ---
 # 4. Protección de identidad (Zero Trust)
-**MFA obligatorio**
+## MFA obligatorio todos los usuarios
+
+Requiere que **todos los usuarios** completen **autenticación multifactor (MFA)** al acceder a los recursos de la organización, como una medida base para reducir el riesgo de compromiso de credenciales
 
 Recomendado usar template: **Require multifactor authentication for all users**
 
-**MFA resistente a phishing (administradores)**
+## MFA resistente a phishing (administradores)
+
+Requiere que las **cuentas administrativas** utilicen **métodos de MFA resistentes al phishing** para proteger los roles con mayor impacto sobre la seguridad del tenant.
 
 Recomendado usar template: **Require phishing-resistant multifactor authentication for administrators**
 
-## 4.3 Identity Protection
-Detecta inicios de sesión riesgosos
+## Detecta inicios de sesión riesgosos
+
+Requiere MFA cuando Microsoft Entra ID detecta un riesgo medio o alto en el inicio de sesión, utilizando señales de riesgo para aplicar protección adaptativa.
+
 Recomendado usar template: **Require multifactor authentication for risky sign-ins**
-## 4.4 Bloqueo de Autenticación Heredada (Legacy Authentication)
-La autenticación heredada no soporta MFA y es un vector común de ataques de fuerza bruta y password spraying.
-Recomendado usar template: xxx
-Recomendación:
-- Deshabilitar POP, IMAP, SMTP AUTH, MAPI, EWS sin OAuth.
-- Política de Acceso Condicional: **Block legacy authentication**.
-- Excluir únicamente cuentas break-glass.
+
+## Bloqueo de Autenticación Heredada (Legacy Authentication)
+
+Bloquea los intentos de inicio de sesión que usan protocolos de autenticación heredados, los cuales no admiten MFA y son comúnmente utilizados en ataques de fuerza bruta y password spray
+
+Recomendado usar template: **Block legacy authentication**
 
 
+Guía para Conditional Access Policies 
 ---
 
 # 5. Controles de proceso de negocio
