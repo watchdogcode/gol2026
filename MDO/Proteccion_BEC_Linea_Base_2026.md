@@ -197,39 +197,43 @@ Si ese punto existe, el fraude ocurre inmediatamente
 >
 > Por eso aparece en estándares como ISO 27001, SOX, PCI-DSS y NIST
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## ✔ Cuentas prioritarias
-Ejecutivos, Finanzas, Legal.
+
+### Son cuentas cuyo compromiso tiene impacto directo y grave en el negocio, no solo en IT.
+**Incluyen típicamente:**
+- Ejecutivos (CEO, CFO, COO)
+- Finanzas / Tesorería / Compras
+- Legal / Compliance
+
+**¿Por qué son tan críticas?**
+- Tienen autoridad para pagos, contratos y decisiones
+- Sus correos se confían automáticamente
+- Son el objetivo principal en ataques BEC
+
+Un atacante **no necesita malware** si logra convencer a Finanzas o a un Ejecutivo
+
+### Controles diferenciados por tipo de usuario
+
+| Control                     | Usuarios normales | Cuentas prioritarias |
+|-----------------------------|------------------|----------------------|
+| MFA                         | Si               | Si (phishing‑resistant) |
+| Anti‑phishing               | Si               | Si (impersonation dedicado) |
+| Safe Attachments / Links    | Si               | Si (modo estricto) |
+| SoD obligatorio             | No               | Si |
+| Validación fuera de banda   | No               | Si |
+| Monitoreo SOC               | Básico           | Continuo |
+
+
+
+
+
+
+
+
+
+
+
+
 
 ---
 
