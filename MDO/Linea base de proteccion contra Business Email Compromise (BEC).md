@@ -77,7 +77,7 @@ Este umbral controla la sensibilidad para aplicar modelos de aprendizaje automá
 
 2 - Aggressive
 
-**3 – More aggressive** (Recomendado)
+**3 – More aggressive** (Altamente Recomendado)
 
 4 - Most aggressive
 
@@ -190,6 +190,7 @@ Bloquea los intentos de inicio de sesión que usan **protocolos de autenticació
 - Usar un canal independiente (teléfono corporativo, sistema financiero)
 - Documentar la verificación
 - Requerir segunda aprobación posterior
+ ---
 
 ## Separación de funciones (SoD)
 ### La separación de funciones (SoD) es un principio de control que establece que una sola persona NO debe poder ejecutar por sí sola todo un proceso crítico de negocio.
@@ -298,7 +299,7 @@ Correlación automática de identidad + correo + endpoint.
 
 ---
 
-[Referencia Guías de Seguridad Operacional MDO](https://github.com/watchdogcode/gol2026/tree/main/MDO)
+[Referencia Guías de Seguridad Operacional MDO](../MDO/)
 
 ---
 
