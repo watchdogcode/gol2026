@@ -9,7 +9,7 @@
 ## Require multifactor authentication for all users
 
 ### Objetivo
-Requerir MFA para todos los usuarios del tenant.
+Requiere que **todos los usuarios** completen **autenticación multifactor (MFA)** al acceder a los recursos de la organización, como una medida base para reducir el riesgo de compromiso de credenciales
 
 ### Pasos
 1. Ir a https://entra.microsoft.com
@@ -31,7 +31,7 @@ Requerir MFA para todos los usuarios del tenant.
 ## Require phishing-resistant multifactor authentication for administrators
 
 ### Objetivo
-Proteger cuentas administrativas con MFA resistente a phishing.
+Requiere que las **cuentas administrativas** utilicen **métodos de MFA resistentes al phishing** para proteger los roles con mayor impacto sobre la seguridad del tenant.
 
 ### Pasos
 1. Conditional Access → Create new policy from template
@@ -52,7 +52,7 @@ Proteger cuentas administrativas con MFA resistente a phishing.
 ## Require multifactor authentication for risky sign-ins
 
 ### Objetivo
-Solicitar MFA cuando el riesgo de inicio de sesión sea medio o alto.
+Requiere MFA cuando Microsoft Entra ID detecta un **riesgo medio o alto en el inicio de sesión**, utilizando señales de riesgo para aplicar protección adaptativa.
 
 ### Pasos
 1. Create new policy from template
@@ -71,7 +71,7 @@ Solicitar MFA cuando el riesgo de inicio de sesión sea medio o alto.
 ## Block legacy authentication
 
 ### Objetivo
-Bloquear autenticación heredada que no soporta MFA.
+Bloquea los intentos de inicio de sesión que usan **protocolos de autenticación heredados**, los cuales no admiten MFA y son comúnmente utilizados en ataques de fuerza bruta y password spray
 
 ### Pasos
 1. Create new policy from template
