@@ -97,7 +97,7 @@ La inteligencia del buzón utiliza inteligencia artificial (IA) para determinar 
 ## Spoof Intelligence
 Elija cómo desea filtrar los correos electrónicos de remitentes que están suplantando dominios.
 
-Activado y respetando DMARC
+**Activado y respetando DMARC**
 
 [Paso a paso para crear Política Anti-Phishing](#política-anti-Phishing-microsoft-defender-for-office-365)
 
@@ -108,6 +108,7 @@ Activado y respetando DMARC
 
 ## Safe Links
 Protege a tus usuarios de abrir y compartir enlaces maliciosos en mensajes de correo electrónico y aplicaciones de Office
+
 **Protección en tiempo real:**
 - Outlook, Teams, SharePoint, OneDrive
 - Click‑time scanning
@@ -118,6 +119,7 @@ Referencia: [Politica Safe links]
 
 ## Safe Attachments
 Proteja su organización de contenido malicioso en archivos adjuntos de correo electrónico y archivos en SharePoint, OneDrive y Teams
+
 **Recomendación:**
 - **Dynamic Delivery**
 - Modo **Block**
@@ -126,7 +128,7 @@ Proteja su organización de contenido malicioso en archivos adjuntos de correo e
 Referencia: [Politica Safe links]
 
 ## Zero‑Hour Auto Purge (ZAP)
-**Zero‑Hour Auto Purge (ZAP)** es una protección post‑entrega de Microsoft Defender for Office 365 que **detecta y elimina automáticamente** correos maliciosos que ya fueron entregados al buzón del usuario
+**Zero‑Hour Auto Purge (ZAP)** es una protección post‑entrega de Microsoft Defender for Office 365 que **detecta y elimina automáticamente** correos maliciosos que ya fueron entregados al **buzón del usuario**
 - Activado globalmente
 - Elimina correos entregados que luego se clasifican como maliciosos
 
@@ -138,7 +140,7 @@ Para validar que ZAP este bien configurado se puede consultar a través de esre 
 
 Requiere que **todos los usuarios** completen **autenticación multifactor (MFA)** al acceder a los recursos de la organización, como una medida base para reducir el riesgo de compromiso de credenciales
 
-Recomendado usar template: **Require multifactor authentication for all users**
+> Recomendado usar template: **Require multifactor authentication for all users**
 
 ## MFA resistente a phishing (administradores)
 
