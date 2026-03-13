@@ -32,6 +32,7 @@ La mitigación requiere **disciplina + tecnología + procesos**.
 ### En conjunto, estos mecanismos protegen la marca, reducen el riesgo de fraude y garantizan que el correo crítico del negocio llegue de forma segura a su destino
 
 ## 1.1 SPF
+Configuración básica donde se destaca -all:
 ```
 v=spf1 include:spf.protection.outlook.com -all
 ```
