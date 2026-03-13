@@ -115,7 +115,7 @@ Protege a tus usuarios de abrir y compartir enlaces maliciosos en mensajes de co
 - Bloquear URL original
 - Registrar clics
 
-Referencia: [Politica Safe links]
+Referencia: [**Politica Safe links**](Políticas/Politica%20Safe%20links.md)
 
 ## Safe Attachments
 Proteja su organización de contenido malicioso en archivos adjuntos de correo electrónico y archivos en SharePoint, OneDrive y Teams
@@ -125,7 +125,7 @@ Proteja su organización de contenido malicioso en archivos adjuntos de correo e
 - Modo **Block**
 - Activar para SharePoint / OneDrive / Teams
 
-Referencia: [Politica Safe links]
+Referencia: [**Politica Safe links**](Políticas/Política%20de%20Safe%20Attachments.md)
 
 ## Zero‑Hour Auto Purge (ZAP)
 **Zero‑Hour Auto Purge (ZAP)** es una protección post‑entrega de Microsoft Defender for Office 365 que **detecta y elimina automáticamente** correos maliciosos que ya fueron entregados al **buzón del usuario**
