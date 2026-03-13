@@ -91,10 +91,12 @@ La protección contra suplantación recibió fuertes señales de que los siguien
 
 ## Mailbox Intelligence
 La inteligencia del buzón utiliza inteligencia artificial (IA) para determinar los patrones de correo electrónico del usuario con sus contactos frecuentes.
+
 **Habilitado + Protección de suplantación**
 
 ## Spoof Intelligence
 Elija cómo desea filtrar los correos electrónicos de remitentes que están suplantando dominios.
+
 Activado y respetando DMARC
 
 [Paso a paso para crear Política Anti-Phishing](#política-anti-Phishing-microsoft-defender-for-office-365)
