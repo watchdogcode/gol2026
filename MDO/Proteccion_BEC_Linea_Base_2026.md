@@ -33,20 +33,26 @@ La mitigación requiere **disciplina + tecnología + procesos**.
 # 1. Autenticación del correo  
 ### En conjunto, estos mecanismos protegen la marca, reducen el riesgo de fraude y garantizan que el correo crítico del negocio llegue de forma segura a su destino
 
-## 1.1 SPF
+## SPF
+SPF (Sender Policy Framework) define qué servidores están autorizados a enviar correo en nombre de tu dominio.
+
 Configuración básica donde se destaca -all:
 ```
 v=spf1 include:spf.protection.outlook.com -all
 ```
 
-## 1.2 DKIM
+## DKIM
+DKIM (DomainKeys Identified Mail) agrega una firma digital a cada correo saliente
+
 Habilitado obligatoriamente en todos los dominios.
 ```
 selector1._domainkey.tudominio.com  | selector1-tudominio-com._domainkey.tutenant.onmicrosoft.com
 selector2._domainkey.tudominio.com  | selector2-tudominio-com._domainkey.tutenant.onmicrosoft.com
 ```
 
-## 1.3 DMARC
+## DMARC
+DMARC (Domain-based Message Authentication, Reporting & Conformance) define qué hacer cuando SPF o DKIM fallan y exige alineación con el dominio visible del correo.
+
 Mínimo aceptable:
 ```
 v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc-reports@tudominio.com; ruf=mailto:dmarc-forensic@tudominio.com; fo=1; aspf=s; adkim=s
@@ -133,12 +139,13 @@ Recomendado usar template: **Require multifactor authentication for risky sign-i
 
 ## Bloqueo de Autenticación Heredada (Legacy Authentication)
 
-Bloquea los intentos de inicio de sesión que usan protocolos de autenticación heredados, los cuales no admiten MFA y son comúnmente utilizados en ataques de fuerza bruta y password spray
+Bloquea los intentos de inicio de sesión que usan **protocolos de autenticación heredados**, los cuales no admiten MFA y son comúnmente utilizados en ataques de fuerza bruta y password spray
 
 Recomendado usar template: **Block legacy authentication**
 
 
 Guía para Conditional Access Policies 
+
 ---
 
 # 5. Controles de proceso de negocio
