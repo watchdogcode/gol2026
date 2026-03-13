@@ -1,4 +1,4 @@
-# 🛡️ Paquete de Consultas KQL (Advanced Hunting)
+# Paquete de Consultas KQL (Advanced Hunting) 🛡️
 
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 

@@ -1,4 +1,4 @@
-# 🛡️ Guía de Seguridad Operacional Mensual/Ad-Hoc: Microsoft EntraID
+# Guía de Seguridad Operacional Mensual/Ad-Hoc: Microsoft EntraID 🛡️
 
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 
