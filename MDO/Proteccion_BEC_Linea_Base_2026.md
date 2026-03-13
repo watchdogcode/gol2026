@@ -154,6 +154,13 @@ Recomendación:
 - Requerir segunda aprobación posterior
 
 ## ✔ Separación de funciones (SoD)
+### La separación de funciones (SoD) es un principio de control que establece que una sola persona NO debe poder ejecutar por sí sola todo un proceso crítico de negocio.
+
+> En términos simples:
+>
+> Nadie debería poder iniciar, aprobar y ejecutar una transacción sensible sin que otra persona intervenga.
+
+
 Evita que una sola persona ejecute todo el proceso.
 
 ## ✔ Cuentas prioritarias
