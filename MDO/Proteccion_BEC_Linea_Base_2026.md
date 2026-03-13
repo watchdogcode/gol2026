@@ -94,8 +94,9 @@ Activado y respetando DMARC
 # 3. Safe Links, Safe Attachments y ZAP
 ### Safe Links, Safe Attachments y ZAP ofrecen protección en tiempo real contra URL maliciosas, archivos peligrosos y correos que se vuelven sospechosos después de ser entregados
 
-## 3.1 Safe Links
-Protección en tiempo real:
+## Safe Links
+Protege a tus usuarios de abrir y compartir enlaces maliciosos en mensajes de correo electrónico y aplicaciones de Office
+**Protección en tiempo real:**
 - Outlook, Teams, SharePoint, OneDrive
 - Click‑time scanning
 - Bloquear URL original
@@ -103,15 +104,17 @@ Protección en tiempo real:
 
 Referencia: [Politica Safe links]
 
-## 3.2 Safe Attachments
-Recomendación:
+## Safe Attachments
+Proteja su organización de contenido malicioso en archivos adjuntos de correo electrónico y archivos en SharePoint, OneDrive y Teams
+**Recomendación:**
 - **Dynamic Delivery**
 - Modo **Block**
 - Activar para SharePoint / OneDrive / Teams
 
 Referencia: [Politica Safe links]
 
-## 3.3 Zero‑Hour Auto Purge (ZAP)
+## Zero‑Hour Auto Purge (ZAP)
+**Zero‑Hour Auto Purge (ZAP)** es una protección post‑entrega de Microsoft Defender for Office 365 que **detecta y elimina automáticamente** correos maliciosos que ya fueron entregados al buzón del usuario
 - Activado globalmente
 - Elimina correos entregados que luego se clasifican como maliciosos
 
