@@ -1,600 +1,335 @@
-# Protección contra Business Email Compromise (BEC)
+# Protección contra Business Email Compromise (BEC) 🛡️
 
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 
-Business Email Compromise (BEC) es un ataque de fraude dirigido que utiliza correo electrónico y técnicas avanzadas de ingeniería social para engañar a empleados y provocar acciones de negocio con impacto financiero u operativo.
+Business Email Compromise (BEC) es un ataque de fraude altamente dirigido basado en ingeniería social, suplantación y compromiso de identidad. Su objetivo es manipular decisiones financieras u operativas mediante correos que parecen auténticos, frecuentemente enviados desde cuentas legítimas comprometidas.
 
 ---
 
-## Estrategia de Protección por Capas
+### Los ataques BEC modernos combinan:
+- Compromiso de identidad
+- Impersonación de usuarios y dominios
+- Suplantación avanzada sin spoofing técnico
+- Conocimiento real de procesos internos
+- Manipulación de hilos de correo
 
-**1. [Autenticación del correo](#1-autenticación-del-correo)**
-- SPF (Sender Policy Framework)
-- DKIM (DomainKeys Identified Mail)
-- DMARC (Domain-based Message Authentication, Reporting & Conformance)
-
-Objetivo: prevenir suplantación de identidad y spoofing.
-
----
-
-**2. [Política Anti-Phishing Microsoft Defender for Office 365](#2-política-anti-phishing-microsoft-defender-for-office-365)**
-- Protección contra impersonación (usuarios y dominios)
-- Spoof intelligence
-- Mailbox intelligence
-- Zero-Hour Auto Purge (ZAP)
-- Correlación de campañas BEC
-
-Objetivo: detectar BEC incluso sin malware o URLs.
+Ninguna capa por sí sola detiene BEC.
+La mitigación requiere **disciplina + tecnología + procesos**.
 
 ---
 
-**3. [Protección de identidad (Zero Trust)](#3-protección-de-identidad-zero-trust)**
-- MFA obligatorio para todos – Template oficial
-- Phishing-resistant MFA para administradores
-- Evaluación de riesgo de inicio de sesión
+# Modelo de Protección Multicapa (Zero Trust + NIST + Microsoft Defender 2026)
 
-Objetivo: prevenir account takeover.
-
----
-
-**4. [Controles de proceso de negocio](#4-controles-de-proceso-de-negocio)**
-- Doble validación fuera de banda (Out-of-Band Verification)
-- Separación de funciones (Segregation of Duties – SoD)
-- Identificación de cuentas prioritarias (Finance, Executives, Legal)
-- Objetivo global del control
-
-Objetivo: reducir el impacto incluso si el correo llega.
+1. Autenticación del correo (SPF, DKIM, DMARC)
+2. Anti‑phishing avanzado (DfO)
+3. Safe Links / Safe Attachments / ZAP
+4. Protección de identidad (Zero Trust / Entra ID Protection)
+5. Controles de proceso de negocio
+6. Detección y respuesta SOC (DfO + XDR)
+7. Concientización continua
 
 ---
 
-**5. [Detección y respuesta SOC](#5-detección-y-respuesta-soc)**
-- Monitoreo de alertas de impersonación
-- Investigación de inbox rules sospechosas
-- Uso de Threat Explorer y Advanced Hunting
-- Correlación en Defender XDR
-- Flujo operativo SOC resumido
-- Resultado esperado
+# 1. Autenticación del correo  
+### En conjunto, estos mecanismos protegen la marca, reducen el riesgo de fraude y garantizan que el correo crítico del negocio llegue de forma segura a su destino
 
-Objetivo: detección temprana y contención rápida.
+## SPF
+SPF (Sender Policy Framework) define qué servidores están autorizados a enviar correo en nombre de tu dominio.
 
----
+Configuración básica, donde se destaca -all:
+```
+v=spf1 include:spf.protection.outlook.com -all
+```
 
-**6. [Concientización del usuario](#6-concientización-del-usuario)**
-- Attack Simulation Training
-- Simulaciones de CEO Fraud y Vendor Fraud
-- Métricas de usuarios vulnerables
-- Uso operativo de métricas por el SOC
-- Resultado esperado
+## DKIM
+DKIM (DomainKeys Identified Mail) agrega una firma digital a cada correo saliente.
 
-Objetivo: reducir efectividad de la ingeniería social.
+Habilitado obligatoriamente en todos los dominios.
+```
+selector1._domainkey.tudominio.com  | selector1-tudominio-com._domainkey.tutenant.onmicrosoft.com
+selector2._domainkey.tudominio.com  | selector2-tudominio-com._domainkey.tutenant.onmicrosoft.com
+```
 
----
+## DMARC
+DMARC (Domain-based Message Authentication, Reporting & Conformance) define qué hacer cuando SPF o DKIM fallan y exige alineación con el dominio visible del correo.
 
-## Resumen Ejecutivo
+Mínimo aceptable:
+```
+v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc-reports@tudominio.com; ruf=mailto:dmarc-forensic@tudominio.com; fo=1; aspf=s; adkim=s
+```
+Ideal:
+```
+v=DMARC1; p=reject; pct=100; rua=mailto:dmarc-reports@tudominio.com; ruf=mailto:dmarc-forensic@tudominio.com; fo=1; aspf=s; adkim=s
+```
 
-BEC no se detiene con una sola herramienta. Se mitiga combinando identidad fuerte, autenticación de correo, detección avanzada y disciplina operativa.
-
----
-
-## 1. Autenticación del correo
-### 1.1 SPF (Sender Policy Framework) 
-Autorizar solo a Microsoft 365 (y fuentes explícitas) a enviar correo y rechazar todo lo demás.
-
-**Dónde se configura**
-1. En DNS del dominio (registro TXT).
-2. Valor recomendado para Microsoft 365
-
-| Tipo | Registro | TTL |
-|---------|------|------|
-| TXT | v=spf1 include:spf.protection.outlook.com -all | 3600 |
-
-
-### 1.2 DKIM (DomainKeys Identified Mail)
-Garantizar integridad del mensaje y alineación DMARC mediante firma digital.
-
-**Dónde se habilita**
-1. Ir a https://security.microsoft.com/authentication?viewid=DKIM
-2. Selecciona tu dominio personalizado
-3. Clic en Create DKIM keys
-4. Microsoft generará 2 registros CNAME
-5. Publícalos en tu DNS
-
-**Ejemplo de registros DKIM**
-
-| Selector | CNAME |
-|---------|------|
-| selector1._domainkey.tudominio.com | selector1-tudominio-com._domainkey.tutenant.onmicrosoft.com |
-| selector2._domainkey.tudominio.com | selector2-tudominio-com._domainkey.tutenant.onmicrosoft.com |
-
-
-6. Espera propagación DNS
-
-7. Regresa al portal y habilita: Sign messages for this domain with DKIM signatures
-
-### 1.3 DMARC (Domain-based Message Authentication, Reporting & Conformance)
-
-Indicar a los receptores que pongan en cuarentena los correos que fallen SPF y DKIM.
-
-**Dónde se configura**
-1. En DNS del dominio (registro TXT _dmarc)
-2. Registro DMARC recomendado (Quarantine)
-
-| Tipo | Registro |
-|---------|------|
-| TXT | v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc-reports@tudominio.com; ruf=mailto:dmarc-forensic@tudominio.com; fo=1; aspf=s; adkim=s  |
-
-**Para mayor detalle consultar** [Configuraciones base para Exchange Online](https://github.com/watchdogcode/gol2026/blob/3.0/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#%EF%B8%8F-seguridad-integral-de-correo-electr%C3%B3nico-en-microsoft-365)
-
----
-## 2. Política Anti-Phishing Microsoft Defender for Office 365
-
-1. Ir a: https://security.microsoft.com/antiphishing
-2. Haz clic en **Create**
-3. En la sección **Policy name**:
-   - **Name**: Anti‑Phishing – BEC Protection
-   - **Description**: Protección contra BEC con impersonation para Ejecutivos, Finanzas y Legal
-4. Haz clic en **Next**
-5. En la sección **Users, groups, and domains**:
-   - Aplica la política a:
-     - **Dominios**
-       - Agrega todos tus dominios
-   - Evita exclusiones salvo casos muy justificados
-6. Haz clic en **Next**
-7. En la sección **Phishing threshold & protection**:
-   - En **Phishing email threshold**, configura el slider en:
-     - **3 – More aggressive**
-       - Incrementa la sensibilidad para detectar phishing dirigido y BEC
-8. Configura **Impersonation**:
-   - Habilita **Enable users to protect**
-   - Haz clic en **Manage sender(s)**
-     - Agrega usuarios (Nombre + correo):
-       - Ejecutivos (CEO, CFO, COO, etc.)
-       - Usuarios de Finanzas
-       - Usuarios de Legal
-     - Máximo: **350 usuarios por política**
-   - Finaliza con **Done**
-9. Habilita **protección de dominios**:
-   - Marca **Include the domains I own**
-   - Marca **Include custom domains**
-     - En **Manage custom domains**, agrega:
-       - Bancos
-       - Proveedores clave
-       - Partners estratégicos
-10. **Mailbox Intelligence (Obligatorio)**:
-    - Enable mailbox intelligence
-    - Enable intelligence for impersonation protection
-
-    > Detecta secuestro de hilos y comportamiento anómalo incluso sin spoofing clásico
-
-11. En **Spoof Intelligence**:
-    - Verifica que esté habilitado **Enable spoof intelligence**
-12. Haz clic en **Next**
-13. En la sección **Acciones**
-14. Configura **Message action**:
-    - User impersonation → **Quarantine the message**
-      - Quarantine policy: `DefaultFullAccessPolicy` (o política SOC dedicada)
-    - Domain impersonation → **Quarantine the message**
-      - Quarantine policy: `DefaultFullAccessPolicy` (o política SOC dedicada)
-    - Selecciona **Honor DMARC record policy**
-    - Spoof + DMARC `p=quarantine` → **Quarantine the message**
-    - Spoof + DMARC `p=reject` → **Reject the message**
-    - Spoof by spoof intelligence → **Quarantine the message**
-15. En **Safety Tips & Indicators**, habilita:
-    - Show first contact safety tip
-    - Show user impersonation safety tip
-    - Show domain impersonation safety tip
-    - Show user impersonation unusual characters safety tip
-    - Show ? for unauthenticated sender for spoof
-    - Show "via" tag
-16. Haz clic en **Next** y **Submit**
+Para mayor detalle consultar [**Estándares SPF, DKIM, DMARC y MTA-STS**](https://github.com/watchdogcode/gol2026/blob/main/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#4-est%C3%A1ndares-spf-dkim-dmarc-y-mta-sts)
 
 ---
 
-## 3. Protección de identidad (Zero Trust)
-
-### 3.1 MFA obligatorio para todos – Template oficial
-
-**Paso a paso**
-1. Ir a: https://entra.microsoft.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies/menuId//fromNav/Identity  
-   Selecciona **+ New policy from template**
-2. **Categoría:** Secure foundation
-3. **Template:** Require multifactor authentication for all users
-4. Selecciona **Review + Create**
-5. Clic en **Create**
-6. Una vez creada, selecciona **Require multifactor authentication for all users**
-7. **Users or agents**
-   - Include → Grupo piloto (hacer pruebas de validación necesarias)
-   - Include → All users (una vez concluida la fase de pruebas se puede agregar a todos o por olas)
-   - Exclude →
-     - Cuentas de emergencia (break-glass)
-     - Cuenta del administrador que está creando la política (temporal, después se remueve)
-8. **Targeted resources** (antes *Cloud apps*)
-   - All resources (antes *All cloud apps*) – preconfigurado
-9. **Grant**
-   - Require multifactor authentication – preconfigurado
-10. **Enable policy**
-   - Report-only → Validar en **Sign-in logs**
-   - Después de una semana de análisis → Cambiar a **On**
+# 2. Anti‑Phishing – Microsoft Defender for Office 365
+**Esta medida es esencial para bloquear intentos de suplantación altamente específicos y sofisticados, donde el atacante imita a ejecutivos, proveedores o áreas clave para inducir acciones fraudulentas**
 
 ---
 
-### 3.2 Phishing-resistant MFA para administradores – Template dedicado
+## Phishing threshold
+Este umbral controla la sensibilidad para aplicar modelos de aprendizaje automático a los mensajes para determinar un veredicto de phishing.
+1 - Standard
 
-**Paso a paso (Template)**
-1. Ir a: https://entra.microsoft.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies/menuId//fromNav/Identity
-2. **+ New policy from template**
-3. **Categoría:** Protect administrators
-4. Selecciona: **Require phishing-resistant multifactor authentication for administrators**
-5. **Review settings**
-   - Target → Directory roles
-   - Roles incluidos (predefinidos):
-     - Global Administrator
-     - Exchange Administrator
-     - Security Administrator
-     - Conditional Access Administrator
-     - Privileged Role Administrator
-6. **Grant**
-   - Require authentication strength
-   - Phishing-resistant MFA – preconfigurado
-7. **Exclude**
-   - Emergency access accounts
-8. **Enable**
-   - Report-only → On
+2 - Aggressive
 
-> ⚠️ **Advertencia crítica del template**  
-> Los administradores deben registrar previamente **FIDO2 / Windows Hello for Business (WHfB)** para evitar *lockout*.
+**3 – More aggressive** (Recomendado)
 
----
+4 - Most aggressive
 
-### 3.3 Evaluación de riesgo de inicio de sesión – Template Identity Protection
+### Impersonation Protection
+La protección contra suplantación recibió fuertes señales de que los siguientes mensajes son sospechosos
+- Ejecutivos
+- Finanzas
+- Legal
+- Proveedores críticos
+- Socios estratégicos
 
-**Paso a paso**
-1. Ir a: https://entra.microsoft.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies/menuId//fromNav/Identity
-2. **+ New policy from template**
-3. **Categoría:** Emerging threats
-4. Selecciona: **Require multifactor authentication for risky sign-ins**
-5. **Configuración incluida por el template:**
-   - Condition → Sign-in risk
-     - Medium
-     - High
-   - Grant → Require MFA
-6. **Exclude**
-   - Break-glass accounts
-7. **Enable**
-   - Report-only → On
+## Mailbox Intelligence
+La inteligencia del buzón utiliza inteligencia artificial (IA) para determinar los patrones de correo electrónico del usuario con sus contactos frecuentes.
 
-**Resultado:** Protección adaptativa basada en señales de riesgo de Microsoft.
+**Habilitado + Protección de suplantación**
+
+## Spoof Intelligence
+Elija cómo desea filtrar los correos electrónicos de remitentes que están suplantando dominios.
+
+**Activado y respetando DMARC**
+
+[Paso a paso para crear Política Anti-Phishing](#política-anti-Phishing-microsoft-defender-for-office-365)
 
 ---
 
-## 4. Controles de proceso de negocio
+# 3. Safe Links, Safe Attachments y ZAP
+**Safe Links, Safe Attachments y ZAP ofrecen protección en tiempo real contra URL maliciosas, archivos peligrosos y correos que se vuelven sospechosos después de ser entregados**
 
-**Objetivo:** reducir el impacto incluso si el correo malicioso llega al usuario.
+## Safe Links
+Protege a tus usuarios de abrir y compartir enlaces maliciosos en mensajes de correo electrónico y aplicaciones de Office
 
-**Principio clave:** asumir que el correo puede estar comprometido y diseñar procesos que no dependan del email como mecanismo de autorización.
+**Protección en tiempo real:**
+- Outlook, Teams, SharePoint, OneDrive
+- Click‑time scanning
+- Bloquear URL original
+- Registrar clics
+
+Referencia: [Politica Safe links]
+
+## Safe Attachments
+Proteja su organización de contenido malicioso en archivos adjuntos de correo electrónico y archivos en SharePoint, OneDrive y Teams
+
+**Recomendación:**
+- **Dynamic Delivery**
+- Modo **Block**
+- Activar para SharePoint / OneDrive / Teams
+
+Referencia: [Politica Safe links]
+
+## Zero‑Hour Auto Purge (ZAP)
+**Zero‑Hour Auto Purge (ZAP)** es una protección post‑entrega de Microsoft Defender for Office 365 que **detecta y elimina automáticamente** correos maliciosos que ya fueron entregados al **buzón del usuario**
+- Activado globalmente
+- Elimina correos entregados que luego se clasifican como maliciosos
+
+Para validar que ZAP este bien configurado se puede consultar a través de esre escript [Validate-ZAPConfiguration]
+
+---
+# 4. Protección de identidad (Zero Trust)
+## MFA obligatorio todos los usuarios
+
+Requiere que **todos los usuarios** completen **autenticación multifactor (MFA)** al acceder a los recursos de la organización, como una medida base para reducir el riesgo de compromiso de credenciales
+
+> Recomendado usar template: **Require multifactor authentication for all users**
+
+## MFA resistente a phishing (administradores)
+
+Requiere que las **cuentas administrativas** utilicen **métodos de MFA resistentes al phishing** para proteger los roles con mayor impacto sobre la seguridad del tenant.
+
+> Recomendado usar template: **Require phishing-resistant multifactor authentication for administrators**
+
+## Detecta inicios de sesión riesgosos
+
+Requiere MFA cuando Microsoft Entra ID detecta un **riesgo medio o alto en el inicio de sesión**, utilizando señales de riesgo para aplicar protección adaptativa.
+
+> Recomendado usar template: **Require multifactor authentication for risky sign-ins**
+
+## Bloqueo de Autenticación Heredada (Legacy Authentication)
+
+Bloquea los intentos de inicio de sesión que usan **protocolos de autenticación heredados**, los cuales no admiten MFA y son comúnmente utilizados en ataques de fuerza bruta y password spray
+
+> Recomendado usar template: **Block legacy authentication**
+
+
+Guía para Conditional Access Policies 
 
 ---
 
-### 4.1 Doble validación fuera de banda (Out-of-Band Verification)
+# 5. Controles de proceso de negocio
 
-Es un control que obliga a verificar pagos o cambios bancarios usando un canal distinto al correo electrónico, incluso si el mensaje parece legítimo o proviene de una cuenta real.
+## Doble validación fuera de banda
 
-**¿Por qué es crítico en BEC?**
+### Es un control que obliga a verificar transacciones críticas usando un canal distinto al correo electrónico, aunque el mensaje:
+- Parezca legítimo
+- Continúe un hilo real
+- Use firmas, tono y lenguaje correctos
 
-En muchos ataques BEC:
-- El correo es legítimo (cuenta comprometida)
-- El mensaje continúa un hilo real
-- El tono y firma coinciden
+**Esto es crítico porque en ataques BEC modernos:**
+- El atacante sí controla la cuenta
+- El correo sí es real
+- Las herramientas técnicas pueden no bloquearlo 
 
-Por diseño, el **email NO puede ser usado como prueba de autenticidad**.
-
-**¿Cuándo se debe aplicar?**
-
-Debe ser **MANDATORIO** para:
-- Cambios de cuenta bancaria de proveedores
+**Debe de ser obligatorio para:**
+- Cambios bancarios de proveedores
 - Pagos urgentes o fuera de patrón
-- Primer pago a un nuevo proveedor
-- Pagos solicitados por ejecutivos
+- Nuevos proveedores
+- Instrucciones de ejecutivos (CEO Fraud)
 
-**¿Cómo se implementa correctamente?**
-
-**Buenas prácticas:**
-- Llamar a un **número previamente registrado** (no el del correo)
-- No usar **Teams/Email** como canal de validación
+**Buenaspracticas recomendads**
+- Llamar a un número previamente registrado
+- Usar un canal independiente (teléfono corporativo, sistema financiero)
 - Documentar la verificación
-- Requerir **segunda aprobación** posterior
+- Requerir segunda aprobación posterior
 
-**Error común:**
-- “Confirmar” respondiendo el mismo email  (inútil)
+## Separación de funciones (SoD)
+### La separación de funciones (SoD) es un principio de control que establece que una sola persona NO debe poder ejecutar por sí sola todo un proceso crítico de negocio.
 
-> Este control por sí solo ha prevenido innumerables fraudes financieros documentados.
+> En términos simples:
+>
+> Nadie debería poder iniciar, aprobar y ejecutar una transacción sensible sin que otra persona intervenga.
+---
+
+**Evita que:**
+- Una sola persona ejecute todo el proceso.
+- Un atacante (o un error humano)
+- Pueda completar un fraude de principio a fin
+- Que compromete una sola cuenta
+
+> En ataques BEC, el objetivo del atacante es **un único punto de decisión.**
+> 
+> Si ese punto existe, el fraude ocurre inmediatamente
+
+**Ejemplo SIN separación de funciones (Riesgoso)**
+- La persona recibe el correo (“pago urgente”)
+- Cambia los datos bancarios
+- Autoriza el pago
+- Ejecuta la transferencia
+
+> El atacante gana con una sola cuenta comprometida.
+
+**Ejemplo CON separación de funciones (SoD)**
+
+| Paso                    | Rol distinto |
+|-------------------------|--------------|
+| Recibir la solicitud    | Usuario A    |
+| Validar fuera de banda  | Usuario B    |
+| Autorizar el pago       | Usuario C    |
+| Ejecutar el pago        | Usuario D    |
+
+ En este modelo, **el atacante necesitaría comprometer a varias personas al mismo tiempo**, lo cual **reduce drásticamente el riesgo de fraude** y eleva significativamente la barrera de ataque.
+
+> **Idea clave**
+>
+> SoD no es burocracia.
+>
+> Es una barrera estructural contra el fraude.
+>
+> Por eso aparece en estándares como ISO 27001, SOX, PCI-DSS y NIST
+
+## Cuentas prioritarias
+
+### Son cuentas cuyo compromiso tiene impacto directo y grave en el negocio, no solo en IT.
+**Incluyen típicamente:**
+- Ejecutivos (CEO, CFO, COO)
+- Finanzas / Tesorería / Compras
+- Legal / Compliance
+
+**¿Por qué son tan críticas?**
+- Tienen autoridad para pagos, contratos y decisiones
+- Sus correos se confían automáticamente
+- Son el objetivo principal en ataques BEC
+
+> Un atacante **no necesita malware** si logra convencer a Finanzas o a un Ejecutivo
+
+### Controles diferenciados por tipo de usuario
+
+| Control                     | Usuarios normales | Cuentas prioritarias |
+|-----------------------------|------------------|----------------------|
+| MFA                         | Si               | Si (phishing‑resistant) |
+| Anti‑phishing               | Si               | Si (impersonation dedicado) |
+| Safe Attachments / Links    | Si               | Si (modo estricto) |
+| SoD obligatorio             | No               | Si |
+| Validación fuera de banda   | No               | Si |
+| Monitoreo SOC               | Básico           | Continuo |
+
+> **Idea clave**
+>
+> No todos los usuarios representan el mismo riesgo para el negocio.
+> Las cuentas prioritarias requieren controles prioritarios.
 
 ---
 
-### 4.2 Separación de funciones (Segregation of Duties – SoD)
+# 6. Detección y respuesta SOC
 
+##  Señales prioritarias
+- Impersonation detected
+- Mailbox Intelligence anomalies
+- Reglas sospechosas
+- Nuevos ASNs o IPs riesgosas
 
-Es el principio de que **ninguna persona debe poder iniciar, aprobar y ejecutar una transacción crítica por sí sola**.
+##  Reglas sospechosas comunes
+- Auto‑forward externo
+- Mover a RSS/Archive
+- Marcar como leído
+- Eliminar enviados
 
-***¿Por qué es clave contra BEC?***
-BEC busca un **único punto de decisión**. Si el proceso permite que una sola persona:
-- Reciba el correo
-- Cambie datos
-- Autorice el pago
+##  Threat Explorer
+- Blast radius
+- Lookalike domains
+- Quién respondió / reenvío
 
-El fraude es inmediato.
+##  Advanced Hunting
+- Secuestro de hilos
+- Reglas maliciosas
+- Login anómalo
 
-Separar funciones **obliga a colusión**, lo cual reduce drásticamente el riesgo.
-
-**Modelo mínimo recomendado (pagos)**
-
-| Rol | Responsable |
-|---|---|
-| Solicita / recibe instrucción | Finanzas / AP |
-| Aprueba | Manager / Finance Lead |
-| Ejecuta pago | Tesorería |
-| Revisa / reconcilia | Control financiero |
-
-**Ejemplos de separación efectiva**
-- Quien actualiza datos bancarios **no puede** autorizar pagos
-- Quien aprueba pagos **no puede** liberarlos
-- Quien libera pagos **no puede** modificar proveedores
-
-> Este modelo está alineado con marcos de control financiero y prevención de fraude.
+##  XDR
+Correlación automática de identidad + correo + endpoint.
 
 ---
 
-### 4.3 Identificación de cuentas prioritarias (Finance, Executives, Legal)
-
-**¿Qué significa?**
-Reconocer formalmente que algunos usuarios tienen un **impacto de riesgo desproporcionado**, y requieren controles reforzados.
-
-**¿Por qué es esencial en BEC?**
-Los atacantes:
-- Apuntan a **ejecutivos** (autoridad)
-- Apuntan a **finanzas** (capacidad de pago)
-- Apuntan a **legal** (acceso a información sensible)
-
-Esto es consistente en casi todos los incidentes BEC documentados.
-
-**¿Qué implica ser “cuenta prioritaria”?**
-
-**Procesos especiales:**
-- Doble validación obligatoria
-- Prohibición de aprobaciones solo por email
-- Verificación reforzada en cambios críticos
-
-**Gobierno:**
-- Lista oficial mantenida por **Seguridad + Finanzas**
-- Revisión periódica (los roles cambian)
-
-**Alineación técnica:**
-Estas cuentas deben coincidir con:
-- Anti‑phishing impersonation
-- Alertas de alta severidad
-- MFA fuerte
+[Referencia Guías de Seguridad Operacional MDO](https://github.com/watchdogcode/gol2026/tree/main/MDO)
 
 ---
 
-### 4.4 Objetivo global del control
+# 7. Concientización y entrenamiento
 
-**¿Qué problema resuelven estos controles?**
-Reducen el impacto cuando **TODA la capa técnica falla**:
-- El correo llega 
-- El usuario lo lee 
-- Parece legítimo 
+## Simulaciones recomendadas
+- CEO Fraud
+- Vendor Fraud
+- Payment Diversion
+- Invoice Scam
 
-**El proceso bloquea la acción fraudulenta**.
-
-> **BEC no se detiene solo con tecnología; se detiene cuando los procesos asumen que el correo puede mentir y hacen el fraude operativamente imposible.**
-
----
-
-## 5. Detección y respuesta SOC
-
-**Objetivo:** detección temprana y contención rápida antes de que el fraude se materialice.
+## Métricas clave
+- Usuarios vulnerables
+- Tasa de reporte
+- Riesgo acumulado
 
 ---
 
-### 5.1 Monitoreo de alertas de impersonación
+# Resumen Ejecutivo
 
-**¿Qué debe monitorear el SOC?**
-El SOC no debe esperar a que exista un fraude confirmado. En ataques BEC, la señal temprana más confiable es la **impersonación**.
+**La mitigación efectiva de BEC requiere:**
+- Identidad fuerte
+- Anti‑phishing agresivo
+- Safe Links / Safe Attachments / ZAP
+- Procesos robustos
+- Usuarios entrenados
+- SOC rápido y disciplinado
+- Correlación XDR
 
-Alertas críticas a monitorear de forma continua:
-- User impersonation detected
-- Domain impersonation detected
-- Mailbox Intelligence detects impersonation
-- Suspicious sequence of events possibly related to BEC
+> **BEC falla cuando cada capa asume que la anterior puede ser comprometida.**
 
-Estas alertas se generan en Microsoft Defender for Office 365 y se correlacionan automáticamente en Defender XDR cuando existe alta confianza de ataque.
-
-**¿Por qué es crítico?**
-BEC rara vez contiene malware o URLs. Si el SOC espera señales tradicionales, el pago fraudulento ya ocurrió. La velocidad es el factor decisivo.
 
 ---
 
-### 5.2 Investigación de inbox rules sospechosas
-
-**¿Por qué las inbox rules son clave en BEC?**
-En ataques BEC reales, los atacantes utilizan reglas de buzón para ocultar su actividad y manipular conversaciones sensibles.
-
-Patrones comunes:
-- Mover correos a carpetas no visibles
-- Marcar correos como leídos automáticamente
-- Reenviar mensajes a cuentas externas
-- Filtrar por palabras clave financieras (invoice, payment, wire)
-- Eliminar correos enviados para borrar evidencia
-
-Una sola regla sospechosa es suficiente para escalar el incidente.
-
----
-
-### 5.3 Uso de Threat Explorer y Advanced Hunting
-
-**Threat Explorer (análisis inmediato)**
-Threat Explorer permite al SOC:
-- Identificar todos los correos relacionados con un incidente
-- Determinar quién recibió, respondió o reenvi el mensaje
-- Evaluar el blast radius
-- Confirmar impacto operativo
-
-Es la herramienta principal para análisis rápido y toma de decisiones.
-
-**Advanced Hunting (detección proactiva)**
-Advanced Hunting se utiliza para:
-- Detectar actividad BEC sin alerta explícita
-- Analizar comportamiento histórico
-- Correlacionar señales de identidad y correo
-
-Hunting reduce significativamente el Mean Time To Detect (MTTD).
-
----
-
-### 5.4 Correlación en Defender XDR
-
-**¿Por qué XDR es crítico para BEC?**
-Un ataque BEC no es un solo evento, sino una cadena:
-- Inicio de sesión sospechoso
-- Lectura de correos
-- Creación de inbox rules
-- Envío y eliminación de mensajes
-- Comunicación con finanzas
-
-Defender XDR correlaciona automáticamente estas señales y genera un único incidente de alta confianza.
-
-**Beneficios operativos para el SOC**
-- Reducción de ruido
-- Mayor precisión
-- Respuesta acelerada
-- Capacidad de disrupción automática manteniendo control humano
-
----
-
-### 5.5 Flujo operativo SOC resumido
-
-**Detección**
-1. Alerta de impersonación
-2. Correlación automática en XDR
-
-**Investigación**
-3. Revisión de inbox rules
-4. Análisis en Threat Explorer
-5. Hunting avanzado si es necesario
-
-**Contención**
-6. Reset de credenciales
-7. Eliminación de reglas maliciosas
-8. Bloqueo de la conversación fraudulenta
-
-Antes de que el equipo financiero ejecute cualquier pago.
-
----
-
-### 5.6 Resultado esperado
-
-Estos controles permiten:
-- Detectar BEC en minutos
-- Contener antes del impacto financiero
-- Operar con señales reales y correlacionadas
-
-> **BEC se gana o se pierde en la velocidad del SOC. Defender XDR existe para comprimir ese tiempo.**
-
----
-
-## 6. Concientización del usuario
-
-**Objetivo:** reducir la efectividad de la ingeniería social mediante entrenamiento continuo, simulaciones realistas y métricas accionables.
-
----
-
-### 6.1 Attack Simulation Training (Microsoft Defender for Office 365)
-
-Attack Simulation Training es una capacidad de Microsoft Defender for Office 365 Plan 2 que permite ejecutar **simulaciones de ataques realistas pero inofensivos**, basadas en técnicas reales de phishing e ingeniería social, y asignar **entrenamiento automático** según el comportamiento del usuario.
-
-**### **¿Por qué es clave contra BEC?**
-Los ataques BEC no dependen de malware, sino de factores humanos como:
-- Confianza
-- Autoridad
-- Urgencia
-
-Attack Simulation Training permite:
-- Exponer a los usuarios a escenarios reales
-- Medir quién cae en ingeniería social
-- Corregir comportamientos mediante entrenamiento contextual
-
-> Es el equivalente humano del threat hunting.
-
----
-
-### 6.2 Simulaciones de CEO Fraud y Vendor Fraud
-
-**Simulación: CEO Fraud**
-
-**Objetivo del ataque simulado:**
-- Suplantar a un ejecutivo
-- Solicitar una acción urgente (pago, transferencia, compra)
-
-**Qué se evalúa:**
-- Si el usuario responde al correo
-- Si sigue el proceso de verificación fuera de banda
-- Si reporta correctamente el mensaje
-
----
-
-**Simulación: Vendor Fraud**
-
-**Objetivo del ataque simulado:**
-- Suplantar a un proveedor legítimo
-- Solicitar cambio de cuenta bancaria
-
-**Qué se evalúa:**
-- Detección de anomalías en el mensaje
-- Uso de validación fuera de banda
-- Reporte oportuno al SOC
-
-Estas simulaciones entrenan exactamente los vectores más utilizados en BEC.
-
----
-
-### 6.3 Métricas de usuarios vulnerables
-
-**¿Qué métricas se obtienen?**
-Después de cada simulación, Defender genera reportes que permiten identificar:
-- Usuarios que abrieron el mensaje
-- Usuarios que respondieron o ejecutaron acciones riesgosas
-- Usuarios que reportaron correctamente
-- Tendencias por rol, grupo o campaña
-
-**¿Por qué son críticas estas métricas?**
-Permiten:
-- Identificar usuarios de alto riesgo
-- Priorizar entrenamiento dirigido
-- Ajustar controles técnicos y de proceso
-
-> No todos los usuarios tienen el mismo nivel de riesgo, y BEC explota esa diferencia.
-
----
-
-### 6.4 Uso operativo de métricas por el SOC
-
-El SOC debe:
-- Correlacionar usuarios vulnerables con alertas reales
-- Ajustar políticas de phishing y simulaciones
-- Elevar controles adicionales para:
-  - Finanzas
-  - Ejecutivos
-  - Legal
-
-La concientización se vuelve un proceso continuo, no un evento aislado.
-
----
-
-### 6.5 Resultado esperado
-
-Cuando este bloque está correctamente implementado:
-- Disminuye la tasa de éxito de ingeniería social
-- Aumenta el reporte temprano de correos sospechosos
-- El SOC recibe señales más rápidas y confiables
-
-> **La concientización transforma al usuario de eslabón débil en sensor activo de seguridad.**
