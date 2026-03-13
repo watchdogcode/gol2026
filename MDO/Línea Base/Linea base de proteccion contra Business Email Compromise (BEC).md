@@ -62,7 +62,7 @@ Ideal:
 v=DMARC1; p=reject; pct=100; rua=mailto:dmarc-reports@tudominio.com; ruf=mailto:dmarc-forensic@tudominio.com; fo=1; aspf=s; adkim=s
 ```
 
-> Para mayor detalle consultar [**Estándares SPF, DKIM, DMARC y MTA-STS**](https://github.com/watchdogcode/gol2026/blob/main/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#4-est%C3%A1ndares-spf-dkim-dmarc-y-mta-sts)
+> Para mayor detalle consultar [**Estándares SPF, DKIM, DMARC y MTA-STS**](../Línea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#4-estándares-spf-dkim-dmarc-y-mta-sts)
 
 ---
 
@@ -101,7 +101,7 @@ Elija cómo desea filtrar los correos electrónicos de remitentes que están sup
 
 > 
 
-Cómo crear [**Política Anti-Phishing**](Políticas/Política%20Anti-Phishing%20MDO.md)
+Cómo crear [**Política Anti-Phishing**](../Políticas/Política%20Anti-Phishing%20MDO.md)
 
 ---
 
@@ -117,7 +117,7 @@ Protege a tus usuarios de abrir y compartir enlaces maliciosos en mensajes de co
 - Bloquear URL original
 - Registrar clics
 
-> Referencia: [**Politica Safe links**](Políticas/Politica%20Safe%20links.md)
+> Referencia: [**Politica Safe links**](../Políticas/Politica%20Safe%20links.md)
 
 ## Safe Attachments
 Proteja su organización de contenido malicioso en archivos adjuntos de correo electrónico y archivos en SharePoint, OneDrive y Teams
@@ -127,14 +127,14 @@ Proteja su organización de contenido malicioso en archivos adjuntos de correo e
 - Modo **Block**
 - Activar para SharePoint / OneDrive / Teams
 
-> Referencia: [**Politica Safe Attachments**](Políticas/Política%20de%20Safe%20Attachments.md)
+> Referencia: [**Politica Safe Attachments**](../Políticas/Política%20de%20Safe%20Attachments.md)
 
 ## Zero‑Hour Auto Purge (ZAP)
 **Zero‑Hour Auto Purge (ZAP)** es una protección post‑entrega de Microsoft Defender for Office 365 que **detecta y elimina automáticamente** correos maliciosos que ya fueron entregados al **buzón del usuario**
 - Activado globalmente
 - Elimina correos entregados que luego se clasifican como maliciosos
 
-> Para validar ZAP ejecute este escript [**Validate-ZAPConfiguration**](Scripts/Validate-ZAPConfiguration.ps1)
+> Para validar ZAP ejecute este escript [**Validate-ZAPConfiguration**](../Scripts/Validate-ZAPConfiguration.ps1)
 
 ---
 # 4. Protección de identidad (Zero Trust)
@@ -142,25 +142,25 @@ Proteja su organización de contenido malicioso en archivos adjuntos de correo e
 
 Requiere que **todos los usuarios** completen **autenticación multifactor (MFA)** al acceder a los recursos de la organización, como una medida base para reducir el riesgo de compromiso de credenciales
 
-> Recomendado usar template: [**Require multifactor authentication for all users**](../EntraID/Políticas/Linea%20base%20Conditional%20Access%20Policies.md#require-multifactor-authentication-for-all-users)
+> Recomendado usar template: [**Require multifactor authentication for all users**](../../EntraID/Políticas/Linea%20base%20Conditional%20Access%20Policies.md#require-multifactor-authentication-for-all-users)
 
 ## MFA resistente a phishing (administradores)
 
 Requiere que las **cuentas administrativas** utilicen **métodos de MFA resistentes al phishing** para proteger los roles con mayor impacto sobre la seguridad del tenant.
 
-> Recomendado usar template: [**Require phishing-resistant multifactor authentication for administrators**](../EntraID/Políticas/Linea%20base%20Conditional%20Access%20Policies.md#require-phishing-resistant-multifactor-authentication-for-administrators)
+> Recomendado usar template: [**Require phishing-resistant multifactor authentication for administrators**](../../EntraID/Políticas/Linea%20base%20Conditional%20Access%20Policies.md#require-phishing-resistant-multifactor-authentication-for-administrators)
 
 ## Detecta inicios de sesión riesgosos
 
 Requiere MFA cuando Microsoft Entra ID detecta un **riesgo medio o alto en el inicio de sesión**, utilizando señales de riesgo para aplicar protección adaptativa.
 
-> Recomendado usar template: [**Require multifactor authentication for risky sign-ins**](../EntraID/Políticas/Linea%20base%20Conditional%20Access%20Policies.md#require-multifactor-authentication-for-risky-sign-ins)
+> Recomendado usar template: [**Require multifactor authentication for risky sign-ins**](../../EntraID/Políticas/Linea%20base%20Conditional%20Access%20Policies.md#require-multifactor-authentication-for-risky-sign-ins)
 
 ## Bloqueo de Autenticación Heredada (Legacy Authentication)
 
 Bloquea los intentos de inicio de sesión que usan **protocolos de autenticación heredados**, los cuales no admiten MFA y son comúnmente utilizados en ataques de fuerza bruta y password spray
 
-> Recomendado usar template: [**Block legacy authentication**](../EntraID/Políticas/Linea%20base%20Conditional%20Access%20Policies.md#block-legacy-authentication)
+> Recomendado usar template: [**Block legacy authentication**](../../EntraID/Políticas/Linea%20base%20Conditional%20Access%20Policies.md#block-legacy-authentication)
 
 
 ---
@@ -299,7 +299,7 @@ Correlación automática de identidad + correo + endpoint.
 
 ---
 
-[Referencia Guías de Seguridad Operacional MDO](../MDO/)
+[Referencia Guías de Seguridad Operacional MDO](../)
 
 ---
 
