@@ -12,7 +12,6 @@
 ############################################################################
 
 #Requires -Version 4
-#Requires -Modules @{ModuleName='Microsoft.Graph.Authentication';ModuleVersion='2.0.0'},ExchangeOnlineManagement
 
 <#
 	.SYNOPSIS
@@ -36,9 +35,9 @@
 	.PARAMETER Output
 		Path and filename of the report.  Default is M365RoleReport.html in the current directory.
 	.NOTES
-        .NOTES
-        Version 1.0
-        March 4, 2026
+        Modified from original script by Ernesto Cobos Roqueñí (erenstocrmsft)
+        Version 1.1
+        March 13, 2026
 
     .ORIGINAL_SOURCE
     https://github.com/o365soa/Scripts
@@ -55,6 +54,46 @@ Param(
 	[ValidateSet("Commercial", "USGovGCC", "USGovGCCHigh", "USGovDoD", "China")][string]$CloudEnvironment="Commercial",
 	[string]$AdminUPN
 )
+
+# ─────────────────────────────────────────────
+# Validación de módulos requeridos
+# ─────────────────────────────────────────────
+$requiredModules = @(
+    @{ Name = 'Microsoft.Graph.Authentication'; MinVersion = '2.0.0' },
+    @{ Name = 'ExchangeOnlineManagement';       MinVersion = $null }
+)
+
+foreach ($mod in $requiredModules) {
+    $installed = if ($mod.MinVersion) {
+        Get-Module -ListAvailable -Name $mod.Name | Where-Object { $_.Version -ge [version]$mod.MinVersion }
+    } else {
+        Get-Module -ListAvailable -Name $mod.Name
+    }
+
+    if ($installed) {
+        $ver = ($installed | Sort-Object Version -Descending | Select-Object -First 1).Version
+        Write-Host "Módulo $($mod.Name) v$ver instalado correctamente." -ForegroundColor DarkGray
+    }
+    else {
+        Write-Host "[X] Módulo $($mod.Name) no encontrado$(if ($mod.MinVersion) { " (mínimo v$($mod.MinVersion))" })." -ForegroundColor Red
+        $respuesta = Read-Host "    ¿Deseas instalar el módulo $($mod.Name)? (S/N)"
+        if ($respuesta -match '^[Ss]$') {
+            Write-Host "    Descargando e instalando $($mod.Name)..." -ForegroundColor Yellow
+            try {
+                Install-Module -Name $mod.Name -Force -Scope CurrentUser -ErrorAction Stop
+                Write-Host "    Módulo $($mod.Name) instalado exitosamente." -ForegroundColor Green
+            }
+            catch {
+                Write-Host "    [X] Error al instalar $($mod.Name): $($_.Exception.Message)" -ForegroundColor Red
+                return
+            }
+        }
+        else {
+            Write-Host "    Instalación cancelada. El script requiere $($mod.Name) para continuar." -ForegroundColor Yellow
+            return
+        }
+    }
+}
 
 # ─────────────────────────────────────────────
 # Carpeta de reportes
