@@ -153,7 +153,7 @@ Recomendación:
 - Documentar la verificación
 - Requerir segunda aprobación posterior
 
-## ✔ Separación de funciones (SoD)
+## Separación de funciones (SoD)
 ### La separación de funciones (SoD) es un principio de control que establece que una sola persona NO debe poder ejecutar por sí sola todo un proceso crítico de negocio.
 
 > En términos simples:
@@ -189,9 +189,12 @@ Si ese punto existe, el fraude ocurre inmediatamente
 
  En este modelo, **el atacante necesitaría comprometer a varias personas al mismo tiempo**, lo cual **reduce drásticamente el riesgo de fraude** y eleva significativamente la barrera de ataque.
 
-> Idea clave
+> **Idea clave**
+
 > SoD no es burocracia.
+
 > Es una barrera estructural contra el fraude.
+
 > Por eso aparece en estándares como ISO 27001, SOX, PCI-DSS y NIST
 
 
