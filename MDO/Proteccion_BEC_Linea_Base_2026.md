@@ -98,9 +98,13 @@ Recomendación:
 - Modo **Block**
 - Activar para SharePoint / OneDrive / Teams
 
+Referencia: [Politica Safe links]
+
 ## 3.3 Zero‑Hour Auto Purge (ZAP)
 - Activado globalmente
 - Elimina correos entregados que luego se clasifican como maliciosos
+
+Para validar que ZAP este bien configurado se puede consultar a través de esre escript [Validate-ZAPConfiguration]
 
 ---
 # 4. Protección de identidad (Zero Trust)
