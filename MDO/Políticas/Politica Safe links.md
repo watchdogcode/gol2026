@@ -1,4 +1,4 @@
-# Cómo crear una política de Safe Links enfocada en BEC (paso a paso)
+# Paso a paso para crear una política de Safe Links enfocada en BEC
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 Esta configuración fortalece la protección contra URLs maliciosas utilizadas en ataques BEC, especialmente en escenarios de impersonación, secuestro de hilos y fraude de proveedores.
 

@@ -1,5 +1,8 @@
-## Política Anti-Phishing Microsoft Defender for Office 365
+# Paso a paso para crear una política Anti-Phishing Microsoft Defender for Office 365
+## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 
+Una **política Anti‑phishing en Microsoft Defender for Office 365 detecta y bloquea correos diseñados para engañar al usuario**, incluso cuando el mensaje **parece legítimo** y no contiene malware evidente
+---
 1. Ir a: https://security.microsoft.com/antiphishing
 2. Haz clic en **Create**
 3. En la sección **Policy name**:
