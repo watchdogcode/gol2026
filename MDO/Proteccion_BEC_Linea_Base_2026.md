@@ -6,7 +6,7 @@ Business Email Compromise (BEC) es un ataque de fraude altamente dirigido basado
 
 ---
 
-**Los ataques BEC modernos combinan:**
+### Los ataques BEC modernos combinan:
 - Compromiso de identidad
 - Impersonación de usuarios y dominios
 - Suplantación avanzada sin spoofing técnico
