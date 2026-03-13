@@ -67,14 +67,16 @@ Para mayor detalle consultar [**Estándares SPF, DKIM, DMARC y MTA-STS**](https:
 ---
 
 # 2. Anti‑Phishing – Microsoft Defender for Office 365
-### Esta medida es esencial para bloquear intentos de suplantación altamente específicos y sofisticados, donde el atacante imita a ejecutivos, proveedores o áreas clave para inducir acciones fraudulentas
+**Esta medida es esencial para bloquear intentos de suplantación altamente específicos y sofisticados, donde el atacante imita a ejecutivos, proveedores o áreas clave para inducir acciones fraudulentas**
 
 ---
 
 ## Phishing threshold
+Este umbral controla la sensibilidad para aplicar modelos de aprendizaje automático a los mensajes para determinar un veredicto de phishing.
 **3 – More aggressive**
 
 ### Impersonation Protection
+La protección contra suplantación recibió fuertes señales de que los siguientes mensajes son sospechosos
 - Ejecutivos
 - Finanzas
 - Legal
@@ -82,9 +84,11 @@ Para mayor detalle consultar [**Estándares SPF, DKIM, DMARC y MTA-STS**](https:
 - Socios estratégicos
 
 ## Mailbox Intelligence
+La inteligencia del buzón utiliza inteligencia artificial (IA) para determinar los patrones de correo electrónico del usuario con sus contactos frecuentes.
 **Habilitado + Protección de suplantación**
 
 ## Spoof Intelligence
+Elija cómo desea filtrar los correos electrónicos de remitentes que están suplantando dominios.
 Activado y respetando DMARC
 
 [Paso a paso para crear Política Anti-Phishing](#política-anti-Phishing-microsoft-defender-for-office-365)
@@ -92,7 +96,7 @@ Activado y respetando DMARC
 ---
 
 # 3. Safe Links, Safe Attachments y ZAP
-### Safe Links, Safe Attachments y ZAP ofrecen protección en tiempo real contra URL maliciosas, archivos peligrosos y correos que se vuelven sospechosos después de ser entregados
+**Safe Links, Safe Attachments y ZAP ofrecen protección en tiempo real contra URL maliciosas, archivos peligrosos y correos que se vuelven sospechosos después de ser entregados**
 
 ## Safe Links
 Protege a tus usuarios de abrir y compartir enlaces maliciosos en mensajes de correo electrónico y aplicaciones de Office
