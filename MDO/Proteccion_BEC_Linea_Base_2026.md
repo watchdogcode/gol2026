@@ -3,8 +3,9 @@
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 
 Business Email Compromise (BEC) es un ataque de fraude altamente dirigido basado en ingeniería social, suplantación y compromiso de identidad. Su objetivo es manipular decisiones financieras u operativas mediante correos que parecen auténticos, frecuentemente enviados desde cuentas legítimas comprometidas.
+---
 
-Los ataques BEC modernos combinan:
+**Los ataques BEC modernos combinan:**
 - Compromiso de identidad
 - Impersonación de usuarios y dominios
 - Suplantación avanzada sin spoofing técnico
@@ -61,6 +62,8 @@ Para mayor detalle consultar [**Estándares SPF, DKIM, DMARC y MTA-STS**](https:
 # 2. Anti‑Phishing – Microsoft Defender for Office 365
 ### Esta medida es esencial para bloquear intentos de suplantación altamente específicos y sofisticados, donde el atacante imita a ejecutivos, proveedores o áreas clave para inducir acciones fraudulentas
 
+---
+
 ## Phishing threshold
 **3 – More aggressive**
 
@@ -72,10 +75,10 @@ Para mayor detalle consultar [**Estándares SPF, DKIM, DMARC y MTA-STS**](https:
 - Socios estratégicos
 
 ## Mailbox Intelligence
-➡ **Habilitado + Protección de suplantación**
+**Habilitado + Protección de suplantación**
 
 ## Spoof Intelligence
-➡ Activado y respetando DMARC
+Activado y respetando DMARC
 
 [Paso a paso para crear Política Anti-Phishing](#política-anti-Phishing-microsoft-defender-for-office-365)
 
@@ -109,7 +112,7 @@ Para validar que ZAP este bien configurado se puede consultar a través de esre 
 
 ---
 # 4. Protección de identidad (Zero Trust)
-## 4.1 MFA obligatorio
+**4.1 MFA obligatorio**
 Recomendado usar template: **Require multifactor authentication for all users**
 ## 4.2 MFA resistente a phishing (administradores)
 Recomendado usar template: **Require phishing-resistant multifactor authentication for administrators**
