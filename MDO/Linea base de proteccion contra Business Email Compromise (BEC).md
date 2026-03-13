@@ -62,7 +62,7 @@ Ideal:
 v=DMARC1; p=reject; pct=100; rua=mailto:dmarc-reports@tudominio.com; ruf=mailto:dmarc-forensic@tudominio.com; fo=1; aspf=s; adkim=s
 ```
 
-Para mayor detalle consultar [**Estándares SPF, DKIM, DMARC y MTA-STS**](https://github.com/watchdogcode/gol2026/blob/main/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#4-est%C3%A1ndares-spf-dkim-dmarc-y-mta-sts)
+> Para mayor detalle consultar [**Estándares SPF, DKIM, DMARC y MTA-STS**](https://github.com/watchdogcode/gol2026/blob/main/MDO/L%C3%ADnea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md#4-est%C3%A1ndares-spf-dkim-dmarc-y-mta-sts)
 
 ---
 
@@ -99,6 +99,8 @@ Elija cómo desea filtrar los correos electrónicos de remitentes que están sup
 
 **Activado y respetando DMARC**
 
+> 
+
 Cómo crear [**Política Anti-Phishing**](Políticas/Política%20Anti-Phishing%20MDO.md)
 
 ---
@@ -115,7 +117,7 @@ Protege a tus usuarios de abrir y compartir enlaces maliciosos en mensajes de co
 - Bloquear URL original
 - Registrar clics
 
-Referencia: [**Politica Safe links**](Políticas/Politica%20Safe%20links.md)
+> Referencia: [**Politica Safe links**](Políticas/Politica%20Safe%20links.md)
 
 ## Safe Attachments
 Proteja su organización de contenido malicioso en archivos adjuntos de correo electrónico y archivos en SharePoint, OneDrive y Teams
@@ -125,14 +127,14 @@ Proteja su organización de contenido malicioso en archivos adjuntos de correo e
 - Modo **Block**
 - Activar para SharePoint / OneDrive / Teams
 
-Referencia: [**Politica Safe Attachments**](Políticas/Política%20de%20Safe%20Attachments.md)
+> Referencia: [**Politica Safe Attachments**](Políticas/Política%20de%20Safe%20Attachments.md)
 
 ## Zero‑Hour Auto Purge (ZAP)
 **Zero‑Hour Auto Purge (ZAP)** es una protección post‑entrega de Microsoft Defender for Office 365 que **detecta y elimina automáticamente** correos maliciosos que ya fueron entregados al **buzón del usuario**
 - Activado globalmente
 - Elimina correos entregados que luego se clasifican como maliciosos
 
-Para validar que ZAP este bien configurado se puede consultar a través de esre escript [**Validate-ZAPConfiguration**](Scripts/Validate-ZAPConfiguration.ps1)
+> Para validar ZAP ejecute este escript [**Validate-ZAPConfiguration**](Scripts/Validate-ZAPConfiguration.ps1)
 
 ---
 # 4. Protección de identidad (Zero Trust)
@@ -161,7 +163,7 @@ Bloquea los intentos de inicio de sesión que usan **protocolos de autenticació
 > Recomendado usar template: **Block legacy authentication**
 
 
-Guía para Conditional Access Policies 
+> Guía para [**Conditional Access Policies**](../EntraID/Políticas/Linea%20base%20Conditional%20Access%20Policies.md)
 
 ---
 
