@@ -129,7 +129,7 @@ Recomendación:
 
 # 5. Controles de proceso de negocio
 
-## ✔ Doble validación fuera de banda
+## Doble validación fuera de banda
 
 ### Es un control que obliga a verificar transacciones críticas usando un canal distinto al correo electrónico, aunque el mensaje:
 - Parezca legítimo
@@ -141,11 +141,17 @@ Recomendación:
 - El correo sí es real
 - Las herramientas técnicas pueden no bloquearlo 
 
-**Obligatorio en:**
-- Cambios bancarios
-- Pagos urgentes
+**Debe de ser obligatorio para:**
+- Cambios bancarios de proveedores
+- Pagos urgentes o fuera de patrón
 - Nuevos proveedores
-- Instrucciones de ejecutivos
+- Instrucciones de ejecutivos (CEO Fraud)
+
+**Buenaspracticas recomendads**
+- Llamar a un número previamente registrado
+- Usar un canal independiente (teléfono corporativo, sistema financiero)
+- Documentar la verificación
+- Requerir segunda aprobación posterior
 
 ## ✔ Separación de funciones (SoD)
 Evita que una sola persona ejecute todo el proceso.
