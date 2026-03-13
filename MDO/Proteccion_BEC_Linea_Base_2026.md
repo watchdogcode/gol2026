@@ -190,8 +190,11 @@ Si ese punto existe, el fraude ocurre inmediatamente
  En este modelo, **el atacante necesitaría comprometer a varias personas al mismo tiempo**, lo cual **reduce drásticamente el riesgo de fraude** y eleva significativamente la barrera de ataque.
 
 > **Idea clave**
+>
 > SoD no es burocracia.
+>
 > Es una barrera estructural contra el fraude.
+>
 > Por eso aparece en estándares como ISO 27001, SOX, PCI-DSS y NIST
 
 
