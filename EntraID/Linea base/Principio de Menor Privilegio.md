@@ -1,4 +1,4 @@
-# 🛡️ Principio de Menor Privilegio
+# Principio de Menor Privilegio 🛡️
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 
 **Microsoft Entra ID / Microsoft 365**

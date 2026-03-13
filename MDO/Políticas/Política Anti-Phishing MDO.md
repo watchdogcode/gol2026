@@ -1,4 +1,4 @@
-# Paso a paso para crear una política Anti-Phishing en MDO
+# Paso a paso para crear una política Anti-Phishing en MDO 🛡️
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 
 Una **política Anti‑phishing en Microsoft Defender for Office 365 detecta y bloquea correos diseñados para engañar al usuario**, incluso cuando el mensaje **parece legítimo** y no contiene malware evidente

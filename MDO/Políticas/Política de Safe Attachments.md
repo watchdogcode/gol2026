@@ -1,4 +1,4 @@
-# Paso a paso para crear una política de Safe Attachments en MDO
+# Paso a paso para crear una política de Safe Attachments en MDO 🛡️
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 **Safe Attachments** forma parte de **Microsoft Defender for Office 365 Plan 1 o Plan 2** y proporciona protección avanzada contra malware mediante análisis en sandbox (“detonación”) antes de entregar los archivos a los usuarios.
 
