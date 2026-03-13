@@ -257,6 +257,8 @@ Un atacante **no necesita malware** si logra convencer a Finanzas o a un Ejecuti
 ##  XDR
 Correlación automática de identidad + correo + endpoint.
 
+---
+
 [Referencia Guías de Seguridad Operacional MDO](https://github.com/watchdogcode/gol2026/tree/main/MDO)
 
 ---
