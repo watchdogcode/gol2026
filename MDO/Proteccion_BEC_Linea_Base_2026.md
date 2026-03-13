@@ -146,19 +146,19 @@ Requiere que **todos los usuarios** completen **autenticación multifactor (MFA)
 
 Requiere que las **cuentas administrativas** utilicen **métodos de MFA resistentes al phishing** para proteger los roles con mayor impacto sobre la seguridad del tenant.
 
-Recomendado usar template: **Require phishing-resistant multifactor authentication for administrators**
+> Recomendado usar template: **Require phishing-resistant multifactor authentication for administrators**
 
 ## Detecta inicios de sesión riesgosos
 
 Requiere MFA cuando Microsoft Entra ID detecta un **riesgo medio o alto en el inicio de sesión**, utilizando señales de riesgo para aplicar protección adaptativa.
 
-Recomendado usar template: **Require multifactor authentication for risky sign-ins**
+> Recomendado usar template: **Require multifactor authentication for risky sign-ins**
 
 ## Bloqueo de Autenticación Heredada (Legacy Authentication)
 
 Bloquea los intentos de inicio de sesión que usan **protocolos de autenticación heredados**, los cuales no admiten MFA y son comúnmente utilizados en ataques de fuerza bruta y password spray
 
-Recomendado usar template: **Block legacy authentication**
+> Recomendado usar template: **Block legacy authentication**
 
 
 Guía para Conditional Access Policies 
@@ -205,8 +205,9 @@ Guía para Conditional Access Policies
 - Pueda completar un fraude de principio a fin
 - Que compromete una sola cuenta
 
-En ataques BEC, el objetivo del atacante es **un único punto de decisión.**
-Si ese punto existe, el fraude ocurre inmediatamente
+> En ataques BEC, el objetivo del atacante es **un único punto de decisión.**
+> 
+> Si ese punto existe, el fraude ocurre inmediatamente
 
 **Ejemplo SIN separación de funciones (Riesgoso)**
 - La persona recibe el correo (“pago urgente”)
@@ -235,7 +236,7 @@ Si ese punto existe, el fraude ocurre inmediatamente
 >
 > Por eso aparece en estándares como ISO 27001, SOX, PCI-DSS y NIST
 
-## ✔ Cuentas prioritarias
+## Cuentas prioritarias
 
 ### Son cuentas cuyo compromiso tiene impacto directo y grave en el negocio, no solo en IT.
 **Incluyen típicamente:**
@@ -248,7 +249,7 @@ Si ese punto existe, el fraude ocurre inmediatamente
 - Sus correos se confían automáticamente
 - Son el objetivo principal en ataques BEC
 
-Un atacante **no necesita malware** si logra convencer a Finanzas o a un Ejecutivo
+> Un atacante **no necesita malware** si logra convencer a Finanzas o a un Ejecutivo
 
 ### Controles diferenciados por tipo de usuario
 
