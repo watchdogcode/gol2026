@@ -223,67 +223,61 @@ Un atacante **no necesita malware** si logra convencer a Finanzas o a un Ejecuti
 | Validación fuera de banda   | No               | Si |
 | Monitoreo SOC               | Básico           | Continuo |
 
-
-
-
-
-
-
-
-
-
-
-
+> **Idea clave**
+>
+> No todos los usuarios representan el mismo riesgo para el negocio.
+> Las cuentas prioritarias requieren controles prioritarios.
 
 ---
 
 # 6. Detección y respuesta SOC
 
-## ✔ Señales prioritarias
+##  Señales prioritarias
 - Impersonation detected
 - Mailbox Intelligence anomalies
 - Reglas sospechosas
 - Nuevos ASNs o IPs riesgosas
 
-## ✔ Reglas sospechosas comunes
+##  Reglas sospechosas comunes
 - Auto‑forward externo
 - Mover a RSS/Archive
 - Marcar como leído
 - Eliminar enviados
 
-## ✔ Threat Explorer
+##  Threat Explorer
 - Blast radius
 - Lookalike domains
-- Quién respondió / reenvi3
+- Quién respondió / reenvío
 
-## ✔ Advanced Hunting
+##  Advanced Hunting
 - Secuestro de hilos
 - Reglas maliciosas
 - Login anómalo
 
-## ✔ XDR
+##  XDR
 Correlación automática de identidad + correo + endpoint.
 
+[Referencia Guías de Seguridad Operacional MDO](https://github.com/watchdogcode/gol2026/tree/main/MDO)
 ---
 
 # 7. Concientización y entrenamiento
 
-## ✔ Simulaciones recomendadas
+## Simulaciones recomendadas
 - CEO Fraud
 - Vendor Fraud
 - Payment Diversion
 - Invoice Scam
 
-## ✔ Métricas clave
+## Métricas clave
 - Usuarios vulnerables
 - Tasa de reporte
 - Riesgo acumulado
 
 ---
 
-# 📌 Resumen Ejecutivo
+# Resumen Ejecutivo
 
-La mitigación efectiva de BEC requiere:
+**La mitigación efectiva de BEC requiere:**
 - Identidad fuerte
 - Anti‑phishing agresivo
 - Safe Links / Safe Attachments / ZAP
