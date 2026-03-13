@@ -1,4 +1,4 @@
-# Guía paso a paso – Conditional Access Templates (Microsoft Entra) 🛡️
+# Conditional Access Templates (Microsoft Entra) 🛡️
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 ## Prerrequisitos
 - Tener al menos una cuenta **break-glass** excluida de Conditional Access.
