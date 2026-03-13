@@ -127,7 +127,7 @@ Recomendado usar template: **Require phishing-resistant multifactor authenticati
 
 ## Detecta inicios de sesión riesgosos
 
-Requiere MFA cuando Microsoft Entra ID detecta un riesgo medio o alto en el inicio de sesión, utilizando señales de riesgo para aplicar protección adaptativa.
+Requiere MFA cuando Microsoft Entra ID detecta un **riesgo medio o alto en el inicio de sesión**, utilizando señales de riesgo para aplicar protección adaptativa.
 
 Recomendado usar template: **Require multifactor authentication for risky sign-ins**
 
