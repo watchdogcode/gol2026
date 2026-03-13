@@ -159,9 +159,67 @@ Recomendación:
 > En términos simples:
 >
 > Nadie debería poder iniciar, aprobar y ejecutar una transacción sensible sin que otra persona intervenga.
+---
+
+Evita que:
+- Una sola persona ejecute todo el proceso.
+- Un atacante (o un error humano)
+- Pueda completar un fraude de principio a fin
+- Que compromete una sola cuenta
+
+En ataques BEC, el objetivo del atacante es **un único punto de decisión.**
+Si ese punto existe, el fraude ocurre inmediatamente
+
+### Ejemplo SIN separación de funciones (Riesgoso)
+- La persona recibe el correo (“pago urgente”)
+- Cambia los datos bancarios
+- Autoriza el pago
+- Ejecuta la transferencia
+
+> El atacante gana con una sola cuenta comprometida.
+
+### Ejemplo CON separación de funciones (SoD)
+
+| Paso                    | Rol distinto |
+|-------------------------|--------------|
+| Recibir la solicitud    | Usuario A    |
+| Validar fuera de banda  | Usuario B    |
+| Autorizar el pago       | Usuario C    |
+| Ejecutar el pago        | Usuario D    |
+
+ En este modelo, **el atacante necesitaría comprometer a varias personas al mismo tiempo**, lo cual **reduce drásticamente el riesgo de fraude** y eleva significativamente la barrera de ataque.
+``
 
 
-Evita que una sola persona ejecute todo el proceso.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## ✔ Cuentas prioritarias
 Ejecutivos, Finanzas, Legal.
