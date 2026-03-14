@@ -78,9 +78,9 @@ A continuación encontrará reglas básicas de flujo de correo que son **altamen
 
 #### Referencias
 
-- [Mail flow rules (transport rules) in Exchange Online](https://learn.microsoft.com/en-us/exchange/security-and-compliance/mail-flow-rules)
-  
-- [New-TransportRule (Exchange PowerShell](https://learn.microsoft.com/en-us/powershell/module/exchange/new-transportrule)
+> - [Mail flow rules (transport rules) in Exchange Online](https://learn.microsoft.com/en-us/exchange/security-and-compliance/mail-flow-rules)
+> 
+> - [New-TransportRule (Exchange PowerShell](https://learn.microsoft.com/en-us/powershell/module/exchange/new-transportrule)
   
 
 ---
