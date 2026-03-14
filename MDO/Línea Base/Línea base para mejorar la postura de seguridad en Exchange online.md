@@ -299,7 +299,7 @@ Resultados posibles:
 > Nota: El qualifier `/all` **no existe** en el estándar SPF.
 
 #### Referencia
-- [Sender Policy Framework (SPF)](https://www.rfc-editor.org/rfc/rfc7208)
+> [Sender Policy Framework (SPF)](https://www.rfc-editor.org/rfc/rfc7208)
 
 ---
 
@@ -353,7 +353,7 @@ Campos importantes:
 
 
 #### Referencia
-- [DomainKeys Identified Mail (DKIM)](https://dkim.org/)
+> [DomainKeys Identified Mail (DKIM)](https://dkim.org/)
 ---
 
 ## DMARC (Domain-based Message Authentication, Reporting & Conformance)
@@ -402,7 +402,7 @@ Buenas prácticas:
 - Protección de subdominios
 
 #### Referencia
-- [Domain-based Message Authentication, Reporting, and Conformance (DMARC)](https://www.rfc-editor.org/rfc/rfc7489.html)
+> [Domain-based Message Authentication, Reporting, and Conformance (DMARC)](https://www.rfc-editor.org/rfc/rfc7489.html)
 
 ---
 
@@ -459,7 +459,7 @@ Permite visibilidad operativa.
 Puedes validar SPF, DKIM, DMARC y MTA-STS con el siguiente script: [Domain-Health-Check.ps1](../Scripts/Domain-Health-Check.ps1)
 
 #### Referencia
-- [SMTP MTA Strict Transport Security (MTA-STS)](https://www.rfc-editor.org/rfc/rfc8461)
+> [SMTP MTA Strict Transport Security (MTA-STS)](https://www.rfc-editor.org/rfc/rfc8461)
 
 ---
 
@@ -561,7 +561,7 @@ En organizaciones grandes es común:
  ---
 ---
 #### Referencia
-- [Parked and Inactive Domain Setup for MX, SPF and DMARC](https://support.dmarcreport.com/support/solutions/articles/5000882467-parked-and-inactive-domain-setup-for-mx-spf-and-dmarc)
+> [Parked and Inactive Domain Setup for MX, SPF and DMARC](https://support.dmarcreport.com/support/solutions/articles/5000882467-parked-and-inactive-domain-setup-for-mx-spf-and-dmarc)
 
 # Validación Línea base para mejorar la postura de seguridad en Exchange online
 
