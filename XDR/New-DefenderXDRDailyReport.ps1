@@ -2046,6 +2046,17 @@ $HtmlMDASection = if ($RunMDA) {
     Build-WorkloadSection -WorkloadName "MDA: Microsoft Defender for Cloud Apps" -WorkloadEmoji "&#x2601;" -HeaderColor "#8764b8" -OperativeTasks $OperativeTasks.MDA -ActiveAlerts $MdaAlerts -SelectedKql $SelectedMdaKql 
 } else { "" }
 
+$HtmlKpiMDO = ""
+if ($RunMDO) {
+$HtmlKpiMDO = @"
+            <div class="kpi-card $Kpi_MdoSeverityClass">
+                <div class="kpi-val">$Kpi_MdoAlerts</div>
+                <div class="kpi-label">Alertas de Defender for Office</div>
+                <div class="kpi-severity">Máx: $Kpi_MdoSeverityLabel</div>
+            </div>
+"@
+}
+
 $HtmlKpiMDE = ""
 if ($RunMDE) {
 $HtmlKpiMDE = @"
