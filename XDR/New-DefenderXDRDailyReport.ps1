@@ -86,6 +86,7 @@ param(
     [string]$TenantId = $env:AZURE_TENANT_ID,
     [string]$ClientId = $env:AZURE_CLIENT_ID,
     [string]$ClientSecret = $env:AZURE_CLIENT_SECRET,
+    [Alias('CertThumbprint')]
     [string]$CertificateThumbprint = $env:AZURE_CLIENT_CERT_THUMBPRINT,
     [string]$CertificatePath = $env:AZURE_CLIENT_CERT_PATH,
     [System.Security.SecureString]$CertificatePassword,
@@ -518,7 +519,10 @@ function Get-M365Token {
                     }
                     catch {
                         $ErrBody = $null
-                        try { $ErrBody = $_.ErrorDetails.Message | ConvertFrom-Json } catch {}
+                        $ErrDetailsMessage = $_.ErrorDetails.Message
+                        if ($ErrDetailsMessage) {
+                            try { $ErrBody = $ErrDetailsMessage | ConvertFrom-Json } catch {}
+                        }
                         if ($ErrBody.error -eq "authorization_pending") { continue }
                         elseif ($ErrBody.error -eq "expired_token") {
                             throw "El código de dispositivo ha expirado. Ejecute el script nuevamente."
@@ -534,7 +538,10 @@ function Get-M365Token {
     catch {
         $RawMessage = $_.Exception.Message
         $ErrorJson = $null
-        try { $ErrorJson = $_.ErrorDetails.Message | ConvertFrom-Json } catch {}
+        $ErrDetailsMessage = $_.ErrorDetails.Message
+        if ($ErrDetailsMessage) {
+            try { $ErrorJson = $ErrDetailsMessage | ConvertFrom-Json } catch {}
+        }
 
         if ($ErrorJson -and $ErrorJson.error_codes -contains 700027) {
             Write-Log "Error de Autenticación (AADSTS700027): certificado no registrado en la aplicación." -Level ERROR
@@ -652,16 +659,27 @@ AlertInfo
 
     "AlertsByWorkload" = @"
 AlertInfo
-| where Timestamp >= ago(7d)
-| project Timestamp, AlertId, Title, Severity, ServiceSource, Category
+| where Timestamp >= ago(24h)
+| project Timestamp,
+          AlertId,
+          Title = tostring(column_ifexists("Title", "")),
+          Severity = tostring(column_ifexists("Severity", "")),
+          ServiceSource = tostring(column_ifexists("ServiceSource", "")),
+          DetectionSource = tostring(column_ifexists("DetectionSource", "")),
+          ProviderName = tostring(column_ifexists("ProviderName", "")),
+          Category = tostring(column_ifexists("Category", ""))
 | order by Timestamp desc, Severity desc
 "@
 
     "XDR_Incidents" = @"
 AlertInfo
 | where Timestamp >= ago(24h)
-| join kind=leftouter (AlertEvidence | where Timestamp >= ago(24h) | summarize Entities=dcount(EntityType), DevicesAffected=dcount(DeviceId) by AlertId) on AlertId
-| project Timestamp, AlertId, Title, Severity, ServiceSource, Category, Entities=coalesce(Entities, 0), DevicesAffected=coalesce(DevicesAffected, 0)
+| extend IncidentRef = tostring(column_ifexists("IncidentId", ""))
+| extend IncidentRef = iif(isempty(IncidentRef), tostring(AlertId), IncidentRef)
+| extend IncidentStatus = tostring(column_ifexists("Status", ""))
+| summarize arg_max(Timestamp, Title, Severity, IncidentStatus) by IncidentRef
+| where IncidentStatus == "" or IncidentStatus !in~ ("Resolved", "Closed")
+| project Timestamp, IncidentId=IncidentRef, Title, Severity, Status=IncidentStatus
 | order by Timestamp desc
 | take 25
 "@
@@ -1876,7 +1894,8 @@ function Build-WorkloadSection {
         [string]$HeaderColor,
         [array]$OperativeTasks,
         [array]$ActiveAlerts,
-        [hashtable]$SelectedKql
+        [hashtable]$SelectedKql,
+        [string]$KqlCatalogUrl
     )
 
     $TaskCount = $OperativeTasks.Count
@@ -1904,12 +1923,14 @@ function Build-WorkloadSection {
                 default { "#0078d4" }
             }
             $AlertTitle = if ($Alert.Title) { $Alert.Title } else { if ($Alert.AlertName) { $Alert.AlertName } else { "Alerta" } }
+            $AlertTime = if ($Alert.Timestamp) { ([datetime]$Alert.Timestamp).ToString("yyyy-MM-dd HH:mm") } else { "N/D" }
+            $AlertUrl = if ($Alert.AlertId) { "https://security.microsoft.com/alerts/$($Alert.AlertId)" } else { "https://security.microsoft.com/alerts" }
             $AlertRows += @"
                         <tr style="border-left: 4px solid $SeverityColor;">
                             <td><strong>$AlertTitle</strong></td>
                             <td><span style="background:$SeverityColor; color:#fff; padding:3px 8px; border-radius:3px; font-size:0.75em; font-weight:600;">$AlertSeverity</span></td>
-                            <td style="color:#666; font-size:0.9em;">Última Detección</td>
-                            <td><a class="ops-btn portal" href="https://security.microsoft.com/alerts" target="_blank">&#x1f517; Ver Alerta</a></td>
+                            <td style="color:#666; font-size:0.9em;">$AlertTime</td>
+                            <td><a class="ops-btn portal" href="$AlertUrl" target="_blank">&#x1f517; Ver Alerta</a></td>
                         </tr>
 "@
         }
@@ -1918,7 +1939,7 @@ function Build-WorkloadSection {
                         <tr>
                             <td colspan="4" style="text-align:center; padding:30px; color:#666;">
                                 <strong>No existen Alertas</strong><br/>
-                                <span style="font-size:0.9em;">No se detectaron alertas activas en los últimos 7 días</span>
+                                <span style="font-size:0.9em;">No se detectaron alertas activas en el período analizado</span>
                             </td>
                         </tr>
 "@
@@ -1926,6 +1947,11 @@ function Build-WorkloadSection {
 
     $KqlSection = ""
     if ($SelectedKql) {
+        $KqlCatalogButton = ""
+        if ($KqlCatalogUrl) {
+            $KqlCatalogButton = "<a class=`"ops-btn doc`" href=`"$KqlCatalogUrl`" target=`"_blank`">&#x1f4da; Ver catálogo KQL de $WorkloadName</a>"
+        }
+
         $KqlSection = @"
 
         <!-- Recomendación de KQL diario – $WorkloadName -->
@@ -1942,6 +1968,7 @@ function Build-WorkloadSection {
                 <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedKql.Query)</div>
                 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
                     <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
+                    $KqlCatalogButton
                 </div>
             </div>
         </div>
@@ -1996,22 +2023,28 @@ function Get-WorkloadAlerts {
         [string]$WorkloadType,
         [array]$AllAlerts
     )
-    
-    $ServiceMapping = @{
-        "MDO"   = @("Defender for Office 365","Office 365","Email");
-        "MDE"   = @("Defender for Endpoint","Endpoint");
-        "MDI"   = @("Defender for Identity","Identity");
-        "ENTRA" = @("Entra ID","Azure AD","Azure Active Directory");
-        "MDA"   = @("Defender for Cloud Apps","Cloud Apps");
+
+    $ServicePatterns = @{
+        "MDO"   = 'Defender for Office 365|Office 365|Email'
+        "MDE"   = 'Defender for Endpoint|Endpoint'
+        "MDI"   = 'Defender for Identity|MicrosoftDefenderForIdentity|Identity'
+        "ENTRA" = 'Entra ID|Azure AD|Azure Active Directory'
+        "MDA"   = 'Defender for Cloud Apps|Cloud Apps|Microsoft Cloud App Security|MCAS'
     }
-    
-    $ServiceFilters = $ServiceMapping[$WorkloadType]
+
+    $ServicePattern = $ServicePatterns[$WorkloadType]
     
     $WorkloadAlerts = @()
-    if ($AllAlerts) {
+    if ($AllAlerts -and $ServicePattern) {
         $WorkloadAlerts = $AllAlerts | Where-Object { 
-            $ServiceSource = $_.ServiceSource
-            $ServiceFilters | Where-Object { $ServiceSource -like "*$_*" } | ForEach-Object { $true }
+            $AlertSource = @(
+                $_.ServiceSource,
+                $_.DetectionSource,
+                $_.ProviderName,
+                $_.Category,
+                $_.Title
+            ) -join ' '
+            $AlertSource -match $ServicePattern
         } | Sort-Object -Property @{ Expression = { 
             $SeverityMap = @{ "Critical" = 3; "High" = 2; "Medium" = 1; "Low" = 0 }
             $SeverityMap[$_.Severity]
@@ -2023,27 +2056,27 @@ function Get-WorkloadAlerts {
 
 $HtmlMDOSection = if ($RunMDO) { 
     $MdoAlerts = Get-WorkloadAlerts -WorkloadType "MDO" -AllAlerts $Data["AlertsByWorkload"]
-    Build-WorkloadSection -WorkloadName "MDO: Microsoft Defender for Office 365" -WorkloadEmoji "&#x1f4e7;" -HeaderColor "#0078d4" -OperativeTasks $OperativeTasks.MDO -ActiveAlerts $MdoAlerts -SelectedKql $SelectedMdoKql 
+    Build-WorkloadSection -WorkloadName "MDO: Microsoft Defender for Office 365" -WorkloadEmoji "&#x1f4e7;" -HeaderColor "#0078d4" -OperativeTasks $OperativeTasks.MDO -ActiveAlerts $MdoAlerts -SelectedKql $SelectedMdoKql -KqlCatalogUrl "https://github.com/watchdogcode/gol2026/blob/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md"
 } else { "" }
 
 $HtmlMDESection = if ($RunMDE) { 
     $MdeAlerts = Get-WorkloadAlerts -WorkloadType "MDE" -AllAlerts $Data["AlertsByWorkload"]
-    Build-WorkloadSection -WorkloadName "MDE: Microsoft Defender for Endpoint" -WorkloadEmoji "&#x1f5a5;" -HeaderColor "#d83b01" -OperativeTasks $OperativeTasks.MDE -ActiveAlerts $MdeAlerts -SelectedKql $SelectedMdeKql 
+    Build-WorkloadSection -WorkloadName "MDE: Microsoft Defender for Endpoint" -WorkloadEmoji "&#x1f5a5;" -HeaderColor "#d83b01" -OperativeTasks $OperativeTasks.MDE -ActiveAlerts $MdeAlerts -SelectedKql $SelectedMdeKql -KqlCatalogUrl "https://learn.microsoft.com/defender-xdr/advanced-hunting-query-samples"
 } else { "" }
 
 $HtmlMDISection = if ($RunMDI) { 
     $MdiAlerts = Get-WorkloadAlerts -WorkloadType "MDI" -AllAlerts $Data["AlertsByWorkload"]
-    Build-WorkloadSection -WorkloadName "MDI: Microsoft Defender for Identity" -WorkloadEmoji "&#x1f6e1;" -HeaderColor "#e97a00" -OperativeTasks $OperativeTasks.MDI -ActiveAlerts $MdiAlerts -SelectedKql $SelectedMdiKql 
+    Build-WorkloadSection -WorkloadName "MDI: Microsoft Defender for Identity" -WorkloadEmoji "&#x1f6e1;" -HeaderColor "#e97a00" -OperativeTasks $OperativeTasks.MDI -ActiveAlerts $MdiAlerts -SelectedKql $SelectedMdiKql -KqlCatalogUrl "https://github.com/watchdogcode/gol2026/blob/main/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md"
 } else { "" }
 
 $HtmlEntraSection = if ($RunMDI) { 
     $EntraAlerts = Get-WorkloadAlerts -WorkloadType "ENTRA" -AllAlerts $Data["AlertsByWorkload"]
-    Build-WorkloadSection -WorkloadName "ENTRA: Microsoft Entra ID" -WorkloadEmoji "&#x1f510;" -HeaderColor "#107c10" -OperativeTasks $OperativeTasks.ENTRA -ActiveAlerts $EntraAlerts -SelectedKql $SelectedEntraKql 
+    Build-WorkloadSection -WorkloadName "ENTRA: Microsoft Entra ID" -WorkloadEmoji "&#x1f510;" -HeaderColor "#107c10" -OperativeTasks $OperativeTasks.ENTRA -ActiveAlerts $EntraAlerts -SelectedKql $SelectedEntraKql -KqlCatalogUrl "https://github.com/watchdogcode/gol2026/blob/main/EntraID/Paquete%20KQL%20Queries%20EntraID%20Advanced%20Hunting.md"
 } else { "" }
 
 $HtmlMDASection = if ($RunMDA) { 
     $MdaAlerts = Get-WorkloadAlerts -WorkloadType "MDA" -AllAlerts $Data["AlertsByWorkload"]
-    Build-WorkloadSection -WorkloadName "MDA: Microsoft Defender for Cloud Apps" -WorkloadEmoji "&#x2601;" -HeaderColor "#8764b8" -OperativeTasks $OperativeTasks.MDA -ActiveAlerts $MdaAlerts -SelectedKql $SelectedMdaKql 
+    Build-WorkloadSection -WorkloadName "MDA: Microsoft Defender for Cloud Apps" -WorkloadEmoji "&#x2601;" -HeaderColor "#8764b8" -OperativeTasks $OperativeTasks.MDA -ActiveAlerts $MdaAlerts -SelectedKql $SelectedMdaKql -KqlCatalogUrl "https://learn.microsoft.com/defender-xdr/advanced-hunting-cloudappevents-table"
 } else { "" }
 
 $HtmlKpiMDO = ""
@@ -2349,7 +2382,7 @@ $HtmlContent = @"
     <div class="header">
         <div>
             <h1>Reporte Diario de Operaciones de Seguridad</h1>
-            <div class="subtitle">Technology enables security, but discipline makes it effective</div>
+            <div class="subtitle">La tecnología habilita la seguridad, pero la disciplina la hace efectiva</div>
         </div>
         <div class="meta">
             <div><strong>Período:</strong> $($StartDate.ToString("yyyy-MM-dd HH:mm")) - $($ReportDate.ToString("yyyy-MM-dd HH:mm"))</div>
@@ -2420,4 +2453,3 @@ if ($SendMail) {
         Write-Log "Envío de correo omitido. Faltan parámetros SMTP." -Level WARN
     }
 }
-

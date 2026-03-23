@@ -88,6 +88,7 @@ param(
     [string]$TenantId = $env:AZURE_TENANT_ID,
     [string]$ClientId = $env:AZURE_CLIENT_ID,
     [string]$ClientSecret = $env:AZURE_CLIENT_SECRET,
+    [Alias('CertThumbprint')]
     [string]$CertificateThumbprint = $env:AZURE_CLIENT_CERT_THUMBPRINT,
     [string]$CertificatePath = $env:AZURE_CLIENT_CERT_PATH,
     [System.Security.SecureString]$CertificatePassword,
@@ -409,7 +410,10 @@ function Get-M365Token {
                     }
                     catch {
                         $ErrBody = $null
-                        try { $ErrBody = $_.ErrorDetails.Message | ConvertFrom-Json } catch {}
+                        $ErrDetailsMessage = $_.ErrorDetails.Message
+                        if ($ErrDetailsMessage) {
+                            try { $ErrBody = $ErrDetailsMessage | ConvertFrom-Json } catch {}
+                        }
                         if ($ErrBody.error -eq "authorization_pending") { continue }
                         elseif ($ErrBody.error -eq "expired_token") {
                             throw "El código de dispositivo ha expirado. Ejecute el script nuevamente."
@@ -425,7 +429,10 @@ function Get-M365Token {
     catch {
         $RawMessage = $_.Exception.Message
         $ErrorJson = $null
-        try { $ErrorJson = $_.ErrorDetails.Message | ConvertFrom-Json } catch {}
+        $ErrDetailsMessage = $_.ErrorDetails.Message
+        if ($ErrDetailsMessage) {
+            try { $ErrorJson = $ErrDetailsMessage | ConvertFrom-Json } catch {}
+        }
 
         if ($ErrorJson -and $ErrorJson.error_codes -contains 700027) {
             Write-Log "Error de Autenticación (AADSTS700027): certificado no registrado en la aplicación." -Level ERROR

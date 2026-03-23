@@ -353,7 +353,7 @@ $html = @"
         <img src="https://cdn.theatlantic.com/assets/marketing/prod/logos/2024/03/MS-Security_logo_horiz_c-gray_rgb_1_O3yRRKf.png" alt="Microsoft Security" class="logo-img mb-2">
         <h1>Domain Health Security Report</h1>
         <p>Analysis for: <strong>$domain</strong> | <span style="font-size:0.85rem;">$date</span></p>
-        <p><em>&ldquo;Technology enables security, but discipline makes it effective&rdquo;</em></p>
+        <p><em>&ldquo;La tecnología habilita la seguridad, pero la disciplina la hace efectiva&rdquo;</em></p>
     </div>
 
     <div class="container-fluid px-5">

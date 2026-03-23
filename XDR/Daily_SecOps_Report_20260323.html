@@ -254,7 +254,7 @@
             <div class="subtitle">La tecnología habilita la seguridad, pero la disciplina la hace efectiva</div>
         </div>
         <div class="meta">
-            <div><strong>Período:</strong> 2026-02-15 09:41 - 2026-03-17 09:41</div>
+            <div><strong>Período:</strong> 2026-02-21 12:12 - 2026-03-23 12:12</div>
             <div style="font-size: 0.85em; margin-top: 4px;">Tenant ID: ********************************8c2b</div>
         </div>
     </div>
@@ -263,7 +263,7 @@
         <!-- KPIs -->
         <div class="kpi-grid">
             <div class="kpi-card high">
-                <div class="kpi-val">16</div>
+                <div class="kpi-val">9</div>
                 <div class="kpi-label">Incidentes Activos</div>
                 <div class="kpi-severity">Máx: High</div>
             </div>
@@ -281,7 +281,7 @@
                 <div class="kpi-severity">Máx: Sin riesgo</div>
             </div>
             <div class="kpi-card high">
-                <div class="kpi-val">5</div>
+                <div class="kpi-val">4</div>
                 <div class="kpi-label">Alertas Defender for Identity</div>
                 <div class="kpi-severity">Máx: High</div>
             </div>            <div class="kpi-card none">
@@ -322,11 +322,11 @@
                 <table class="ops-table">
                     <thead><tr><th style="width:35%">Alerta</th><th style="width:15%">Severidad</th><th style="width:20%">Portal</th><th style="width:30%">Acción</th></tr></thead>
                     <tbody>
-                        <tr>
-                            <td colspan="4" style="text-align:center; padding:30px; color:#666;">
-                                <strong>No existen Alertas</strong><br/>
-                                <span style="font-size:0.9em;">No se detectaron alertas activas en los últimos 7 días</span>
-                            </td>
+                        <tr style="border-left: 4px solid #0078d4;">
+                            <td><strong>Email messages from a campaign removed after delivery​</strong></td>
+                            <td><span style="background:#0078d4; color:#fff; padding:3px 8px; border-radius:3px; font-size:0.75em; font-weight:600;">Informational</span></td>
+                            <td style="color:#666; font-size:0.9em;">2026-03-09 11:20</td>
+                            <td><a class="ops-btn portal" href="https://security.microsoft.com/alerts/fa055311ae-5e5b-911c-7400-08de7dcc67b6" target="_blank">&#x1f517; Ver Alerta</a></td>
                         </tr>
                     </tbody>
                 </table>
@@ -337,21 +337,30 @@
         <div class="ops-group" style="margin-top: 20px;">
             <div class="ops-group-header" style="background: #0078d4;">
                 <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDO: Microsoft Defender for Office 365
-                <span class="ops-badge daily">#4</span>
+                <span class="ops-badge daily">#20</span>
             </div>
             <div style="padding: 20px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <span style="background:rgba(0,0,0,0.1); color:#0078d4; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Spoofing y Autenticación</span>
+                    <span style="background:rgba(0,0,0,0.1); color:#0078d4; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Detección de Anomalías & Comportamiento</span>
                 </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Spoofing: Análisis de Campañas</h3>
-                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let lookback = 7d;
-EmailEvents
-| where Timestamp >= ago(lookback)
-| where SenderFromDomain != SenderMailFromDomain
-| summarize Msgs = count(), Recipients = dcount(RecipientEmailAddress), Subjects = make_set(Subject, 10), FirstSeen = min(Timestamp), LastSeen = max(Timestamp) by SenderFromDomain, SenderMailFromDomain, SenderFromAddress
-| order by Msgs desc, Recipients desc</div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Dominio del Remitente "Recién Visto"</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let Lookback = 14d;
+let Baseline = 45d;
+let recent = EmailEvents
+  | where Timestamp > ago(Lookback)
+  | extend SenderDomain = tostring(split(SenderFromAddress, "@")[1])
+  | summarize FirstSeen=min(Timestamp), LastSeen=max(Timestamp), Cnt=count() by SenderDomain;
+let historical = EmailEvents
+  | where Timestamp between (ago(Baseline) .. ago(Lookback))
+  | extend SenderDomain = tostring(split(SenderFromAddress, "@")[1])
+  | summarize PrevCnt=count() by SenderDomain;
+recent
+| join kind=leftouter (historical) on SenderDomain
+| where isnull(PrevCnt) or PrevCnt == 0
+| order by Cnt desc, LastSeen desc</div>
                 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
                     <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
+                    <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md" target="_blank">&#x1f4da; Ver catálogo KQL de MDO: Microsoft Defender for Office 365</a>
                 </div>
             </div>
         </div>
@@ -387,11 +396,21 @@ EmailEvents
                 <table class="ops-table">
                     <thead><tr><th style="width:35%">Alerta</th><th style="width:15%">Severidad</th><th style="width:20%">Portal</th><th style="width:30%">Acción</th></tr></thead>
                     <tbody>
-                        <tr>
-                            <td colspan="4" style="text-align:center; padding:30px; color:#666;">
-                                <strong>No existen Alertas</strong><br/>
-                                <span style="font-size:0.9em;">No se detectaron alertas activas en los últimos 7 días</span>
-                            </td>
+                        <tr style="border-left: 4px solid #8764b8;">
+                            <td><strong>Suspicious sequence of exploration activities</strong></td>
+                            <td><span style="background:#8764b8; color:#fff; padding:3px 8px; border-radius:3px; font-size:0.75em; font-weight:600;">Low</span></td>
+                            <td style="color:#666; font-size:0.9em;">2026-02-26 20:44</td>
+                            <td><a class="ops-btn portal" href="https://security.microsoft.com/alerts/da200dbacc-b174-42d4-bd25-76eae20a900b_1" target="_blank">&#x1f517; Ver Alerta</a></td>
+                        </tr>                        <tr style="border-left: 4px solid #8764b8;">
+                            <td><strong>Anomalous account lookups</strong></td>
+                            <td><span style="background:#8764b8; color:#fff; padding:3px 8px; border-radius:3px; font-size:0.75em; font-weight:600;">Low</span></td>
+                            <td style="color:#666; font-size:0.9em;">2026-02-26 20:44</td>
+                            <td><a class="ops-btn portal" href="https://security.microsoft.com/alerts/da5c0d3854-37c3-46c3-b81c-1d0a2c2ea922_1" target="_blank">&#x1f517; Ver Alerta</a></td>
+                        </tr>                        <tr style="border-left: 4px solid #0078d4;">
+                            <td><strong>1</strong></td>
+                            <td><span style="background:#0078d4; color:#fff; padding:3px 8px; border-radius:3px; font-size:0.75em; font-weight:600;">Informational</span></td>
+                            <td style="color:#666; font-size:0.9em;">2026-02-26 20:11</td>
+                            <td><a class="ops-btn portal" href="https://security.microsoft.com/alerts/da639077475108272729_-24381478" target="_blank">&#x1f517; Ver Alerta</a></td>
                         </tr>
                     </tbody>
                 </table>
@@ -402,22 +421,23 @@ EmailEvents
         <div class="ops-group" style="margin-top: 20px;">
             <div class="ops-group-header" style="background: #d83b01;">
                 <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDE: Microsoft Defender for Endpoint
-                <span class="ops-badge daily">#4</span>
+                <span class="ops-badge daily">#7</span>
             </div>
             <div style="padding: 20px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <span style="background:rgba(0,0,0,0.1); color:#d83b01; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Procesos Sospechosos</span>
+                    <span style="background:rgba(0,0,0,0.1); color:#d83b01; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Conexiones de Red</span>
                 </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Ejecuciones de PowerShell con Encoding/Bypass</h3>
-                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let TimeRange = 7d;
-DeviceProcessEvents
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">DNS Tunneling / Exfiltración DNS</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let TimeRange = 1d;
+DeviceNetworkEvents
 | where Timestamp >= ago(TimeRange)
-| where FileName =~ "powershell.exe" or FileName =~ "pwsh.exe"
-| where ProcessCommandLine has_any ("-enc","-encoded","-bypass","hidden","-nop","-w hidden","IEX","Invoke-Expression","downloadstring")
-| project Timestamp, DeviceName, AccountName, ProcessCommandLine, InitiatingProcessFileName
-| order by Timestamp desc</div>
+| where RemotePort == 53
+| summarize DNSQueries=count(), DistinctDomains=dcount(RemoteUrl) by DeviceName, InitiatingProcessAccountName
+| where DNSQueries > 1000 or DistinctDomains > 500
+| order by DNSQueries desc</div>
                 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
                     <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
+                    <a class="ops-btn doc" href="https://learn.microsoft.com/defender-xdr/advanced-hunting-query-samples" target="_blank">&#x1f4da; Ver catálogo KQL de MDE: Microsoft Defender for Endpoint</a>
                 </div>
             </div>
         </div>
@@ -453,11 +473,26 @@ DeviceProcessEvents
                 <table class="ops-table">
                     <thead><tr><th style="width:35%">Alerta</th><th style="width:15%">Severidad</th><th style="width:20%">Portal</th><th style="width:30%">Acción</th></tr></thead>
                     <tbody>
-                        <tr>
-                            <td colspan="4" style="text-align:center; padding:30px; color:#666;">
-                                <strong>No existen Alertas</strong><br/>
-                                <span style="font-size:0.9em;">No se detectaron alertas activas en los últimos 7 días</span>
-                            </td>
+                        <tr style="border-left: 4px solid #d13438;">
+                            <td><strong>Suspected DCSync attack (replication of directory services)</strong></td>
+                            <td><span style="background:#d13438; color:#fff; padding:3px 8px; border-radius:3px; font-size:0.75em; font-weight:600;">High</span></td>
+                            <td style="color:#666; font-size:0.9em;">2026-02-22 03:07</td>
+                            <td><a class="ops-btn portal" href="https://security.microsoft.com/alerts/aa523f4ebe-9b78-4cbb-9514-b43bda595c2d" target="_blank">&#x1f517; Ver Alerta</a></td>
+                        </tr>                        <tr style="border-left: 4px solid #ff8c00;">
+                            <td><strong>User and group membership reconnaissance (SAMR)</strong></td>
+                            <td><span style="background:#ff8c00; color:#fff; padding:3px 8px; border-radius:3px; font-size:0.75em; font-weight:600;">Medium</span></td>
+                            <td style="color:#666; font-size:0.9em;">2026-02-26 20:19</td>
+                            <td><a class="ops-btn portal" href="https://security.microsoft.com/alerts/aad2ae1b58-2323-49ca-ab52-e1879420ff33" target="_blank">&#x1f517; Ver Alerta</a></td>
+                        </tr>                        <tr style="border-left: 4px solid #ff8c00;">
+                            <td><strong>Suspicious Server Message Block (SMB) enumeration from untrusted host</strong></td>
+                            <td><span style="background:#ff8c00; color:#fff; padding:3px 8px; border-radius:3px; font-size:0.75em; font-weight:600;">Medium</span></td>
+                            <td style="color:#666; font-size:0.9em;">2026-02-22 03:02</td>
+                            <td><a class="ops-btn portal" href="https://security.microsoft.com/alerts/ri639073270653309732_-1484630898" target="_blank">&#x1f517; Ver Alerta</a></td>
+                        </tr>                        <tr style="border-left: 4px solid #ff8c00;">
+                            <td><strong>Suspicious authentication attempt</strong></td>
+                            <td><span style="background:#ff8c00; color:#fff; padding:3px 8px; border-radius:3px; font-size:0.75em; font-weight:600;">Medium</span></td>
+                            <td style="color:#666; font-size:0.9em;">2026-02-22 01:27</td>
+                            <td><a class="ops-btn portal" href="https://security.microsoft.com/alerts/ri639073306716756036_2049897171" target="_blank">&#x1f517; Ver Alerta</a></td>
                         </tr>
                     </tbody>
                 </table>
@@ -468,23 +503,22 @@ DeviceProcessEvents
         <div class="ops-group" style="margin-top: 20px;">
             <div class="ops-group-header" style="background: #e97a00;">
                 <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDI: Microsoft Defender for Identity
-                <span class="ops-badge daily">#3</span>
+                <span class="ops-badge daily">#9</span>
             </div>
             <div style="padding: 20px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <span style="background:rgba(0,0,0,0.1); color:#e97a00; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Password spraying – múltiples fallos por cuenta</span>
+                    <span style="background:rgba(0,0,0,0.1); color:#e97a00; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Cambios de UPN sospechosos</span>
                 </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Password spraying – múltiples fallos por cuenta</h3>
-                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let TimeRange = 1d;
-let FailureThreshold = 15;
-IdentityLogonEvents
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Cambios de UPN sospechosos</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let TimeRange = 7d;
+IdentityDirectoryEvents
 | where Timestamp >= ago(TimeRange)
-| where ActionType in ("LogonFailed", "InvalidPassword", "UserLoginFailed", "Failure")
-| summarize FailedLogons = count(), SrcIPs = dcount(IPAddress) by AccountUpn, AccountName, AccountDomain
-| where FailedLogons >= FailureThreshold and SrcIPs >= 3
-| order by FailedLogons desc</div>
+| where ActionType has_any ("UPN", "User principal name", "UserPrincipalName")
+| project Timestamp, AccountUpn, TargetAccountUpn, ActionType, AdditionalFields, DeviceName
+| order by Timestamp desc</div>
                 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
                     <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
+                    <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md" target="_blank">&#x1f4da; Ver catálogo KQL de MDI: Microsoft Defender for Identity</a>
                 </div>
             </div>
         </div>
@@ -523,7 +557,7 @@ IdentityLogonEvents
                         <tr>
                             <td colspan="4" style="text-align:center; padding:30px; color:#666;">
                                 <strong>No existen Alertas</strong><br/>
-                                <span style="font-size:0.9em;">No se detectaron alertas activas en los últimos 7 días</span>
+                                <span style="font-size:0.9em;">No se detectaron alertas activas en el período analizado</span>
                             </td>
                         </tr>
                     </tbody>
@@ -535,23 +569,28 @@ IdentityLogonEvents
         <div class="ops-group" style="margin-top: 20px;">
             <div class="ops-group-header" style="background: #107c10;">
                 <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – ENTRA: Microsoft Entra ID
-                <span class="ops-badge daily">#38</span>
+                <span class="ops-badge daily">#18</span>
             </div>
             <div style="padding: 20px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <span style="background:rgba(0,0,0,0.1); color:#107c10; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Eventos de gestión de Entra (config / administración) vía CloudAppEvents (si tienes Defender for Cloud Apps)</span>
+                    <span style="background:rgba(0,0,0,0.1); color:#107c10; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Detección – Workload Identities (EntraIdSpnSignInEvents)</span>
                 </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Top acciones administrativas (IsAdminOperation) para la app de Entra (ajusta AppName)</h3>
-                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let Lookback = 14d;
-let AppName = "Azure Active Directory";   // cambia según G1
-CloudAppEvents
-| where Timestamp >= ago(Lookback)
-| where Application == AppName
-| where IsAdminOperation == true
-| summarize Events=count(), Actors=make_set(AccountDisplayName, 20), IPs=make_set(IPAddress, 20) by ActionType
-| order by Events desc</div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Nuevos países para un SPN (baseline)</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let Lookback = 30d;
+let Recent = 2d;
+let historical = EntraIdSpnSignInEvents
+| where Timestamp between (ago(Lookback) .. ago(Recent))
+| summarize KnownCountries=make_set(Country, 200) by ServicePrincipalId;
+EntraIdSpnSignInEvents
+| where Timestamp >= ago(Recent)
+| summarize RecentCountries=make_set(Country, 50), RecentIPs=make_set(IPAddress, 50) by ServicePrincipalId, ServicePrincipalName
+| join kind=leftouter historical on ServicePrincipalId
+| extend NewCountries = set_difference(RecentCountries, KnownCountries)
+| where array_length(NewCountries) > 0
+| project ServicePrincipalName, ServicePrincipalId, NewCountries, RecentIPs</div>
                 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
                     <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
+                    <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Paquete%20KQL%20Queries%20EntraID%20Advanced%20Hunting.md" target="_blank">&#x1f4da; Ver catálogo KQL de ENTRA: Microsoft Entra ID</a>
                 </div>
             </div>
         </div>
@@ -590,7 +629,7 @@ CloudAppEvents
                         <tr>
                             <td colspan="4" style="text-align:center; padding:30px; color:#666;">
                                 <strong>No existen Alertas</strong><br/>
-                                <span style="font-size:0.9em;">No se detectaron alertas activas en los últimos 7 días</span>
+                                <span style="font-size:0.9em;">No se detectaron alertas activas en el período analizado</span>
                             </td>
                         </tr>
                     </tbody>
@@ -602,22 +641,24 @@ CloudAppEvents
         <div class="ops-group" style="margin-top: 20px;">
             <div class="ops-group-header" style="background: #8764b8;">
                 <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDA: Microsoft Defender for Cloud Apps
-                <span class="ops-badge daily">#2</span>
+                <span class="ops-badge daily">#10</span>
             </div>
             <div style="padding: 20px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <span style="background:rgba(0,0,0,0.1); color:#8764b8; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">OAuth y Consentimientos</span>
+                    <span style="background:rgba(0,0,0,0.1); color:#8764b8; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">Anomalías de Acceso</span>
                 </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Apps OAuth con Permisos de Alto Riesgo</h3>
-                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let TimeRange = 30d;
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">Viaje Imposible (Actividad en 2+ Países en <2h)</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">let TimeRange = 1d;
+let Window = 2h;
 CloudAppEvents
 | where Timestamp >= ago(TimeRange)
-| where ActionType has_any ("consent","permission","grant")
-| where RawEventData has_any ("Mail.ReadWrite","Files.ReadWrite.All","Directory.ReadWrite.All","Sites.ReadWrite.All")
-| project Timestamp, ActionType, Application, AccountDisplayName, RawEventData
-| order by Timestamp desc</div>
+| summarize Countries=make_set(CountryCode, 10), MinTime=min(Timestamp), MaxTime=max(Timestamp) by AccountId, AccountDisplayName, bin(Timestamp, Window)
+| where array_length(Countries) >= 2
+| project AccountDisplayName, Countries, MinTime, MaxTime
+| order by MaxTime desc</div>
                 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
                     <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
+                    <a class="ops-btn doc" href="https://learn.microsoft.com/defender-xdr/advanced-hunting-cloudappevents-table" target="_blank">&#x1f4da; Ver catálogo KQL de MDA: Microsoft Defender for Cloud Apps</a>
                 </div>
             </div>
         </div>
@@ -632,7 +673,7 @@ CloudAppEvents
         <div class="table-container">
             <table>
                 <thead><tr><th>Servicio</th><th>Severidad</th><th>Cantidad</th></tr></thead>
-                <tbody><tr><td>Microsoft Sentinel</td><td>Medium</td><td>7</td></tr><tr><td>Microsoft Defender for Identity</td><td>Medium</td><td>4</td></tr><tr><td>Microsoft Defender for Endpoint</td><td>Low</td><td>2</td></tr><tr><td>Microsoft Defender for Identity</td><td>High</td><td>1</td></tr><tr><td>Microsoft Defender for Office 365</td><td>Informational</td><td>1</td></tr><tr><td>Microsoft Defender for Endpoint</td><td>Informational</td><td>1</td></tr></tbody>
+                <tbody><tr><td>Microsoft Defender for Identity</td><td>Medium</td><td>3</td></tr><tr><td>Microsoft Defender for Endpoint</td><td>Low</td><td>2</td></tr><tr><td>Microsoft Defender for Identity</td><td>High</td><td>1</td></tr><tr><td>Microsoft Defender for Office 365</td><td>Informational</td><td>1</td></tr><tr><td>Microsoft Sentinel</td><td>Medium</td><td>1</td></tr><tr><td>Microsoft Defender for Endpoint</td><td>Informational</td><td>1</td></tr></tbody>
             </table>
         </div>
 
