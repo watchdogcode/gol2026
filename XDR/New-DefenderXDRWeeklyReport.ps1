@@ -114,6 +114,13 @@ param(
     [switch]$IncludeMDA
 )
 
+$TenantId = if ($null -ne $TenantId) { $TenantId.Trim() } else { $TenantId }
+$ClientId = if ($null -ne $ClientId) { $ClientId.Trim() } else { $ClientId }
+$ClientSecret = if ($null -ne $ClientSecret) { $ClientSecret.Trim() } else { $ClientSecret }
+$CertificateThumbprint = if ($null -ne $CertificateThumbprint) { ($CertificateThumbprint -replace '\s','').ToUpperInvariant() } else { $CertificateThumbprint }
+$CertificatePath = if ($null -ne $CertificatePath) { $CertificatePath.Trim() } else { $CertificatePath }
+$AuthMode = if ($null -ne $AuthMode) { $AuthMode.Trim() } else { $AuthMode }
+
 # --- SELECCIÓN DE PRODUCTOS (si no se especifica ninguno, se incluyen todos) ---
 $RunMDO = $IncludeMDO.IsPresent
 $RunMDE = $IncludeMDE.IsPresent
@@ -208,6 +215,44 @@ function ConvertTo-Base64Url {
     $B64 = $B64.TrimEnd('=')
     $B64 = $B64.Replace('+', '-').Replace('/', '_')
     return $B64
+}
+
+function Get-ExceptionResponseBody {
+    param([Parameter(Mandatory)]$ErrorRecord)
+
+    $ErrorDetailsMessage = $ErrorRecord.ErrorDetails.Message
+    if ($ErrorDetailsMessage) {
+        return [string]$ErrorDetailsMessage
+    }
+
+    $Response = $ErrorRecord.Exception.Response
+    if (-not $Response) {
+        return $null
+    }
+
+    try {
+        if ($Response.Content) {
+            return $Response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+        }
+    }
+    catch {}
+
+    try {
+        $Stream = $Response.GetResponseStream()
+        if ($Stream) {
+            $Reader = New-Object System.IO.StreamReader($Stream)
+            try {
+                return $Reader.ReadToEnd()
+            }
+            finally {
+                $Reader.Dispose()
+                $Stream.Dispose()
+            }
+        }
+    }
+    catch {}
+
+    return $null
 }
 
 function Get-CertificateForAuth {
@@ -429,9 +474,9 @@ function Get-M365Token {
     catch {
         $RawMessage = $_.Exception.Message
         $ErrorJson = $null
-        $ErrDetailsMessage = $_.ErrorDetails.Message
-        if ($ErrDetailsMessage) {
-            try { $ErrorJson = $ErrDetailsMessage | ConvertFrom-Json } catch {}
+        $ResponseBody = Get-ExceptionResponseBody -ErrorRecord $_
+        if ($ResponseBody) {
+            try { $ErrorJson = $ResponseBody | ConvertFrom-Json } catch {}
         }
 
         if ($ErrorJson -and $ErrorJson.error_codes -contains 700027) {
@@ -445,6 +490,10 @@ function Get-M365Token {
             }
 
             Write-Log $ErrorJson.error_description -Level ERROR
+        }
+        elseif ($ResponseBody) {
+            Write-Log "Autenticación fallida: $RawMessage" -Level ERROR
+            Write-Log "Detalle devuelto por Entra ID: $ResponseBody" -Level ERROR
         }
         else {
             Write-Log "Autenticación fallida: $RawMessage" -Level ERROR
