@@ -115,6 +115,20 @@ function New-SelfSignedAppCert {
         -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.2')
 }
 
+function Get-RepositoryScriptUrl {
+    param(
+        [Parameter(Mandatory)][string]$ScriptName
+    )
+    $DefaultScriptUrls = @{
+        'New-DefenderXDRDailyReport.ps1'  = 'https://raw.githubusercontent.com/watchdogcode/gol2026/refs/heads/main/XDR/New-DefenderXDRDailyReport.ps1'
+        'New-DefenderXDRWeeklyReport.ps1' = 'https://raw.githubusercontent.com/watchdogcode/gol2026/refs/heads/main/XDR/New-DefenderXDRWeeklyReport.ps1'
+    }
+    if ($DefaultScriptUrls.ContainsKey($ScriptName)) {
+        return $DefaultScriptUrls[$ScriptName]
+    }
+    return $null
+}
+
 # ============================================================
 #  BANNER
 # ============================================================
@@ -483,10 +497,10 @@ if ($PlainSecretForValidation) {
 }
 
 # ============================================================
-#  PASO 5: Copiar scripts de reporte
+#  PASO 5: Obtener scripts de reporte (local o GitHub)
 # ============================================================
 
-Write-Step "5/9" "Copiando scripts de reporte..."
+Write-Step "5/9" "Obteniendo scripts de reporte (local o GitHub)..."
 
 $SourceDir = Split-Path $MyInvocation.MyCommand.Path -Parent
 
@@ -507,8 +521,28 @@ foreach ($Script in $ScriptsToCopy) {
         Write-Ok "Copiado: $Script -> $ScriptsPath"
     }
     else {
-        Write-Fail "No encontrado: $Source"
-        Write-Host "    Copie manualmente a: $Dest" -ForegroundColor DarkYellow
+        Write-Host ""
+        Write-Info "$Script no encontrado localmente. Descargando desde GitHub..."
+        $GitHubUrl = Get-RepositoryScriptUrl -ScriptName $Script
+        
+        if ($GitHubUrl) {
+            try {
+                $ScriptContent = Invoke-WebRequest -Uri $GitHubUrl -UseBasicParsing -TimeoutSec 30 -ErrorAction Stop
+                $ScriptContent.Content | Out-File $Dest -Encoding UTF8 -Force
+                Write-Ok "Descargado desde: $GitHubUrl"
+                Write-Host "    Guardado en: $Dest" -ForegroundColor DarkGreen
+            }
+            catch {
+                Write-Fail "Error descargando de GitHub: $($_.Exception.Message)"
+                Write-Host "    Intente descargar manualmente desde:" -ForegroundColor DarkYellow
+                Write-Host "    $GitHubUrl" -ForegroundColor Yellow
+                Write-Host "    Y guardelo en: $Dest" -ForegroundColor Yellow
+            }
+        }
+        else {
+            Write-Fail "URL de GitHub no disponible para $Script"
+            Write-Host "    Copie manualmente a: $Dest" -ForegroundColor DarkYellow
+        }
     }
 }
 
@@ -608,6 +642,7 @@ if ((`$DailyAuth -eq "Secret") -and `$Config.SecretFile) {
 }
 
 if (`$ClientSecretPlain) { `$Params['ClientSecret'] = `$ClientSecretPlain }
+if ((`$DailyAuth -eq "Certificate") -and `$Config.CertThumbprint) { `$Params['CertificateThumbprint'] = `$Config.CertThumbprint }
 
 # Agregar parametros de correo si estan configurados
 if (`$Config.SendMail -eq `$true -and `$Config.SmtpServer) {
@@ -707,11 +742,7 @@ if (`$WeeklyAuth -eq "Secret" -and `$Config.SecretFile) {
 }
 
 if (`$ClientSecretPlain) { `$Params['ClientSecret'] = `$ClientSecretPlain }
-
-# Agregar certificado si aplica
-if (`$WeeklyAuth -eq "Certificate" -and `$Config.CertThumbprint) {
-    `$Params['CertThumbprint'] = `$Config.CertThumbprint
-}
+if ((`$WeeklyAuth -eq "Certificate") -and `$Config.CertThumbprint) { `$Params['CertificateThumbprint'] = `$Config.CertThumbprint }
 
 # Agregar parametros de correo si estan configurados
 if (`$Config.SendMail -eq `$true -and `$Config.SmtpServer) {
