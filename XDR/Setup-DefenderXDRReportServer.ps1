@@ -1,22 +1,26 @@
 <#
 .SYNOPSIS
-    Setup-DefenderReportServer.ps1
+    Setup-DefenderXDRReportServer.ps1
     Script de configuracion inicial para Defender XDR Daily & Weekly Reporting.
 
 .DESCRIPTION
-    Configura el entorno completo para ejecutar:
-      - New-DefenderXDRDailyReport.ps1  (reporte diario)
-      - New-DefenderXDRWeeklyReport.ps1 (reporte semanal)
+        Configura el entorno completo para ejecutar:
+            - New-DefenderXDRDailyReport.ps1  (reporte diario)
+            - New-DefenderXDRWeeklyReport.ps1 (reporte semanal)
 
     Acciones que realiza:
       1. Crea estructura de directorios segura
-      2. Solicita y almacena credenciales (DPAPI-encrypted)
+        2. Solicita y almacena credenciales (secret en DPAPI, certificado existente o certificado autofirmado)
       3. Valida permisos de App Registration contra la API
       4. Copia los scripts a la ruta de ejecucion
       5. Configura notificaciones por correo (opcional)
-      6. Genera wrappers seguros para Task Scheduler
+            6. Genera wrappers seguros para Task Scheduler
       7. Crea tareas programadas (Daily 7:00 AM / Weekly Lunes 7:30 AM)
       8. Ejecuta prueba de validacion (opcional)
+
+        Si se elige autenticacion por certificado, el setup puede crear un certificado
+        autofirmado, exportar el .cer publico para App Registration y dejar el thumbprint
+        listo para las tareas programadas.
 
 .PARAMETER ConfigPath
     Ruta para archivos de configuracion (default: $PSScriptRoot\Config).
@@ -26,6 +30,10 @@
 
 .PARAMETER ScriptsPath
     Ruta donde se copiaran los scripts de reporte (default: $PSScriptRoot).
+
+.PARAMETER RepositoryRawBaseUrl
+    URL base RAW del repositorio para descargar scripts faltantes.
+    Ejemplo: https://raw.githubusercontent.com/<owner>/<repo>/main/XDR
 
 .PARAMETER SkipValidation
     Omite la validacion de permisos contra la API.
@@ -37,20 +45,23 @@
     Omite la configuracion de notificaciones por correo.
 
 .EXAMPLE
-    .\Setup-DefenderReportServer.ps1
-    .\Setup-DefenderReportServer.ps1 -SkipScheduledTasks
-    .\Setup-DefenderReportServer.ps1 -SkipEmail -SkipValidation
+    .\Setup-DefenderXDRReportServer.ps1
+    .\Setup-DefenderXDRReportServer.ps1 -SkipScheduledTasks
+    .\Setup-DefenderXDRReportServer.ps1 -SkipEmail -SkipValidation
 
 .NOTES
     Debe ejecutarse con la cuenta de servicio que ejecutara los reportes programados.
     Las credenciales se protegen con DPAPI (solo funcionan con el usuario que ejecuto el setup).
     Permiso requerido en App Registration: AdvancedHunting.Read.All (Application).
+    Si se genera un certificado autofirmado, cargue el archivo .cer exportado en
+    Entra ID > App registrations > Certificates & secrets antes de validar o programar.
 #>
 
 param(
     [string]$ConfigPath   = "$PSScriptRoot\Config",
     [string]$ReportsPath  = "$PSScriptRoot\Reports",
     [string]$ScriptsPath  = "$PSScriptRoot",
+    [string]$RepositoryRawBaseUrl,
     [switch]$SkipValidation,
     [switch]$SkipScheduledTasks,
     [switch]$SkipEmail
@@ -94,39 +105,461 @@ function Write-Info {
     Write-Host "  $Message" -ForegroundColor Cyan
 }
 
-function New-SelfSignedAppCert {
-    param(
-        [Parameter(Mandatory)][string]$Subject,
-        [Parameter(Mandatory)][string]$FriendlyName,
-        [ValidateSet('CurrentUser','LocalMachine')][string]$StoreLocation = 'CurrentUser',
-        [ValidateRange(1,10)][int]$ValidYears = 2
+function Get-PowerShell7ExecutablePath {
+    $PwshCommand = Get-Command pwsh.exe -ErrorAction SilentlyContinue
+    if ($PwshCommand) {
+        return $PwshCommand.Source
+    }
+
+    $CandidatePaths = @(
+        (Join-Path $env:ProgramFiles "PowerShell\7\pwsh.exe"),
+        (Join-Path ${env:ProgramFiles(x86)} "PowerShell\7\pwsh.exe")
     )
-    $CertStore = "Cert:\$StoreLocation\My"
-    return New-SelfSignedCertificate `
-        -Subject $Subject `
-        -FriendlyName $FriendlyName `
-        -CertStoreLocation $CertStore `
-        -KeyAlgorithm RSA `
-        -KeyLength 2048 `
-        -KeySpec Signature `
-        -KeyExportPolicy Exportable `
-        -HashAlgorithm SHA256 `
-        -NotAfter (Get-Date).AddYears($ValidYears) `
-        -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.2')
+
+    foreach ($Candidate in $CandidatePaths) {
+        if ($Candidate -and (Test-Path $Candidate)) {
+            return $Candidate
+        }
+    }
+
+    return $null
+}
+
+function Normalize-InputValue {
+    param([AllowNull()][string]$Value)
+
+    if ($null -eq $Value) {
+        return $null
+    }
+
+    return $Value.Trim()
+}
+
+function Test-GuidLikeValue {
+    param([AllowNull()][string]$Value)
+
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        return $false
+    }
+
+    return ($Value.Trim() -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+}
+
+function Get-GitHubRawBaseUrl {
+    param(
+        [Parameter(Mandatory)][string]$SourceDir,
+        [string]$OverrideUrl
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($OverrideUrl)) {
+        return $OverrideUrl.TrimEnd('/')
+    }
+
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+        return $null
+    }
+
+    try {
+        $GitRemote = (& git -C $SourceDir config --get remote.origin.url 2>$null)
+        if (-not $GitRemote) {
+            return $null
+        }
+
+        $GitRemote = $GitRemote.Trim()
+
+        if ($GitRemote -match '^https://github\.com/(?<owner>[^/]+)/(?<repo>[^/]+?)(\.git)?$') {
+            return "https://raw.githubusercontent.com/$($Matches.owner)/$($Matches.repo)/main/XDR"
+        }
+
+        if ($GitRemote -match '^git@github\.com:(?<owner>[^/]+)/(?<repo>[^/]+?)(\.git)?$') {
+            return "https://raw.githubusercontent.com/$($Matches.owner)/$($Matches.repo)/main/XDR"
+        }
+    }
+    catch {
+        return $null
+    }
+
+    return $null
 }
 
 function Get-RepositoryScriptUrl {
     param(
-        [Parameter(Mandatory)][string]$ScriptName
+        [Parameter(Mandatory)][string]$ScriptName,
+        [string]$RawBaseUrl
     )
+
     $DefaultScriptUrls = @{
         'New-DefenderXDRDailyReport.ps1'  = 'https://raw.githubusercontent.com/watchdogcode/gol2026/refs/heads/main/XDR/New-DefenderXDRDailyReport.ps1'
         'New-DefenderXDRWeeklyReport.ps1' = 'https://raw.githubusercontent.com/watchdogcode/gol2026/refs/heads/main/XDR/New-DefenderXDRWeeklyReport.ps1'
     }
+
+    if (-not [string]::IsNullOrWhiteSpace($RawBaseUrl)) {
+        return ('{0}/{1}' -f $RawBaseUrl.TrimEnd('/'), $ScriptName)
+    }
+
     if ($DefaultScriptUrls.ContainsKey($ScriptName)) {
         return $DefaultScriptUrls[$ScriptName]
     }
+
     return $null
+}
+
+function ConvertTo-Base64Url {
+    param([byte[]]$Bytes)
+    $B64 = [Convert]::ToBase64String($Bytes)
+    $B64 = $B64.TrimEnd('=')
+    $B64 = $B64.Replace('+', '-').Replace('/', '_')
+    return $B64
+}
+
+function Get-CertificateByThumbprint {
+    param([Parameter(Mandatory)][string]$Thumbprint)
+
+    $NormalizedThumb = ($Thumbprint -replace '\s','').ToUpperInvariant()
+    foreach ($StoreLocation in @('CurrentUser', 'LocalMachine')) {
+        $Store = [System.Security.Cryptography.X509Certificates.X509Store]::new('My', $StoreLocation)
+        try {
+            $Store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadOnly)
+            $Found = $Store.Certificates | Where-Object { $_.Thumbprint -eq $NormalizedThumb } | Select-Object -First 1
+            if ($Found) { return $Found }
+        }
+        finally {
+            $Store.Close()
+        }
+    }
+
+    return $null
+}
+
+function New-SelfSignedCertificateForAppAuth {
+    param(
+        [Parameter(Mandatory)][string]$Subject,
+        [Parameter(Mandatory)][string]$FriendlyName,
+        [Parameter(Mandatory)][string]$CertStoreLocation,
+        [int]$ValidYears = 2,
+        [int]$KeyLength = 2048
+    )
+
+    $NotAfter = (Get-Date).AddYears($ValidYears)
+
+    return New-SelfSignedCertificate `
+        -Subject $Subject `
+        -FriendlyName $FriendlyName `
+        -CertStoreLocation $CertStoreLocation `
+        -KeyAlgorithm RSA `
+        -KeyLength $KeyLength `
+        -KeySpec Signature `
+        -KeyExportPolicy Exportable `
+        -HashAlgorithm SHA256 `
+        -NotAfter $NotAfter `
+        -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.2')
+}
+
+function Export-PublicCertificateFile {
+    param(
+        [Parameter(Mandatory)][System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+        [Parameter(Mandatory)][string]$OutputPath
+    )
+
+    $OutputDir = Split-Path $OutputPath -Parent
+    if (-not (Test-Path $OutputDir)) {
+        New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
+    }
+
+    Export-Certificate -Cert $Certificate -FilePath $OutputPath -Force | Out-Null
+    return $OutputPath
+}
+
+function ConvertFrom-SecureStringToPlainText {
+    param([Parameter(Mandatory)][System.Security.SecureString]$SecureString)
+
+    $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureString)
+    try {
+        return [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+    }
+    finally {
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
+    }
+}
+
+function Ensure-AzAccountsModule {
+    $AzAccountsModule = Get-Module -ListAvailable -Name 'Az.Accounts' | Sort-Object Version -Descending | Select-Object -First 1
+    if ($AzAccountsModule) {
+        try {
+            Import-Module Az.Accounts -ErrorAction Stop | Out-Null
+        }
+        catch {
+            Write-Skip "Az.Accounts esta instalado pero no se pudo importar: $($_.Exception.Message)"
+        }
+
+        return $true
+    }
+
+    Write-Skip 'Az.Accounts no esta instalado en este usuario.'
+    $InstallAzAccounts = Read-Host '  Instalar Az.Accounts automaticamente ahora? [S/n]'
+    if ($InstallAzAccounts -in @('n','N')) {
+        return $false
+    }
+
+    try {
+        Write-Info 'Instalando Az.Accounts desde PSGallery en CurrentUser...'
+        Install-Module -Name Az.Accounts -Repository PSGallery -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
+        Import-Module Az.Accounts -ErrorAction Stop | Out-Null
+        Write-Ok 'Az.Accounts instalado e importado correctamente.'
+        return $true
+    }
+    catch {
+        Write-Fail "No se pudo instalar Az.Accounts automaticamente: $($_.Exception.Message)"
+        Write-Host '    El setup usara Device Code para Microsoft Graph si decide continuar.' -ForegroundColor DarkYellow
+        return $false
+    }
+}
+
+function Get-GraphDelegatedAccessToken {
+    param(
+        [Parameter(Mandatory)][string]$TenantId,
+        [string[]]$Scopes = @('Application.ReadWrite.All')
+    )
+
+    $GraphResource = 'https://graph.microsoft.com'
+    $ScopeString = (($Scopes + 'offline_access') | Select-Object -Unique) -join ' '
+
+    if (Get-Module -ListAvailable -Name 'Az.Accounts') {
+        try {
+            $AzContext = Get-AzContext -ErrorAction SilentlyContinue
+            if (-not $AzContext) {
+                Write-Info 'No existe sesion Azure activa. Iniciando autenticacion delegada para Microsoft Graph...'
+                Connect-AzAccount -Tenant $TenantId -ErrorAction Stop | Out-Null
+            }
+
+            $TokenData = Get-AzAccessToken -TenantId $TenantId -ResourceUrl $GraphResource -ErrorAction Stop
+            $AccessToken = if ($TokenData.Token -is [System.Security.SecureString]) {
+                ConvertFrom-SecureStringToPlainText -SecureString $TokenData.Token
+            }
+            else {
+                [string]$TokenData.Token
+            }
+
+            return @{
+                AccessToken = $AccessToken
+                Source      = 'Az.Accounts'
+            }
+        }
+        catch {
+            Write-Skip "No se pudo obtener token Graph via Az.Accounts: $($_.Exception.Message)"
+        }
+    }
+
+    $PublicClientId = '04b07795-8ddb-461a-bbee-02f9e1bf7b46'
+    $DeviceCodeUri = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/devicecode"
+    $TokenUri = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
+
+    $DeviceCodeResponse = Invoke-RestMethod -Method Post -Uri $DeviceCodeUri -Body @{
+        client_id = $PublicClientId
+        scope     = $ScopeString
+    } -ErrorAction Stop
+
+    Write-Host ''
+    Write-Host $DeviceCodeResponse.message -ForegroundColor Yellow
+
+    $Elapsed = 0
+    $Interval = [int]$DeviceCodeResponse.interval
+    $ExpiresIn = [int]$DeviceCodeResponse.expires_in
+
+    while ($Elapsed -lt $ExpiresIn) {
+        Start-Sleep -Seconds $Interval
+        $Elapsed += $Interval
+
+        try {
+            $TokenResponse = Invoke-RestMethod -Method Post -Uri $TokenUri -Body @{
+                grant_type  = 'urn:ietf:params:oauth:grant-type:device_code'
+                client_id   = $PublicClientId
+                device_code = $DeviceCodeResponse.device_code
+            } -ErrorAction Stop
+
+            return @{
+                AccessToken = [string]$TokenResponse.access_token
+                Source      = 'DeviceCode'
+            }
+        }
+        catch {
+            $GraphError = $null
+            if ($_.ErrorDetails.Message) {
+                try { $GraphError = $_.ErrorDetails.Message | ConvertFrom-Json } catch {}
+            }
+
+            if ($GraphError.error -eq 'authorization_pending') { continue }
+            if ($GraphError.error -eq 'slow_down') {
+                $Interval += 5
+                continue
+            }
+            if ($GraphError.error -eq 'expired_token') {
+                throw 'El codigo de dispositivo para Microsoft Graph expiro antes de completar el registro del certificado.'
+            }
+
+            throw
+        }
+    }
+
+    throw 'Tiempo de espera agotado al solicitar token delegado para Microsoft Graph.'
+}
+
+function Invoke-GraphApiRequest {
+    param(
+        [Parameter(Mandatory)][string]$AccessToken,
+        [Parameter(Mandatory)][string]$Uri,
+        [ValidateSet('GET','PATCH')][string]$Method = 'GET',
+        [object]$Body
+    )
+
+    $Headers = @{ Authorization = "Bearer $AccessToken" }
+    if ($Method -eq 'PATCH') {
+        $Headers['Content-Type'] = 'application/json'
+        return Invoke-RestMethod -Method Patch -Uri $Uri -Headers $Headers -Body ($Body | ConvertTo-Json -Depth 8 -Compress) -ErrorAction Stop
+    }
+
+    return Invoke-RestMethod -Method Get -Uri $Uri -Headers $Headers -ErrorAction Stop
+}
+
+function ConvertTo-GraphKeyCredential {
+    param([Parameter(Mandatory)]$KeyCredential)
+
+    $GraphKeyCredential = [ordered]@{}
+    foreach ($Name in @('customKeyIdentifier','displayName','endDateTime','key','keyId','startDateTime','type','usage')) {
+        $Value = $KeyCredential.$Name
+        if ($null -ne $Value -and $Value -ne '') {
+            $GraphKeyCredential[$Name] = $Value
+        }
+    }
+
+    return $GraphKeyCredential
+}
+
+function Register-CertificateWithAppRegistration {
+    param(
+        [Parameter(Mandatory)][string]$TenantId,
+        [Parameter(Mandatory)][string]$ClientId,
+        [Parameter(Mandatory)][System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+        [string]$PublicCertificatePath
+    )
+
+    $GraphToken = Get-GraphDelegatedAccessToken -TenantId $TenantId
+    Write-Ok "Token delegado Microsoft Graph obtenido via $($GraphToken.Source)"
+
+    $Filter = [System.Uri]::EscapeDataString("appId eq '$ClientId'")
+    $SearchUri = "https://graph.microsoft.com/v1.0/applications?`$filter=$Filter&`$select=id,appId,displayName"
+    $SearchResponse = Invoke-GraphApiRequest -AccessToken $GraphToken.AccessToken -Uri $SearchUri -Method GET
+
+    if (-not $SearchResponse.value -or $SearchResponse.value.Count -eq 0) {
+        throw "No se encontro Application Object para appId/clientId '$ClientId'."
+    }
+
+    $Application = @($SearchResponse.value)[0]
+    $ApplicationUri = "https://graph.microsoft.com/v1.0/applications/$($Application.id)?`$select=id,appId,displayName,keyCredentials"
+    $ApplicationDetail = Invoke-GraphApiRequest -AccessToken $GraphToken.AccessToken -Uri $ApplicationUri -Method GET
+
+    $CertificateKey = [Convert]::ToBase64String($Certificate.RawData)
+    $CertificateThumbprintBase64 = [Convert]::ToBase64String($Certificate.GetCertHash())
+    $ExistingKeyCredentials = @($ApplicationDetail.keyCredentials)
+
+    $AlreadyExists = $ExistingKeyCredentials | Where-Object {
+        ($_.customKeyIdentifier -and $_.customKeyIdentifier -eq $CertificateThumbprintBase64) -or
+        ($_.key -and $_.key -eq $CertificateKey)
+    } | Select-Object -First 1
+
+    if ($AlreadyExists) {
+        return @{
+            ApplicationObjectId = $Application.id
+            ApplicationName     = $Application.displayName
+            RegistrationMode    = 'AlreadyPresent'
+        }
+    }
+
+    $MergedKeyCredentials = @()
+    foreach ($ExistingKey in $ExistingKeyCredentials) {
+        $MergedKeyCredentials += ,(ConvertTo-GraphKeyCredential -KeyCredential $ExistingKey)
+    }
+
+    $MergedKeyCredentials += ,([ordered]@{
+        customKeyIdentifier = $CertificateThumbprintBase64
+        displayName         = $Certificate.Subject
+        endDateTime         = $Certificate.NotAfter.ToUniversalTime().ToString('o')
+        key                 = $CertificateKey
+        keyId               = ([guid]::NewGuid()).Guid
+        startDateTime       = $Certificate.NotBefore.ToUniversalTime().ToString('o')
+        type                = 'AsymmetricX509Cert'
+        usage               = 'Verify'
+    })
+
+    Invoke-GraphApiRequest -AccessToken $GraphToken.AccessToken -Uri "https://graph.microsoft.com/v1.0/applications/$($Application.id)" -Method PATCH -Body @{
+        keyCredentials = $MergedKeyCredentials
+    } | Out-Null
+
+    return @{
+        ApplicationObjectId = $Application.id
+        ApplicationName     = $Application.displayName
+        RegistrationMode    = 'Added'
+        PublicCertificate   = $PublicCertificatePath
+    }
+}
+
+function New-ClientAssertionJwt {
+    param(
+        [Parameter(Mandatory)][System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+        [Parameter(Mandatory)][string]$ClientId,
+        [Parameter(Mandatory)][string]$TenantId
+    )
+
+    if (-not $Certificate.HasPrivateKey) {
+        throw "El certificado no contiene clave privada."
+    }
+
+    $Rsa = $null
+    try {
+        $Rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($Certificate)
+    }
+    catch {
+        $Rsa = $null
+    }
+
+    if (-not $Rsa -and $Certificate.PrivateKey -is [System.Security.Cryptography.RSA]) {
+        $Rsa = [System.Security.Cryptography.RSA]$Certificate.PrivateKey
+    }
+
+    if (-not $Rsa) {
+        throw "No se pudo obtener la clave privada RSA del certificado."
+    }
+
+    $Now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    $Audience = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
+
+    $Header = @{
+        alg = 'RS256'
+        typ = 'JWT'
+        x5t = (ConvertTo-Base64Url -Bytes $Certificate.GetCertHash())
+    }
+    $Payload = @{
+        aud = $Audience
+        iss = $ClientId
+        sub = $ClientId
+        jti = ([Guid]::NewGuid().ToString())
+        nbf = $Now - 300
+        exp = $Now + 600
+    }
+
+    $HeaderJson = ($Header | ConvertTo-Json -Compress)
+    $PayloadJson = ($Payload | ConvertTo-Json -Compress)
+    $EncodedHeader = ConvertTo-Base64Url -Bytes ([Text.Encoding]::UTF8.GetBytes($HeaderJson))
+    $EncodedPayload = ConvertTo-Base64Url -Bytes ([Text.Encoding]::UTF8.GetBytes($PayloadJson))
+    $UnsignedToken = "$EncodedHeader.$EncodedPayload"
+
+    $SignatureBytes = $Rsa.SignData(
+        [Text.Encoding]::UTF8.GetBytes($UnsignedToken),
+        [System.Security.Cryptography.HashAlgorithmName]::SHA256,
+        [System.Security.Cryptography.RSASignaturePadding]::Pkcs1
+    )
+    $EncodedSignature = ConvertTo-Base64Url -Bytes $SignatureBytes
+    return "$UnsignedToken.$EncodedSignature"
 }
 
 # ============================================================
@@ -195,24 +628,40 @@ try {
 
 Write-Step "2/9" "Configuracion de Azure AD App Registration"
 
-$TenantId = Read-Host "  Ingrese Tenant ID"
-$ClientId = Read-Host "  Ingrese Client ID (App Registration)"
+$TenantId = Normalize-InputValue (Read-Host "  Ingrese Tenant ID")
+$ClientId = Normalize-InputValue (Read-Host "  Ingrese Client ID (App Registration)")
+
+if (-not (Test-GuidLikeValue $TenantId)) {
+    throw "Tenant ID inválido. Debe tener formato GUID, por ejemplo: 00000000-0000-0000-0000-000000000000"
+}
+
+if (-not (Test-GuidLikeValue $ClientId)) {
+    throw "Client ID inválido. Debe tener formato GUID, por ejemplo: 00000000-0000-0000-0000-000000000000"
+}
 
 Write-Host ""
 Write-Info "Metodos de autenticacion disponibles:"
 Write-Host "    1. Client Secret  (Recomendado para ejecucion automatizada via Task Scheduler)" -ForegroundColor White
-Write-Host "    2. Certificado    (Recomendado para alta seguridad, soportado solo por Weekly)" -ForegroundColor White
-Write-Host "    3. Device Code    (Para testing manual o servidores sin browser)" -ForegroundColor White
-Write-Host "    4. Interactivo    (Login browser popup, solo para ejecucion manual)" -ForegroundColor White
-Write-Host "    5. Saltar         (Configurare las credenciales despues)" -ForegroundColor White
+Write-Host "    2. Certificado existente (thumbprint ya cargado en App Registration)" -ForegroundColor White
+Write-Host "    3. Certificado autofirmado (crear en este servidor y exportar .cer)" -ForegroundColor White
+Write-Host "    4. Device Code    (Para testing manual o servidores sin browser)" -ForegroundColor White
+Write-Host "    5. Interactivo    (Login browser popup, solo para ejecucion manual)" -ForegroundColor White
+Write-Host "    6. Saltar         (Configurare las credenciales despues)" -ForegroundColor White
 
-$AuthChoice = Read-Host "`n  Seleccione metodo [1-5]"
+$AuthChoice = Read-Host "`n  Seleccione metodo [1-6]"
 
-$AuthMode        = "Secret"
+$AuthMode        = "DeviceCode"
 $UseSecret       = $false
 $UseCertificate  = $false
 $SecretFile      = "$ConfigPath\ClientSecret.enc"
 $CertThumbprint  = $null
+$CertSubject     = $null
+$CertPublicPath  = $null
+$CertStoreLocation = $null
+$CertProvisioningMode = $null
+$CertAutoRegistration = $false
+$CertAutoRegistrationStatus = $null
+$AppObjectId = $null
 $PlainSecretForValidation = $null
 
 if ($AuthChoice -eq "1") {
@@ -235,115 +684,87 @@ if ($AuthChoice -eq "1") {
 }
 elseif ($AuthChoice -eq "2") {
     Write-Info "Configurando autenticacion por Certificado..."
-    Write-Host ""
-    Write-Host "    Opciones de certificado:" -ForegroundColor White
-    Write-Host "      1. Crear nuevo certificado autofirmado  (recomendado para nuevos setups)" -ForegroundColor White
-    Write-Host "      2. Usar certificado existente           (ingrese el thumbprint)" -ForegroundColor White
-    $CertOption = Read-Host "`n  Seleccione opcion [1/2]"
+    $CertThumbprint = ((Read-Host "  Ingrese la huella digital (Thumbprint) del certificado") -replace '\s','').ToUpperInvariant()
 
-    if ($CertOption -eq "1") {
-        # ---- Crear nuevo certificado autofirmado ----
-        $DefaultSubject      = "CN=DefenderXDR-AppAuth"
-        $DefaultFriendlyName = "DefenderXDR Report Auth ($ClientId)"
-
-        $CertSubjectInput = Read-Host "  Subject del certificado [Enter para usar: $DefaultSubject]"
-        $CertSubject = if ([string]::IsNullOrWhiteSpace($CertSubjectInput)) { $DefaultSubject } else { $CertSubjectInput.Trim() }
-
-        $CertFriendlyInput = Read-Host "  Nombre descriptivo [Enter para usar: $DefaultFriendlyName]"
-        $CertFriendlyName = if ([string]::IsNullOrWhiteSpace($CertFriendlyInput)) { $DefaultFriendlyName } else { $CertFriendlyInput.Trim() }
-
-        $ValidYearsInput = Read-Host "  Validez en anos [Enter para 2 anos]"
-        $ValidYears = if ($ValidYearsInput -match '^\d+$' -and [int]$ValidYearsInput -gt 0) { [int]$ValidYearsInput } else { 2 }
-
-        Write-Host ""
-        Write-Host "    Almacen de certificados:" -ForegroundColor White
-        Write-Host "      1. CurrentUser\My  (recomendado: tarea del usuario actual)" -ForegroundColor White
-        Write-Host "      2. LocalMachine\My (requiere privilegios elevados, para servicios de sistema)" -ForegroundColor White
-        $StoreChoice = Read-Host "  Seleccione almacen [1/2]  [Enter = CurrentUser]"
-        $CertStoreLocation = if ($StoreChoice -eq "2") { 'LocalMachine' } else { 'CurrentUser' }
-
-        try {
-            Write-Info "Creando certificado autofirmado en Cert:\$CertStoreLocation\My ..."
-            $NewCert       = New-SelfSignedAppCert -Subject $CertSubject -FriendlyName $CertFriendlyName `
-                                 -StoreLocation $CertStoreLocation -ValidYears $ValidYears
-            $CertThumbprint = $NewCert.Thumbprint
-
-            Write-Ok "Certificado creado:"
-            Write-Host "    Thumbprint : $CertThumbprint"                               -ForegroundColor White
-            Write-Host "    Subject    : $($NewCert.Subject)"                           -ForegroundColor White
-            Write-Host "    Expira     : $($NewCert.NotAfter.ToString('yyyy-MM-dd'))"   -ForegroundColor White
-            Write-Host "    Almacen    : Cert:\$CertStoreLocation\My"                   -ForegroundColor White
-
-            # Exportar clave publica (.cer) para subir a Entra ID
-            $CerExportPath = "$ConfigPath\DefenderXDR-AppAuth.cer"
-            Export-Certificate -Cert $NewCert -FilePath $CerExportPath -Force | Out-Null
-            Write-Ok "Certificado publico (.cer) exportado: $CerExportPath"
-
-            Write-Host ""
-            Write-Host "  *** ACCION REQUERIDA: Cargue el archivo .cer en Entra ID ***" -ForegroundColor Cyan
-            Write-Host "      1. Entra ID > App registrations > su App ($ClientId)"    -ForegroundColor White
-            Write-Host "      2. Certificates & secrets > Certificates > Upload certificate" -ForegroundColor White
-            Write-Host "      3. Seleccione el archivo: $CerExportPath"               -ForegroundColor Yellow
-            Write-Host "      4. Haga clic en Add y guarde"                            -ForegroundColor White
-            Write-Host ""
-            Read-Host "  Presione Enter cuando haya cargado el certificado (o para continuar)"
-        }
-        catch {
-            Write-Fail "Error creando certificado: $($_.Exception.Message)"
-            Write-Host "    Intente con privilegios elevados o elija CurrentUser\My" -ForegroundColor DarkYellow
-            $CertThumbprint = Read-Host "  Ingrese Thumbprint manualmente si ya dispone de un certificado"
-        }
-    }
-    else {
-        # ---- Usar certificado existente ----
-        $CertThumbprint = Read-Host "  Ingrese la huella digital (Thumbprint) del certificado"
+    # Validar que el certificado existe en CurrentUser/My o LocalMachine/My
+    $CertFound = Get-CertificateByThumbprint -Thumbprint $CertThumbprint
+    if (-not $CertFound) {
+        throw "Certificado no encontrado. Verifique thumbprint y almacén (CurrentUser/My o LocalMachine/My)."
     }
 
-    # Validar que el certificado existe en el almacen
-    $CertFound = Get-ChildItem Cert:\CurrentUser\My -ErrorAction SilentlyContinue | Where-Object Thumbprint -eq $CertThumbprint
-    if ($CertFound) {
-        Write-Ok "Certificado encontrado: $($CertFound.Subject) (Expira: $($CertFound.NotAfter.ToString('yyyy-MM-dd')))"
-        if ($CertFound.NotAfter -lt (Get-Date).AddDays(30)) {
-            Write-Fail "ADVERTENCIA: El certificado expira en menos de 30 dias"
-        }
+    Write-Ok "Certificado encontrado: $($CertFound.Subject) (Expira: $($CertFound.NotAfter.ToString('yyyy-MM-dd')))"
+    if ($CertFound.NotAfter -lt (Get-Date).AddDays(30)) {
+        Write-Fail "ADVERTENCIA: El certificado expira en menos de 30 dias"
     }
-    else {
-        $CertFound = Get-ChildItem Cert:\LocalMachine\My -ErrorAction SilentlyContinue | Where-Object Thumbprint -eq $CertThumbprint
-        if ($CertFound) {
-            Write-Ok "Certificado encontrado en LocalMachine: $($CertFound.Subject)"
+
+    $CertSubject = $CertFound.Subject
+    $CertStoreLocation = 'Cert:\CurrentUser\My'
+    $CertProvisioningMode = 'Existing'
+
+    $ExportExistingCer = Read-Host "  Exportar .cer publico para App Registration? [S/n]"
+    if ($ExportExistingCer -notin @('n','N')) {
+        $DefaultExistingCerPath = Join-Path $ConfigPath "DefenderXDR-ExistingCertificate.cer"
+        $RequestedExistingCerPath = Read-Host "  Ruta para exportar el .cer publico [default: $DefaultExistingCerPath]"
+        if ([string]::IsNullOrWhiteSpace($RequestedExistingCerPath)) {
+            $RequestedExistingCerPath = $DefaultExistingCerPath
         }
-        elseif (-not [string]::IsNullOrWhiteSpace($CertThumbprint)) {
-            Write-Fail "Certificado no encontrado en el almacen. Verifique el thumbprint."
-            Write-Host "    El certificado debe estar en Cert:\CurrentUser\My o Cert:\LocalMachine\My" -ForegroundColor DarkYellow
-        }
+        $CertPublicPath = Export-PublicCertificateFile -Certificate $CertFound -OutputPath $RequestedExistingCerPath
+        Write-Ok ".cer publico exportado: $CertPublicPath"
     }
 
     $AuthMode       = "Certificate"
     $UseCertificate = $true
-
-    Write-Host ""
-    Write-Host "  NOTA: El modo Certificate es compatible con ambos reportes (Daily y Weekly)." -ForegroundColor DarkYellow
-    Write-Host "    Si desea tambien Client Secret como respaldo para el reporte diario, configurelo ahora." -ForegroundColor DarkYellow
-
-    $DailyAuthFallback = Read-Host "  Configurar tambien Client Secret para el reporte diario? [s/N]"
-    if ($DailyAuthFallback -in @("s", "S")) {
-        $SecretInput = Read-Host "  Ingrese Client Secret" -AsSecureString
-        $SecretInput | ConvertFrom-SecureString | Out-File $SecretFile -Force
-
-        $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecretInput)
-        $PlainSecretForValidation = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
-        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
-
-        Write-Ok "Secret para reporte diario guardado en: $SecretFile"
-        $UseSecret = $true
-    }
 }
 elseif ($AuthChoice -eq "3") {
+    Write-Info "Creando certificado autofirmado para App Registration..."
+
+    $DefaultSubject = "CN=DefenderXDRReports-$env:COMPUTERNAME"
+    $RequestedSubject = Read-Host "  Subject del certificado [default: $DefaultSubject]"
+    if ([string]::IsNullOrWhiteSpace($RequestedSubject)) {
+        $RequestedSubject = $DefaultSubject
+    }
+
+    $RequestedYears = Read-Host "  Validez en años [default: 2]"
+    $ValidYears = 2
+    if ($RequestedYears -and ($RequestedYears -as [int]) -ge 1) {
+        $ValidYears = [int]$RequestedYears
+    }
+
+    $CertStoreLocation = 'Cert:\CurrentUser\My'
+    $FriendlyName = "Defender XDR Report Server - $env:COMPUTERNAME"
+    $DefaultCerPath = Join-Path $ConfigPath "DefenderXDR-AppRegistration.cer"
+    $RequestedCerPath = Read-Host "  Ruta para exportar el .cer publico [default: $DefaultCerPath]"
+    if ([string]::IsNullOrWhiteSpace($RequestedCerPath)) {
+        $RequestedCerPath = $DefaultCerPath
+    }
+
+    $CreatedCert = New-SelfSignedCertificateForAppAuth `
+        -Subject $RequestedSubject `
+        -FriendlyName $FriendlyName `
+        -CertStoreLocation $CertStoreLocation `
+        -ValidYears $ValidYears
+
+    $CertPublicPath = Export-PublicCertificateFile -Certificate $CreatedCert -OutputPath $RequestedCerPath
+    $CertThumbprint = $CreatedCert.Thumbprint
+    $CertSubject = $CreatedCert.Subject
+    $CertProvisioningMode = 'SelfSigned'
+
+    Write-Ok "Certificado autofirmado creado: $CertSubject"
+    Write-Ok "Thumbprint: $CertThumbprint"
+    Write-Ok "Expira: $($CreatedCert.NotAfter.ToString('yyyy-MM-dd'))"
+    Write-Ok ".cer publico exportado: $CertPublicPath"
+    Write-Host "    Cargue este .cer en Entra ID > App registrations > Certificates & secrets > Upload certificate." -ForegroundColor DarkYellow
+    Write-Host "    La tarea programada usara este thumbprint automaticamente desde el store CurrentUser\\My." -ForegroundColor DarkYellow
+
+    $AuthMode       = "Certificate"
+    $UseCertificate = $true
+}
+elseif ($AuthChoice -eq "4") {
     $AuthMode = "DeviceCode"
     Write-Skip "Usara Device Code para autenticacion"
     Write-Host "    El reporte diario requiere Az.Accounts o ClientId+TenantId (fallback REST)" -ForegroundColor DarkYellow
 }
-elseif ($AuthChoice -eq "4") {
+elseif ($AuthChoice -eq "5") {
     $AuthMode = "Interactive"
     Write-Skip "Usara autenticacion interactiva (browser popup)"
     Write-Host ""
@@ -354,7 +775,45 @@ elseif ($AuthChoice -eq "4") {
 }
 else {
     Write-Skip "Configuracion de autenticacion omitida"
-    Write-Host "    Se usara AuthMode=Secret por defecto (requiere ClientSecret o variable de entorno)." -ForegroundColor DarkYellow
+}
+
+if ($UseCertificate) {
+    $RegisterAutomatically = Read-Host "`n  Registrar automaticamente el certificado en App Registration via Microsoft Graph? [s/N]"
+    if ($RegisterAutomatically -in @('s','S')) {
+        try {
+            $HasAzAccounts = Ensure-AzAccountsModule
+            if ($HasAzAccounts) {
+                Write-Ok 'Se utilizara Az.Accounts como metodo preferido para obtener el token de Microsoft Graph.'
+            }
+            else {
+                Write-Skip 'Se continuara con fallback Device Code para Microsoft Graph.'
+            }
+
+            $CertificateForRegistration = Get-CertificateByThumbprint -Thumbprint $CertThumbprint
+            if (-not $CertificateForRegistration) {
+                throw "No se encontro el certificado '$CertThumbprint' para registrar en App Registration."
+            }
+
+            Write-Info 'Registrando certificado en App Registration usando Microsoft Graph...'
+            $GraphRegistration = Register-CertificateWithAppRegistration -TenantId $TenantId -ClientId $ClientId -Certificate $CertificateForRegistration -PublicCertificatePath $CertPublicPath
+
+            $AppObjectId = $GraphRegistration.ApplicationObjectId
+            $CertAutoRegistration = $true
+            $CertAutoRegistrationStatus = $GraphRegistration.RegistrationMode
+
+            if ($GraphRegistration.RegistrationMode -eq 'AlreadyPresent') {
+                Write-Skip "El certificado ya estaba registrado en la App Registration '$($GraphRegistration.ApplicationName)'."
+            }
+            else {
+                Write-Ok "Certificado registrado en la App Registration '$($GraphRegistration.ApplicationName)' (ObjectId: $($GraphRegistration.ApplicationObjectId))"
+            }
+        }
+        catch {
+            Write-Fail "No se pudo registrar automaticamente el certificado: $($_.Exception.Message)"
+            Write-Host '    Permisos requeridos en contexto delegado: Application.ReadWrite.All y rol Application Administrator o Application Developer.' -ForegroundColor DarkYellow
+            Write-Host '    Puede continuar y cargar manualmente el .cer si lo prefiere.' -ForegroundColor DarkYellow
+        }
+    }
 }
 
 # Mostrar resumen enmascarado
@@ -364,6 +823,9 @@ Write-Host "    Tenant ID   : $(Mask-String $TenantId)" -ForegroundColor White
 Write-Host "    Client ID   : $(Mask-String $ClientId)" -ForegroundColor White
 Write-Host "    Secret      : $(if ($UseSecret) {'********'} else {'(no configurado)'})" -ForegroundColor White
 Write-Host "    Certificado : $(if ($UseCertificate) { Mask-String $CertThumbprint } else { '(no configurado)' })" -ForegroundColor White
+Write-Host "    Cert Subject: $(if ($UseCertificate -and $CertSubject) { $CertSubject } else { '(no configurado)' })" -ForegroundColor White
+Write-Host "    Cert .cer   : $(if ($UseCertificate -and $CertPublicPath) { $CertPublicPath } else { '(no configurado)' })" -ForegroundColor White
+Write-Host "    Cert Graph  : $(if ($UseCertificate -and $CertAutoRegistrationStatus) { $CertAutoRegistrationStatus } else { '(sin registro automatico)' })" -ForegroundColor White
 Write-Host "    Auth Mode   : $AuthMode" -ForegroundColor White
 
 # ============================================================
@@ -373,11 +835,8 @@ Write-Host "    Auth Mode   : $AuthMode" -ForegroundColor White
 Write-Step "3/9" "Guardando configuracion..."
 
 # Determinar AuthMode efectivo para cada script
-# Daily: soporta Secret, Interactive, DeviceCode (NO Certificate)
-# Weekly: soporta Secret, Interactive, DeviceCode, Certificate
-$DailyAuthMode = if ($AuthMode -eq "Certificate") {
-    if ($UseSecret) { "Secret" } else { "DeviceCode" }
-} else { $AuthMode }
+# Daily y Weekly soportan Secret, Interactive, DeviceCode y Certificate.
+$DailyAuthMode = $AuthMode
 
 $WeeklyAuthMode = $AuthMode
 
@@ -389,6 +848,13 @@ $Config = @{
     WeeklyAuthMode  = $WeeklyAuthMode
     SecretFile      = if ($UseSecret) { $SecretFile } else { $null }
     CertThumbprint  = if ($UseCertificate) { $CertThumbprint } else { $null }
+    CertSubject     = if ($UseCertificate) { $CertSubject } else { $null }
+    CertPublicPath  = if ($UseCertificate) { $CertPublicPath } else { $null }
+    CertStoreLocation = if ($UseCertificate) { $CertStoreLocation } else { $null }
+    CertProvisioningMode = if ($UseCertificate) { $CertProvisioningMode } else { $null }
+    CertAutoRegistration = if ($UseCertificate) { $CertAutoRegistration } else { $false }
+    CertAutoRegistrationStatus = if ($UseCertificate) { $CertAutoRegistrationStatus } else { $null }
+    AppObjectId     = $AppObjectId
     ConfigDate      = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
     ConfiguredBy    = "$env:USERDOMAIN\$env:USERNAME"
     ScriptsPath     = $ScriptsPath
@@ -400,9 +866,6 @@ $Config = @{
     SmtpServer      = $null
     MailFrom        = $null
     MailTo          = $null
-    DailyTimeWindowHours = 720
-    WeeklyTimeWindowDays = 7
-    WeeklyExportCsv      = $true
     RetentionDays   = 90
 }
 
@@ -431,6 +894,7 @@ else {
 
             $AuthUri = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
             $TokenResponse = $null
+            $AccessToken = $null
 
             if ($UseSecret -and $PlainSecretForValidation) {
                 # Validar con Client Secret
@@ -444,19 +908,22 @@ else {
                 Write-Ok "Autenticacion con Client Secret exitosa (token expira en $($TokenResponse.expires_in)s)"
             }
             elseif ($UseCertificate -and $CertThumbprint) {
-                # Validar con Certificado (requiere MSAL.PS o Az.Accounts)
-                if (Get-Module -ListAvailable -Name "Az.Accounts") {
-                    Connect-AzAccount -ServicePrincipal -TenantId $TenantId -ApplicationId $ClientId `
-                        -CertificateThumbprint $CertThumbprint -ErrorAction Stop | Out-Null
-                    $TokenData = Get-AzAccessToken -ResourceUrl "https://api.security.microsoft.com" -ErrorAction Stop
-                    $AccessToken = if ($TokenData.Token -is [System.Security.SecureString]) {
-                        $TokenData.Token | ConvertFrom-SecureString -AsPlainText
-                    } else { $TokenData.Token }
-                    Write-Ok "Autenticacion con Certificado exitosa"
+                # Validar con Certificado usando client_assertion (misma estrategia que scripts de reporte)
+                $Cert = Get-CertificateByThumbprint -Thumbprint $CertThumbprint
+                if (-not $Cert) {
+                    throw "Certificado no encontrado para validacion. Thumbprint: $CertThumbprint"
                 }
-                else {
-                    Write-Skip "Validacion de certificado requiere Az.Accounts. Instale con: Install-Module Az.Accounts"
+
+                $ClientAssertion = New-ClientAssertionJwt -Certificate $Cert -ClientId $ClientId -TenantId $TenantId
+                $Body = @{
+                    grant_type            = 'client_credentials'
+                    client_id             = $ClientId
+                    scope                 = 'https://api.security.microsoft.com/.default'
+                    client_assertion_type = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
+                    client_assertion      = $ClientAssertion
                 }
+                $TokenResponse = Invoke-RestMethod -Method Post -Uri $AuthUri -Body $Body -ErrorAction Stop
+                Write-Ok "Autenticacion con Certificado exitosa"
             }
 
             # Test Advanced Hunting (si se obtuvo token)
@@ -479,6 +946,13 @@ else {
         }
         catch {
             Write-Fail "Error en validacion: $($_.Exception.Message)"
+            if ($_.ErrorDetails.Message -match 'AADSTS700027') {
+                Write-Host "    AADSTS700027: El certificado no esta registrado en la App Registration." -ForegroundColor DarkYellow
+                if ($Config.CertPublicPath) {
+                    Write-Host "    Cargue el .cer generado en: $($Config.CertPublicPath)" -ForegroundColor DarkYellow
+                }
+                Write-Host "    Entra ID > App registrations > Certificates & secrets > Upload certificate." -ForegroundColor DarkYellow
+            }
             Write-Host "    Verifique que la App Registration tenga:" -ForegroundColor DarkYellow
             Write-Host "      - Permiso: AdvancedHunting.Read.All (Application)" -ForegroundColor DarkYellow
             Write-Host "      - Admin Consent otorgado en el tenant" -ForegroundColor DarkYellow
@@ -497,12 +971,13 @@ if ($PlainSecretForValidation) {
 }
 
 # ============================================================
-#  PASO 5: Obtener scripts de reporte (local o GitHub)
+#  PASO 5: Copiar scripts de reporte
 # ============================================================
 
-Write-Step "5/9" "Obteniendo scripts de reporte (local o GitHub)..."
+Write-Step "5/9" "Copiando scripts de reporte..."
 
 $SourceDir = Split-Path $MyInvocation.MyCommand.Path -Parent
+$RawRepoBaseUrl = Get-GitHubRawBaseUrl -SourceDir $SourceDir -OverrideUrl $RepositoryRawBaseUrl
 
 $ScriptsToCopy = @(
     "New-DefenderXDRDailyReport.ps1",
@@ -512,36 +987,48 @@ $ScriptsToCopy = @(
 foreach ($Script in $ScriptsToCopy) {
     $Source = Join-Path $SourceDir $Script
     $Dest   = Join-Path $ScriptsPath $Script
+    
+    # Validacion estricta: Garantizar que el archivo exista y pese mas de 500 bytes (evita falsos positivos de OneDrive/AV)
+    $DestIsValid   = (Test-Path $Dest -PathType Leaf) -and ((Get-Item $Dest).Length -gt 500)
+    $SourceIsValid = (Test-Path $Source -PathType Leaf) -and ((Get-Item $Source).Length -gt 500)
 
-    if ($Source -eq $Dest) {
-        Write-Skip "$Script ya esta en la ruta destino"
+    if (($Source -eq $Dest) -and $DestIsValid) {
+        Write-Skip "$Script ya esta en la ruta destino y es valido"
     }
-    elseif (Test-Path $Source) {
+    elseif ($SourceIsValid) {
         Copy-Item $Source -Destination $Dest -Force
         Write-Ok "Copiado: $Script -> $ScriptsPath"
     }
     else {
-        Write-Host ""
-        Write-Info "$Script no encontrado localmente. Descargando desde GitHub..."
-        $GitHubUrl = Get-RepositoryScriptUrl -ScriptName $Script
-        
-        if ($GitHubUrl) {
+        # Forzar TLS 1.2 para compatibilidad de Invoke-WebRequest
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+        $DownloadUrl = Get-RepositoryScriptUrl -ScriptName $Script -RawBaseUrl $RawRepoBaseUrl
+        $FallbackUrl = "https://raw.githubusercontent.com/watchdogcode/gol2026/main/XDR/$Script"
+        $Downloaded  = $false
+
+        if ($DownloadUrl) {
             try {
-                $ScriptContent = Invoke-WebRequest -Uri $GitHubUrl -UseBasicParsing -TimeoutSec 30 -ErrorAction Stop
-                $ScriptContent.Content | Out-File $Dest -Encoding UTF8 -Force
-                Write-Ok "Descargado desde: $GitHubUrl"
-                Write-Host "    Guardado en: $Dest" -ForegroundColor DarkGreen
+                Write-Info "No encontrado localmente. Descargando desde repositorio: $DownloadUrl"
+                Invoke-WebRequest -Uri $DownloadUrl -OutFile $Dest -UseBasicParsing -ErrorAction Stop
+                $Downloaded = $true
+                Write-Ok "Descargado: $Script -> $Dest"
             }
             catch {
-                Write-Fail "Error descargando de GitHub: $($_.Exception.Message)"
-                Write-Host "    Intente descargar manualmente desde:" -ForegroundColor DarkYellow
-                Write-Host "    $GitHubUrl" -ForegroundColor Yellow
-                Write-Host "    Y guardelo en: $Dest" -ForegroundColor Yellow
+                Write-Fail "No se pudo descargar $Script desde el repositorio: $($_.Exception.Message)"
             }
         }
-        else {
-            Write-Fail "URL de GitHub no disponible para $Script"
-            Write-Host "    Copie manualmente a: $Dest" -ForegroundColor DarkYellow
+        
+        if (-not $Downloaded) {
+            Write-Info "Intentando metodo de descarga directa (Fallback)..."
+            try {
+                Invoke-WebRequest $FallbackUrl -OutFile $Dest -UseBasicParsing -ErrorAction Stop
+                Write-Ok "Descargado mediante enlace directo: $Script -> $Dest"
+            }
+            catch {
+                Write-Fail "No encontrado: $Source"
+                Write-Host "    No funciono la descarga directa ni se detecto URL base." -ForegroundColor DarkYellow
+            }
         }
     }
 }
@@ -603,11 +1090,24 @@ $DailyWrapperContent = @"
 `$ConfigFile = "$ConfigFile"
 if (-not (Test-Path `$ConfigFile)) { Write-Error "Config no encontrado: `$ConfigFile"; exit 1 }
 `$Config = Get-Content `$ConfigFile -Raw | ConvertFrom-Json
+`$Config.TenantId = if (`$Config.TenantId) { [string]`$Config.TenantId.Trim() } else { `$Config.TenantId }
+`$Config.ClientId = if (`$Config.ClientId) { [string]`$Config.ClientId.Trim() } else { `$Config.ClientId }
+`$Config.CertThumbprint = if (`$Config.CertThumbprint) { ([string]`$Config.CertThumbprint -replace '\s','').ToUpperInvariant() } else { `$Config.CertThumbprint }
+
+if (`$Config.TenantId -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
+    Write-Error "TenantId inválido en config.json: `$(`$Config.TenantId)"
+    exit 1
+}
+
+if (`$Config.ClientId -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
+    Write-Error "ClientId inválido en config.json: `$(`$Config.ClientId)"
+    exit 1
+}
 
 `$OutputDir = Join-Path `$Config.ReportsPath "Daily"
 if (-not (Test-Path `$OutputDir)) { New-Item -ItemType Directory -Path `$OutputDir -Force | Out-Null }
 
-# Determinar AuthMode para el Daily (no soporta Certificate)
+# Determinar AuthMode para el Daily
 `$DailyAuth = `$Config.DailyAuthMode
 if (-not `$DailyAuth) { `$DailyAuth = `$Config.AuthMode }
 
@@ -631,18 +1131,20 @@ if ((`$DailyAuth -eq "Secret") -and `$Config.SecretFile) {
 }
 
 # Construir parametros
-`$DailyTimeWindowHours = if (`$Config.DailyTimeWindowHours) { [int]`$Config.DailyTimeWindowHours } else { 720 }
 `$Params = @{
     TenantId        = `$Config.TenantId
     ClientId        = `$Config.ClientId
     AuthMode        = `$DailyAuth
-    TimeWindowHours = `$DailyTimeWindowHours
+    TimeWindowHours = 24
     OutputPath      = Join-Path `$OutputDir "Daily_SecOps_Report_`$(Get-Date -Format 'yyyyMMdd').html"
     TimeoutSec      = 120
 }
 
 if (`$ClientSecretPlain) { `$Params['ClientSecret'] = `$ClientSecretPlain }
-if ((`$DailyAuth -eq "Certificate") -and `$Config.CertThumbprint) { `$Params['CertificateThumbprint'] = `$Config.CertThumbprint }
+
+if (`$DailyAuth -eq "Certificate" -and `$Config.CertThumbprint) {
+    `$Params['CertificateThumbprint'] = `$Config.CertThumbprint
+}
 
 # Agregar parametros de correo si estan configurados
 if (`$Config.SendMail -eq `$true -and `$Config.SmtpServer) {
@@ -654,6 +1156,12 @@ if (`$Config.SendMail -eq `$true -and `$Config.SmtpServer) {
 }
 
 # Ejecutar
+if (-not (Test-Path `$Config.DailyScript -PathType Leaf)) {
+    Write-Error "El script principal no se encuentra o no es un archivo valido: `$(`$Config.DailyScript). Si usa OneDrive, verifique que este descargado localmente."
+    exit 1
+}
+void # Forzar hidratacion de OneDrive
+
 try {
     Write-Host "[`$(Get-Date -Format 'HH:mm:ss')] Iniciando Defender XDR Daily Report (Auth: `$DailyAuth)..." -ForegroundColor Cyan
     & `$Config.DailyScript @Params
@@ -698,6 +1206,19 @@ $WeeklyWrapperContent = @"
 `$ConfigFile = "$ConfigFile"
 if (-not (Test-Path `$ConfigFile)) { Write-Error "Config no encontrado: `$ConfigFile"; exit 1 }
 `$Config = Get-Content `$ConfigFile -Raw | ConvertFrom-Json
+`$Config.TenantId = if (`$Config.TenantId) { [string]`$Config.TenantId.Trim() } else { `$Config.TenantId }
+`$Config.ClientId = if (`$Config.ClientId) { [string]`$Config.ClientId.Trim() } else { `$Config.ClientId }
+`$Config.CertThumbprint = if (`$Config.CertThumbprint) { ([string]`$Config.CertThumbprint -replace '\s','').ToUpperInvariant() } else { `$Config.CertThumbprint }
+
+if (`$Config.TenantId -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
+    Write-Error "TenantId inválido en config.json: `$(`$Config.TenantId)"
+    exit 1
+}
+
+if (`$Config.ClientId -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
+    Write-Error "ClientId inválido en config.json: `$(`$Config.ClientId)"
+    exit 1
+}
 
 `$OutputDir = Join-Path `$Config.ReportsPath "Weekly"
 `$LogDir    = `$Config.LogPath
@@ -728,21 +1249,23 @@ if (`$WeeklyAuth -eq "Secret" -and `$Config.SecretFile) {
 }
 
 # Construir parametros
-`$WeeklyTimeWindowDays = if (`$Config.WeeklyTimeWindowDays) { [int]`$Config.WeeklyTimeWindowDays } else { 7 }
-`$WeeklyExportCsv = if (`$null -ne `$Config.WeeklyExportCsv) { [bool]`$Config.WeeklyExportCsv } else { `$true }
 `$Params = @{
     TenantId       = `$Config.TenantId
     ClientId       = `$Config.ClientId
     AuthMode       = `$WeeklyAuth
-    TimeWindowDays = `$WeeklyTimeWindowDays
+    TimeWindowDays = 7
     OutputPath     = Join-Path `$OutputDir "Weekly_SecOps_Report_`$(Get-Date -Format 'yyyyMMdd').html"
     LogPath        = Join-Path `$LogDir "DefenderXDR_Weekly_`$(Get-Date -Format 'yyyyMMdd').log"
     TimeoutSec     = 120
-    ExportCsv      = `$WeeklyExportCsv
+    ExportCsv      = `$true
 }
 
 if (`$ClientSecretPlain) { `$Params['ClientSecret'] = `$ClientSecretPlain }
-if ((`$WeeklyAuth -eq "Certificate") -and `$Config.CertThumbprint) { `$Params['CertificateThumbprint'] = `$Config.CertThumbprint }
+
+# Agregar certificado si aplica
+if (`$WeeklyAuth -eq "Certificate" -and `$Config.CertThumbprint) {
+    `$Params['CertThumbprint'] = `$Config.CertThumbprint
+}
 
 # Agregar parametros de correo si estan configurados
 if (`$Config.SendMail -eq `$true -and `$Config.SmtpServer) {
@@ -753,6 +1276,12 @@ if (`$Config.SendMail -eq `$true -and `$Config.SmtpServer) {
 }
 
 # Ejecutar
+if (-not (Test-Path `$Config.WeeklyScript -PathType Leaf)) {
+    Write-Error "El script principal no se encuentra o no es un archivo valido: `$(`$Config.WeeklyScript). Si usa OneDrive, verifique que este descargado localmente."
+    exit 1
+}
+void # Forzar hidratacion de OneDrive
+
 try {
     Write-Host "[`$(Get-Date -Format 'HH:mm:ss')] Iniciando Defender XDR Weekly Report (Auth: `$WeeklyAuth)..." -ForegroundColor Cyan
     & `$Config.WeeklyScript @Params
@@ -792,44 +1321,47 @@ Write-Step "8/9" "Tareas programadas (Task Scheduler)"
 if ($SkipScheduledTasks) {
     Write-Skip "Creacion de tareas omitida (parametro -SkipScheduledTasks)"
 }
+elseif ($AuthMode -eq "Interactive") {
+    Write-Fail "Tareas programadas NO compatibles con modo Interactive (requiere browser)."
+    Write-Host "    Cambie a Client Secret o Certificado para automatizacion." -ForegroundColor DarkYellow
+    Write-Skip "Creacion de tareas omitida automaticamente"
+}
 else {
     $CreateTasks = Read-Host "  Crear tareas programadas? [S/n]"
 
     if ($CreateTasks -notin @("n", "N")) {
+        $PwshExecutable = Get-PowerShell7ExecutablePath
+        if (-not $PwshExecutable) {
+            Write-Fail "No se encontro PowerShell 7 (pwsh.exe)."
+            Write-Host "    Instale PowerShell 7 y ejecute nuevamente el setup para crear tareas programadas." -ForegroundColor DarkYellow
+            Write-Skip "Creacion de tareas omitida automaticamente"
+            $CreateTasks = "n"
+        }
+        else {
+            Write-Ok "PowerShell 7 detectado: $PwshExecutable"
+        }
+    }
 
-        $TaskDefs = @()
+    if ($CreateTasks -notin @("n", "N")) {
 
-        if ($DailyAuthMode -in @("Secret")) {
-            $TaskDefs += @{
+        $TaskDefs = @(
+            @{
                 Name    = "DefenderXDR-DailyReport"
                 Script  = $DailyWrapperPath
                 Trigger = { New-ScheduledTaskTrigger -Daily -At 7am }
                 Desc    = "Reporte diario de seguridad - Defender XDR (Daily 7:00 AM) [Auth: $DailyAuthMode]"
-            }
-        }
-        else {
-            Write-Skip "Tarea diaria omitida: AuthMode '$DailyAuthMode' no recomendado para Task Scheduler."
-        }
-
-        if ($WeeklyAuthMode -in @("Secret", "Certificate")) {
-            $TaskDefs += @{
+            },
+            @{
                 Name    = "DefenderXDR-WeeklyReport"
                 Script  = $WeeklyWrapperPath
                 Trigger = { New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday -At "7:30AM" }
                 Desc    = "Reporte semanal de seguridad - Defender XDR (Lunes 7:30 AM) [Auth: $WeeklyAuthMode]"
             }
-        }
-        else {
-            Write-Skip "Tarea semanal omitida: AuthMode '$WeeklyAuthMode' no recomendado para Task Scheduler."
-        }
-
-        if ($TaskDefs.Count -eq 0) {
-            Write-Skip "No se crearon tareas: configure AuthMode Secret (o Certificate para Weekly) para automatizacion."
-        }
+        )
 
         foreach ($Task in $TaskDefs) {
             try {
-                $Action = New-ScheduledTaskAction -Execute 'PowerShell.exe' `
+                $Action = New-ScheduledTaskAction -Execute $PwshExecutable `
                     -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$($Task.Script)`""
 
                 $Trigger = & $Task.Trigger
@@ -873,8 +1405,7 @@ if ($UseSecret -or $UseCertificate) {
     $RunTest = Read-Host "  Ejecutar prueba del reporte diario ahora? [s/N]"
 
     if ($RunTest -in @("s", "S")) {
-        $DailyTestWindow = if ($Config.DailyTimeWindowHours) { $Config.DailyTimeWindowHours } else { 720 }
-        Write-Info "Ejecutando prueba con ventana configurada de $DailyTestWindow horas..."
+        Write-Info "Ejecutando prueba con ventana de 1 hora (resultados minimos)..."
         try {
             & $DailyWrapperPath
             Write-Ok "Prueba completada exitosamente"
@@ -915,7 +1446,16 @@ if ($UseSecret) {
     Write-Host "    Secret (DPAPI): $SecretFile  (usuario: $env:USERNAME)"
 }
 if ($UseCertificate) {
-    Write-Host "    Certificado  : $CertThumbprint (LocalMachine\My)"
+    Write-Host "    Certificado  : $CertThumbprint (CurrentUser/My o LocalMachine/My)"
+    if ($Config.CertSubject) {
+        Write-Host "    Subject      : $($Config.CertSubject)"
+    }
+    if ($Config.CertPublicPath) {
+        Write-Host "    .cer publico : $($Config.CertPublicPath)"
+    }
+    if ($Config.CertAutoRegistrationStatus) {
+        Write-Host "    Graph        : $($Config.CertAutoRegistrationStatus)"
+    }
 }
 
 Write-Host "`n  Autenticacion:" -ForegroundColor Yellow
@@ -938,6 +1478,24 @@ Write-Host "    Daily  : $ReportsPath\Daily\"
 Write-Host "    Weekly : $ReportsPath\Weekly\"
 Write-Host "    Logs   : $ReportsPath\Logs\"
 Write-Host "    Retencion: $($Config.RetentionDays) dias (limpieza automatica)"
+
+if ($UseCertificate -and $Config.CertPublicPath) {
+    Write-Host "`n  Registro de certificado en App Registration:" -ForegroundColor Yellow
+    if ($Config.CertAutoRegistrationStatus -eq 'Added' -or $Config.CertAutoRegistrationStatus -eq 'AlreadyPresent') {
+        Write-Host "    El certificado ya esta registrado en Microsoft Graph para la App Registration." -ForegroundColor White
+        if ($Config.AppObjectId) {
+            Write-Host "    Application Object Id: $($Config.AppObjectId)" -ForegroundColor White
+        }
+        Write-Host "    Las tareas programadas usaran el thumbprint $($Config.CertThumbprint)" -ForegroundColor White
+    }
+    else {
+        Write-Host "    1. Abra Entra ID > App registrations > $ClientId" -ForegroundColor White
+        Write-Host "    2. Entre a Certificates & secrets > Certificates" -ForegroundColor White
+        Write-Host "    3. Upload certificate: $($Config.CertPublicPath)" -ForegroundColor White
+        Write-Host "    4. Espere propagacion y luego re-ejecute la validacion si fue omitida" -ForegroundColor White
+        Write-Host "    5. Las tareas programadas usaran el thumbprint $($Config.CertThumbprint)" -ForegroundColor White
+    }
+}
 
 if ($Config.SendMail) {
     Write-Host "`n  Configuracion de correo:" -ForegroundColor Yellow
