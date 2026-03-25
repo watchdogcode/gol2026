@@ -94,6 +94,27 @@ function Write-Info {
     Write-Host "  $Message" -ForegroundColor Cyan
 }
 
+function New-SelfSignedAppCert {
+    param(
+        [Parameter(Mandatory)][string]$Subject,
+        [Parameter(Mandatory)][string]$FriendlyName,
+        [ValidateSet('CurrentUser','LocalMachine')][string]$StoreLocation = 'CurrentUser',
+        [ValidateRange(1,10)][int]$ValidYears = 2
+    )
+    $CertStore = "Cert:\$StoreLocation\My"
+    return New-SelfSignedCertificate `
+        -Subject $Subject `
+        -FriendlyName $FriendlyName `
+        -CertStoreLocation $CertStore `
+        -KeyAlgorithm RSA `
+        -KeyLength 2048 `
+        -KeySpec Signature `
+        -KeyExportPolicy Exportable `
+        -HashAlgorithm SHA256 `
+        -NotAfter (Get-Date).AddYears($ValidYears) `
+        -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.2')
+}
+
 # ============================================================
 #  BANNER
 # ============================================================
@@ -200,10 +221,72 @@ if ($AuthChoice -eq "1") {
 }
 elseif ($AuthChoice -eq "2") {
     Write-Info "Configurando autenticacion por Certificado..."
-    $CertThumbprint = Read-Host "  Ingrese la huella digital (Thumbprint) del certificado"
+    Write-Host ""
+    Write-Host "    Opciones de certificado:" -ForegroundColor White
+    Write-Host "      1. Crear nuevo certificado autofirmado  (recomendado para nuevos setups)" -ForegroundColor White
+    Write-Host "      2. Usar certificado existente           (ingrese el thumbprint)" -ForegroundColor White
+    $CertOption = Read-Host "`n  Seleccione opcion [1/2]"
 
-    # Validar que el certificado existe en el almacen del usuario
-    $CertFound = Get-ChildItem Cert:\CurrentUser\My | Where-Object Thumbprint -eq $CertThumbprint
+    if ($CertOption -eq "1") {
+        # ---- Crear nuevo certificado autofirmado ----
+        $DefaultSubject      = "CN=DefenderXDR-AppAuth"
+        $DefaultFriendlyName = "DefenderXDR Report Auth ($ClientId)"
+
+        $CertSubjectInput = Read-Host "  Subject del certificado [Enter para usar: $DefaultSubject]"
+        $CertSubject = if ([string]::IsNullOrWhiteSpace($CertSubjectInput)) { $DefaultSubject } else { $CertSubjectInput.Trim() }
+
+        $CertFriendlyInput = Read-Host "  Nombre descriptivo [Enter para usar: $DefaultFriendlyName]"
+        $CertFriendlyName = if ([string]::IsNullOrWhiteSpace($CertFriendlyInput)) { $DefaultFriendlyName } else { $CertFriendlyInput.Trim() }
+
+        $ValidYearsInput = Read-Host "  Validez en anos [Enter para 2 anos]"
+        $ValidYears = if ($ValidYearsInput -match '^\d+$' -and [int]$ValidYearsInput -gt 0) { [int]$ValidYearsInput } else { 2 }
+
+        Write-Host ""
+        Write-Host "    Almacen de certificados:" -ForegroundColor White
+        Write-Host "      1. CurrentUser\My  (recomendado: tarea del usuario actual)" -ForegroundColor White
+        Write-Host "      2. LocalMachine\My (requiere privilegios elevados, para servicios de sistema)" -ForegroundColor White
+        $StoreChoice = Read-Host "  Seleccione almacen [1/2]  [Enter = CurrentUser]"
+        $CertStoreLocation = if ($StoreChoice -eq "2") { 'LocalMachine' } else { 'CurrentUser' }
+
+        try {
+            Write-Info "Creando certificado autofirmado en Cert:\$CertStoreLocation\My ..."
+            $NewCert       = New-SelfSignedAppCert -Subject $CertSubject -FriendlyName $CertFriendlyName `
+                                 -StoreLocation $CertStoreLocation -ValidYears $ValidYears
+            $CertThumbprint = $NewCert.Thumbprint
+
+            Write-Ok "Certificado creado:"
+            Write-Host "    Thumbprint : $CertThumbprint"                               -ForegroundColor White
+            Write-Host "    Subject    : $($NewCert.Subject)"                           -ForegroundColor White
+            Write-Host "    Expira     : $($NewCert.NotAfter.ToString('yyyy-MM-dd'))"   -ForegroundColor White
+            Write-Host "    Almacen    : Cert:\$CertStoreLocation\My"                   -ForegroundColor White
+
+            # Exportar clave publica (.cer) para subir a Entra ID
+            $CerExportPath = "$ConfigPath\DefenderXDR-AppAuth.cer"
+            Export-Certificate -Cert $NewCert -FilePath $CerExportPath -Force | Out-Null
+            Write-Ok "Certificado publico (.cer) exportado: $CerExportPath"
+
+            Write-Host ""
+            Write-Host "  *** ACCION REQUERIDA: Cargue el archivo .cer en Entra ID ***" -ForegroundColor Cyan
+            Write-Host "      1. Entra ID > App registrations > su App ($ClientId)"    -ForegroundColor White
+            Write-Host "      2. Certificates & secrets > Certificates > Upload certificate" -ForegroundColor White
+            Write-Host "      3. Seleccione el archivo: $CerExportPath"               -ForegroundColor Yellow
+            Write-Host "      4. Haga clic en Add y guarde"                            -ForegroundColor White
+            Write-Host ""
+            Read-Host "  Presione Enter cuando haya cargado el certificado (o para continuar)"
+        }
+        catch {
+            Write-Fail "Error creando certificado: $($_.Exception.Message)"
+            Write-Host "    Intente con privilegios elevados o elija CurrentUser\My" -ForegroundColor DarkYellow
+            $CertThumbprint = Read-Host "  Ingrese Thumbprint manualmente si ya dispone de un certificado"
+        }
+    }
+    else {
+        # ---- Usar certificado existente ----
+        $CertThumbprint = Read-Host "  Ingrese la huella digital (Thumbprint) del certificado"
+    }
+
+    # Validar que el certificado existe en el almacen
+    $CertFound = Get-ChildItem Cert:\CurrentUser\My -ErrorAction SilentlyContinue | Where-Object Thumbprint -eq $CertThumbprint
     if ($CertFound) {
         Write-Ok "Certificado encontrado: $($CertFound.Subject) (Expira: $($CertFound.NotAfter.ToString('yyyy-MM-dd')))"
         if ($CertFound.NotAfter -lt (Get-Date).AddDays(30)) {
@@ -215,7 +298,7 @@ elseif ($AuthChoice -eq "2") {
         if ($CertFound) {
             Write-Ok "Certificado encontrado en LocalMachine: $($CertFound.Subject)"
         }
-        else {
+        elseif (-not [string]::IsNullOrWhiteSpace($CertThumbprint)) {
             Write-Fail "Certificado no encontrado en el almacen. Verifique el thumbprint."
             Write-Host "    El certificado debe estar en Cert:\CurrentUser\My o Cert:\LocalMachine\My" -ForegroundColor DarkYellow
         }
@@ -225,11 +308,11 @@ elseif ($AuthChoice -eq "2") {
     $UseCertificate = $true
 
     Write-Host ""
-    Write-Host "  NOTA: El modo Certificate solo es soportado por el reporte semanal." -ForegroundColor DarkYellow
-    Write-Host "    El reporte diario se ejecutara con DeviceCode o requiere Client Secret." -ForegroundColor DarkYellow
+    Write-Host "  NOTA: El modo Certificate es compatible con ambos reportes (Daily y Weekly)." -ForegroundColor DarkYellow
+    Write-Host "    Si desea tambien Client Secret como respaldo para el reporte diario, configurelo ahora." -ForegroundColor DarkYellow
 
-    $DailyAuthFallback = Read-Host "  Desea configurar tambien Client Secret para el reporte diario? [S/n]"
-    if ($DailyAuthFallback -notin @("n", "N")) {
+    $DailyAuthFallback = Read-Host "  Configurar tambien Client Secret para el reporte diario? [s/N]"
+    if ($DailyAuthFallback -in @("s", "S")) {
         $SecretInput = Read-Host "  Ingrese Client Secret" -AsSecureString
         $SecretInput | ConvertFrom-SecureString | Out-File $SecretFile -Force
 
