@@ -81,7 +81,7 @@
 #>
 
 param(
-    [int]$TimeWindowHours = 720,
+    [int]$TimeWindowHours = 180,
     [string]$OutputPath = "$PSScriptRoot\Daily_SecOps_Report_$(Get-Date -Format 'yyyyMMdd').html",
     [string]$TenantId = $env:AZURE_TENANT_ID,
     [string]$ClientId = $env:AZURE_CLIENT_ID,
@@ -99,6 +99,7 @@ param(
     [string]$Subject = "Reporte Diario de Seguridad - M365 Defender XDR",
     [int]$TimeoutSec = 120,
     [bool]$FailFast = $false,
+    [int]$CustomDetectionsWindowHours = 180,
     [switch]$IncludeMDO,
     [switch]$IncludeMDE,
     [switch]$IncludeMDI,
@@ -782,6 +783,14 @@ CloudAppEvents
 | summarize Events=count(), Users=dcount(AccountId) by Application
 | top 20 by Events desc
 "@
+
+    "XDR_CustomDetections" = @"
+AlertInfo
+| where Timestamp >= ago($($CustomDetectionsWindowHours)h)
+| where DetectionSource =~ "Custom Detection"
+| summarize Count=count() by Severity, Title
+| order by Count desc
+"@
 }
 
 # --- EJECUCIÓN PRINCIPAL ---
@@ -828,6 +837,12 @@ $Kpi_NewOAuth = 0
 if ($RunMDA) {
     $Kpi_NewOAuth = ($Data["MDA_OAuth"] | Measure-Object -Property Consents -Sum).Sum
     if (-not $Kpi_NewOAuth) { $Kpi_NewOAuth = 0 }
+}
+
+$Kpi_CustomDetections = 0
+if ($Data["XDR_CustomDetections"] -and $Data["XDR_CustomDetections"].Count -gt 0) {
+    $Kpi_CustomDetections = ($Data["XDR_CustomDetections"] | Measure-Object -Property Count -Sum).Sum
+    if (-not $Kpi_CustomDetections) { $Kpi_CustomDetections = 0 }
 }
 
 # --- Severidad máxima por workload para colorear KPIs ---
@@ -927,6 +942,14 @@ if ($RunMDI -and $Data["MDI_HighRiskUsers"] -and $Data["MDI_HighRiskUsers"].Coun
 }
 $Kpi_EntraSeverityClass = Get-KpiClassFromRiskLevel -RiskLevel $Kpi_EntraMaxRiskLevel
 $Kpi_EntraSeverityLabel = if ($Kpi_EntraMaxRiskLevel -eq 100) { 'High (100)' } elseif ($Kpi_EntraMaxRiskLevel -eq 50) { 'Medium (50)' } elseif ($Kpi_EntraMaxRiskLevel -gt 0) { "Riesgo $Kpi_EntraMaxRiskLevel" } else { 'Sin riesgo' }
+
+$Kpi_CustomDetectionsSeverityClass = 'none'
+$Kpi_CustomDetectionsSeverityLabel = 'Sin detecciones'
+if ($Data["XDR_CustomDetections"] -and $Data["XDR_CustomDetections"].Count -gt 0) {
+    $CustomMaxSeverity = Get-HighestSeverity -Rows $Data["XDR_CustomDetections"]
+    $Kpi_CustomDetectionsSeverityClass = Get-KpiSeverityClass -Severity $CustomMaxSeverity
+    if ($CustomMaxSeverity) { $Kpi_CustomDetectionsSeverityLabel = $CustomMaxSeverity }
+}
 
 # --- CATÁLOGO COMPLETO DE KQL (MDO Advanced Hunting) ---
 # Se carga dinámicamente desde GitHub (rama main) o archivo local como fallback.
@@ -2179,6 +2202,14 @@ $HtmlKpiMDA = @"
 "@
 }
 
+$HtmlKpiCustomDetections = @"
+            <div class="kpi-card $Kpi_CustomDetectionsSeverityClass">
+                <div class="kpi-val">$Kpi_CustomDetections</div>
+                <div class="kpi-label">Detecciones Personalizadas ($($CustomDetectionsWindowHours)h)</div>
+                <div class="kpi-severity">Máx: $Kpi_CustomDetectionsSeverityLabel</div>
+            </div>
+"@
+
 $HtmlContent = @"
 <!DOCTYPE html>
 <html>
@@ -2449,7 +2480,7 @@ $HtmlContent = @"
                 <div class="kpi-label">Incidentes Activos</div>
                 <div class="kpi-severity">Máx: $Kpi_XdrSeverityLabel</div>
             </div>
-$HtmlKpiMDO$HtmlKpiMDE$HtmlKpiMDI$HtmlKpiMDA
+$HtmlKpiMDO$HtmlKpiMDE$HtmlKpiMDI$HtmlKpiMDA$HtmlKpiCustomDetections
         </div>
 "@
 
@@ -2463,6 +2494,12 @@ $HtmlMDOSection$HtmlMDESection$HtmlMDISection$HtmlEntraSection$HtmlMDASection
         <h2>XDR: Alertas e Incidentes Consolidados</h2>
 
         <h3>Alertas por Servicio y Severidad</h3>
+        <div style="margin-bottom:10px;">
+            <a href="https://security.microsoft.com/alerts" target="_blank" rel="noopener noreferrer"
+               style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;background:#0078d4;color:#fff;text-decoration:none;border-radius:4px;font-size:0.85em;font-weight:600;">
+                &#x1F6E1; Ver Alertas en Microsoft Defender XDR
+            </a>
+        </div>
         <div class="table-container">
             <table>
                 <thead><tr><th>Servicio</th><th>Severidad</th><th>Cantidad</th></tr></thead>
