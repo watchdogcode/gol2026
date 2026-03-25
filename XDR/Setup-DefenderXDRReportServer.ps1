@@ -1171,7 +1171,7 @@ if (-not (Test-Path `$Config.DailyScript -PathType Leaf)) {
     Write-Error "El script principal no se encuentra o no es un archivo valido: `$(`$Config.DailyScript). Si usa OneDrive, verifique que este descargado localmente."
     exit 1
 }
-void # Forzar hidratacion de OneDrive
+# Forzar hidratacion de OneDrive
 
 try {
     Write-Host "[`$(Get-Date -Format 'HH:mm:ss')] Iniciando Defender XDR Daily Report (Auth: `$DailyAuth)..." -ForegroundColor Cyan
@@ -1291,7 +1291,7 @@ if (-not (Test-Path `$Config.WeeklyScript -PathType Leaf)) {
     Write-Error "El script principal no se encuentra o no es un archivo valido: `$(`$Config.WeeklyScript). Si usa OneDrive, verifique que este descargado localmente."
     exit 1
 }
-void # Forzar hidratacion de OneDrive
+# Forzar hidratacion de OneDrive
 
 try {
     Write-Host "[`$(Get-Date -Format 'HH:mm:ss')] Iniciando Defender XDR Weekly Report (Auth: `$WeeklyAuth)..." -ForegroundColor Cyan
