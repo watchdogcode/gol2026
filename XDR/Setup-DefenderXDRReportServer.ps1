@@ -641,9 +641,9 @@ if (-not (Test-GuidLikeValue $ClientId)) {
 
 Write-Host ""
 Write-Info "Metodos de autenticacion disponibles:"
-Write-Host "    1. Client Secret  (Recomendado para ejecucion automatizada via Task Scheduler)" -ForegroundColor White
-Write-Host "    2. Certificado existente (thumbprint ya cargado en App Registration)" -ForegroundColor White
-Write-Host "    3. Certificado autofirmado (crear en este servidor y exportar .cer)" -ForegroundColor White
+Write-Host "    1. Certificado existente (RECOMENDADO para automatizacion; thumbprint ya cargado en App Registration)" -ForegroundColor White
+Write-Host "    2. Certificado autofirmado (RECOMENDADO para automatizacion; crear en este servidor y exportar .cer)" -ForegroundColor White
+Write-Host "    3. Client Secret  (Alternativa para automatizacion)" -ForegroundColor White
 Write-Host "    4. Device Code    (Para testing manual o servidores sin browser)" -ForegroundColor White
 Write-Host "    5. Interactivo    (Login browser popup, solo para ejecucion manual)" -ForegroundColor White
 Write-Host "    6. Saltar         (Configurare las credenciales despues)" -ForegroundColor White
@@ -665,25 +665,7 @@ $AppObjectId = $null
 $PlainSecretForValidation = $null
 
 if ($AuthChoice -eq "1") {
-    Write-Info "Configurando Client Secret..."
-    $SecretInput = Read-Host "  Ingrese Client Secret" -AsSecureString
-
-    # Guardar encriptado con DPAPI (solo usuario actual puede descifrar)
-    $SecretInput | ConvertFrom-SecureString | Out-File $SecretFile -Force
-
-    # Obtener plain text para validacion inmediata
-    $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecretInput)
-    $PlainSecretForValidation = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
-    [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
-
-    Write-Ok "Secret encriptado (DPAPI) guardado en: $SecretFile"
-    Write-Host "       Solo funciona con el usuario: $env:USERDOMAIN\$env:USERNAME" -ForegroundColor DarkYellow
-
-    $AuthMode  = "Secret"
-    $UseSecret = $true
-}
-elseif ($AuthChoice -eq "2") {
-    Write-Info "Configurando autenticacion por Certificado..."
+    Write-Info "Configurando autenticacion por Certificado (existente)..."
     $CertThumbprint = ((Read-Host "  Ingrese la huella digital (Thumbprint) del certificado") -replace '\s','').ToUpperInvariant()
 
     # Validar que el certificado existe en CurrentUser/My o LocalMachine/My
@@ -715,7 +697,7 @@ elseif ($AuthChoice -eq "2") {
     $AuthMode       = "Certificate"
     $UseCertificate = $true
 }
-elseif ($AuthChoice -eq "3") {
+elseif ($AuthChoice -eq "2") {
     Write-Info "Creando certificado autofirmado para App Registration..."
 
     $DefaultSubject = "CN=DefenderXDRReports-$env:COMPUTERNAME"
@@ -759,6 +741,29 @@ elseif ($AuthChoice -eq "3") {
     $AuthMode       = "Certificate"
     $UseCertificate = $true
 }
+elseif ($AuthChoice -eq "3") {
+    Write-Info "Configurando Client Secret..."
+    $SecretInput = Read-Host "  Ingrese Client Secret" -AsSecureString
+
+    # Guardar encriptado con DPAPI (solo usuario actual puede descifrar)
+    try {
+        $SecretInput | ConvertFrom-SecureString | Out-File $SecretFile -Force -ErrorAction Stop
+    }
+    catch {
+        throw "No se pudo guardar el Client Secret en '$SecretFile'. Ejecute el setup con permisos del usuario que ejecutara la tarea. Detalle: $($_.Exception.Message)"
+    }
+
+    # Obtener plain text para validacion inmediata
+    $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecretInput)
+    $PlainSecretForValidation = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+    [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
+
+    Write-Ok "Secret encriptado (DPAPI) guardado en: $SecretFile"
+    Write-Host "       Solo funciona con el usuario: $env:USERDOMAIN\$env:USERNAME" -ForegroundColor DarkYellow
+
+    $AuthMode  = "Secret"
+    $UseSecret = $true
+}
 elseif ($AuthChoice -eq "4") {
     $AuthMode = "DeviceCode"
     Write-Skip "Usara Device Code para autenticacion"
@@ -781,6 +786,12 @@ if ($UseCertificate) {
     $RegisterAutomatically = Read-Host "`n  Registrar automaticamente el certificado en App Registration via Microsoft Graph? [s/N]"
     if ($RegisterAutomatically -in @('s','S')) {
         try {
+            Write-Info 'Se requiere autenticacion en Entra para registrar certificados en la App Registration.'
+            $ConfirmGraphAuth = Read-Host '  Iniciar autenticacion ahora para registro en Entra? [S/n]'
+            if ($ConfirmGraphAuth -in @('n','N')) {
+                throw 'Registro automatico cancelado por el usuario antes de autenticarse en Entra.'
+            }
+
             $HasAzAccounts = Ensure-AzAccountsModule
             if ($HasAzAccounts) {
                 Write-Ok 'Se utilizara Az.Accounts como metodo preferido para obtener el token de Microsoft Graph.'
