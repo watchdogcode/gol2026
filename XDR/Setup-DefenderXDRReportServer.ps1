@@ -1,280 +1,67 @@
 <#
 .SYNOPSIS
-    Generador de Reporte Diario de Operaciones de Seguridad usando la API de Microsoft 365 Defender.
-    Automatiza consultas KQL de Advanced Hunting para MDO, MDE, MDI y MDA.
+    Setup-DefenderReportServer.ps1
+    Script de configuracion inicial para Defender XDR Daily & Weekly Reporting.
 
 .DESCRIPTION
-    Este script se autentica contra la API de M365 Defender, ejecuta un conjunto definido de
-    consultas de hunting diarias y genera un reporte ejecutivo profesional en HTML.
+    Configura el entorno completo para ejecutar:
+      - New-DefenderXDRDailyReport.ps1  (reporte diario)
+      - New-DefenderXDRWeeklyReport.ps1 (reporte semanal)
 
-.PARAMETER TimeWindowHours
-    Ventana de tiempo en horas para el análisis (Por defecto: 720).
+    Acciones que realiza:
+      1. Crea estructura de directorios segura
+      2. Solicita y almacena credenciales (DPAPI-encrypted)
+      3. Valida permisos de App Registration contra la API
+      4. Copia los scripts a la ruta de ejecucion
+      5. Configura notificaciones por correo (opcional)
+      6. Genera wrappers seguros para Task Scheduler
+      7. Crea tareas programadas (Daily 7:00 AM / Weekly Lunes 7:30 AM)
+      8. Ejecuta prueba de validacion (opcional)
 
-.PARAMETER OutputPath
-    Ruta completa para el archivo HTML de salida.
+.PARAMETER ConfigPath
+    Ruta para archivos de configuracion (default: $PSScriptRoot\Config).
 
-.PARAMETER TenantId
-    Tenant ID de Entra ID. Toma por defecto $env:AZURE_TENANT_ID.
+.PARAMETER ReportsPath
+    Ruta base para reportes generados (default: $PSScriptRoot\Reports).
 
-.PARAMETER ClientId
-    App/Client ID de la aplicación registrada. Toma por defecto $env:AZURE_CLIENT_ID.
+.PARAMETER ScriptsPath
+    Ruta donde se copiaran los scripts de reporte (default: $PSScriptRoot).
 
-.PARAMETER ClientSecret
-    Secreto de la aplicación para AuthMode Secret. Toma por defecto $env:AZURE_CLIENT_SECRET.
+.PARAMETER SkipValidation
+    Omite la validacion de permisos contra la API.
 
-.PARAMETER AuthMode
-    Método de autenticación: 'Secret', 'Certificate', 'Interactive', 'DeviceCode'.
-    Para 'Secret', configure $ClientId, $TenantId y $ClientSecret.
-    Para 'Certificate', configure $ClientId, $TenantId y el certificado por thumbprint o ruta PFX.
+.PARAMETER SkipScheduledTasks
+    Omite la creacion de tareas programadas.
 
-.PARAMETER CertificateThumbprint
-    Thumbprint del certificado en CurrentUser/My o LocalMachine/My.
-
-.PARAMETER CertificatePath
-    Ruta a archivo PFX/P12 para autenticación por certificado.
-
-.PARAMETER CertificatePassword
-    Password SecureString para abrir CertificatePath (opcional si el PFX no tiene password).
-
-.PARAMETER TimeoutSec
-    Timeout por consulta a la API (segundos). Por defecto: 120.
-
-.PARAMETER FailFast
-    Si es $true, detiene ejecución ante el primer error de consulta.
-
-.PARAMETER IncludeMDO
-    Incluir secciones de Microsoft Defender for Office 365. Si no se especifica ningún producto, se incluyen todos.
-
-.PARAMETER IncludeMDE
-    Incluir secciones de Microsoft Defender for Endpoint. Si no se especifica ningún producto, se incluyen todos.
-
-.PARAMETER IncludeMDI
-    Incluir secciones de Microsoft Defender for Identity y Entra ID. Si no se especifica ningún producto, se incluyen todos.
-
-.PARAMETER IncludeMDA
-    Incluir secciones de Microsoft Defender for Cloud Apps. Si no se especifica ningún producto, se incluyen todos.
+.PARAMETER SkipEmail
+    Omite la configuracion de notificaciones por correo.
 
 .EXAMPLE
-    .\New-DefenderXDRDailyReport.ps1
-    Ejecuta el reporte con AuthMode Secret (default) y todos los productos habilitados.
-
-.EXAMPLE
-    .\New-DefenderXDRDailyReport.ps1 -AuthMode Certificate -TenantId "<tenant>" -ClientId "<appId>" -CertificateThumbprint "<thumbprint>"
-    Ejecuta el reporte usando autenticación por certificado desde el store de certificados.
-
-.EXAMPLE
-    $pwd = Read-Host "Password del PFX" -AsSecureString
-    .\New-DefenderXDRDailyReport.ps1 -AuthMode Certificate -TenantId "<tenant>" -ClientId "<appId>" -CertificatePath "C:\certs\app.pfx" -CertificatePassword $pwd
-    Ejecuta el reporte usando un certificado PFX.
-
-.EXAMPLE
-    .\New-DefenderXDRDailyReport.ps1 -IncludeMDO -IncludeMDE
-    Ejecuta el reporte solo con las secciones de MDO y MDE.
-
-.EXAMPLE
-    .\New-DefenderXDRDailyReport.ps1 -IncludeMDA
-    Ejecuta el reporte solo con la sección de MDA (Cloud Apps).
+    .\Setup-DefenderReportServer.ps1
+    .\Setup-DefenderReportServer.ps1 -SkipScheduledTasks
+    .\Setup-DefenderReportServer.ps1 -SkipEmail -SkipValidation
 
 .NOTES
-    Endpoint de API: https://api.security.microsoft.com
-    Permiso requerido: AdvancedHunting.Read.All
+    Debe ejecutarse con la cuenta de servicio que ejecutara los reportes programados.
+    Las credenciales se protegen con DPAPI (solo funcionan con el usuario que ejecuto el setup).
+    Permiso requerido en App Registration: AdvancedHunting.Read.All (Application).
 #>
 
 param(
-    [int]$TimeWindowHours = 720,
-    [string]$OutputPath = "$PSScriptRoot\Daily_SecOps_Report_$(Get-Date -Format 'yyyyMMdd').html",
-    [string]$TenantId = $env:AZURE_TENANT_ID,
-    [string]$ClientId = $env:AZURE_CLIENT_ID,
-    [string]$ClientSecret = $env:AZURE_CLIENT_SECRET,
-    [Alias('CertThumbprint')]
-    [string]$CertificateThumbprint = $env:AZURE_CLIENT_CERT_THUMBPRINT,
-    [string]$CertificatePath = $env:AZURE_CLIENT_CERT_PATH,
-    [System.Security.SecureString]$CertificatePassword,
-    [ValidateSet("Secret", "Certificate", "Interactive", "DeviceCode")]
-    [string]$AuthMode = "Secret",
-    [bool]$SendMail = $false,
-    [string]$SmtpServer,
-    [string]$From,
-    [string]$To,
-    [string]$Subject = "Reporte Diario de Seguridad - M365 Defender XDR",
-    [int]$TimeoutSec = 120,
-    [bool]$FailFast = $false,
-    [switch]$IncludeMDO,
-    [switch]$IncludeMDE,
-    [switch]$IncludeMDI,
-    [switch]$IncludeMDA
+    [string]$ConfigPath   = "$PSScriptRoot\Config",
+    [string]$ReportsPath  = "$PSScriptRoot\Reports",
+    [string]$ScriptsPath  = "$PSScriptRoot",
+    [switch]$SkipValidation,
+    [switch]$SkipScheduledTasks,
+    [switch]$SkipEmail
 )
 
-$TenantId = if ($null -ne $TenantId) { $TenantId.Trim() } else { $TenantId }
-$ClientId = if ($null -ne $ClientId) { $ClientId.Trim() } else { $ClientId }
-$ClientSecret = if ($null -ne $ClientSecret) { $ClientSecret.Trim() } else { $ClientSecret }
-$CertificateThumbprint = if ($null -ne $CertificateThumbprint) { ($CertificateThumbprint -replace '\s','').ToUpperInvariant() } else { $CertificateThumbprint }
-$CertificatePath = if ($null -ne $CertificatePath) { $CertificatePath.Trim() } else { $CertificatePath }
-$AuthMode = if ($null -ne $AuthMode) { $AuthMode.Trim() } else { $AuthMode }
-
-# --- SELECCIÓN DE PRODUCTOS (si no se especifica ninguno, se incluyen todos) ---
-$RunMDO = $IncludeMDO.IsPresent
-$RunMDE = $IncludeMDE.IsPresent
-$RunMDI = $IncludeMDI.IsPresent
-$RunMDA = $IncludeMDA.IsPresent
-if (-not ($RunMDO -or $RunMDE -or $RunMDI -or $RunMDA)) {
-    $RunMDO = $RunMDE = $RunMDI = $RunMDA = $true
-}
-
-# --- CONFIGURACIÓN Y VARIABLES GLOBALES ---
 $ErrorActionPreference = "Stop"
-$ApiBaseUrl = "https://api.security.microsoft.com/api"
-$ResourceUrl = "https://api.security.microsoft.com"
-$ReportDate = Get-Date
-$StartDate = $ReportDate.AddHours(-$TimeWindowHours)
 
-# --- PARSER DE CATÁLOGOS KQL DESDE MARKDOWN ---
-# Carga automáticamente los catálogos KQL desde los archivos .md del repositorio.
-# Formatos soportados:
-#   MDO:     ## emoji Categoría  →  ### N. Título  →  ```kql ... ```
-#   MDI:     ## N. Título  →  ```kql ... ```  (sin categorías)
-#   EntraID: # X) Categoría  →  ## XN) Título  →  ```kql ... ```
-function Import-KqlCatalogFromMarkdown {
-    param(
-        [string]$Url,
-        [string]$LocalPath,
-        [Parameter(Mandatory)][ValidateSet('MDO','MDI','EntraID')][string]$Format
-    )
+# ============================================================
+#  UTILIDADES
+# ============================================================
 
-    $Content = $null
-    $LoadedFrom = $null
-
-    # Intentar descarga desde GitHub (fuente canónica)
-    if ($Url) {
-        try {
-            if ($Url -match '^https://github\.com/.+/blob/.+$') {
-                $Url = $Url -replace '^https://github\.com/', 'https://raw.githubusercontent.com/' -replace '/blob/', '/'
-            }
-            Write-Log "Descargando catálogo $Format desde GitHub..."
-            $Content = (Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 15).Content
-            if ($Content) { $LoadedFrom = 'GitHub' }
-        }
-        catch {
-            Write-Log "No se pudo descargar catálogo $Format desde GitHub: $($_.Exception.Message)" -Level WARN
-        }
-    }
-
-    # Fallback: archivo local
-    if (-not $Content -and $LocalPath -and (Test-Path $LocalPath)) {
-        Write-Log "Cargando catálogo $Format desde archivo local: $LocalPath"
-        $Content = Get-Content $LocalPath -Raw -Encoding UTF8
-        if ($Content) { $LoadedFrom = 'Local' }
-    }
-
-    if (-not $Content) {
-        Write-Log "Catálogo $Format no disponible (ni GitHub ni local)" -Level WARN
-        return $null
-    }
-    $Lines     = $Content -split "`n"
-    $Catalog   = @()
-    $Category  = ""
-    $InKql     = $false
-    $KqlBuffer = ""
-    $CurrentId = $null
-    $CurrentTitle = ""
-
-    foreach ($Line in $Lines) {
-        $Trimmed = $Line.TrimEnd()
-
-        # --- Detectar categoría ---
-        switch ($Format) {
-            'MDO' {
-                # ## 🎭 Spoofing y Autenticación  (## + emoji + texto)
-                if ($Trimmed -match '^## [^\w\s#*].+') {
-                    $Cat = $Trimmed -replace '^## \S+\s*', ''
-                    if ($Cat -and $Cat -notmatch '^\*' -and $Cat -notmatch '^Índice' -and $Cat -notmatch '^Recomendaciones') {
-                        $Category = $Cat.Trim()
-                    }
-                }
-            }
-            'EntraID' {
-                # Compatibilidad: # A) ... (formato legado) y # 1) ... (formato actual)
-                if ($Trimmed -match '^# (?:[A-Z]|\d+)\)\s+(.+)$') {
-                    $Category = $Matches[1].Trim()
-                }
-            }
-            # MDI: sin categorías, se mantiene el valor vacío
-        }
-
-        # --- Detectar encabezado de query ---
-        $QueryMatch = $false
-        switch ($Format) {
-            'MDO' {
-                # ### 1. Spoofing: From (Header) ≠ MailFrom (Envelope)
-                if ($Trimmed -match '^### (\d+)\.\s+(.+)$') {
-                    $QueryMatch = $true
-                    $CurrentId = [int]$Matches[1]
-                    $CurrentTitle = $Matches[2].Trim()
-                }
-            }
-            'MDI' {
-                # ## 1. Alertas de Defender for Identity (últimos 7d)
-                if ($Trimmed -match '^## (\d+)\.\s+(.+)$') {
-                    $QueryMatch = $true
-                    $CurrentId = [int]$Matches[1]
-                    $CurrentTitle = $Matches[2].Trim()
-                }
-            }
-            'EntraID' {
-                # Compatibilidad: ## A1) ... (formato legado) y ## 1.1) ... (formato actual)
-                if ($Trimmed -match '^## ((?:[A-Z]\d+|\d+\.\d+))\)\s+(.+)$') {
-                    $QueryMatch = $true
-                    $CurrentId = $Matches[1].Trim()
-                    $CurrentTitle = $Matches[2].Trim()
-                }
-            }
-        }
-
-        # --- Capturar bloque KQL ---
-        if ($Trimmed -match '^```kql' -and $CurrentId) {
-            $InKql = $true
-            $KqlBuffer = ""
-            continue
-        }
-
-        if ($InKql -and $Trimmed -match '^```\s*$') {
-            $InKql = $false
-            # Emitir entrada del catálogo
-            $Entry = @{
-                Id       = $CurrentId
-                Category = if ($Category) { $Category } else { $CurrentTitle }
-                Title    = $CurrentTitle
-                Query    = $KqlBuffer.TrimEnd()
-            }
-            $Catalog += $Entry
-            $CurrentId = $null
-            $CurrentTitle = ""
-            $KqlBuffer = ""
-            continue
-        }
-
-        if ($InKql) {
-            $KqlBuffer += $Trimmed + "`n"
-        }
-    }
-
-    # Para EntraID, re-numerar secuencialmente (1, 2, 3...) ya que los IDs originales son alfanuméricos
-    if ($Format -eq 'EntraID') {
-        for ($i = 0; $i -lt $Catalog.Count; $i++) {
-            $Catalog[$i].Id = $i + 1
-        }
-    }
-
-    if ($Catalog.Count -eq 0 -and $LoadedFrom -eq 'GitHub' -and $LocalPath -and (Test-Path $LocalPath)) {
-        Write-Log "Catálogo $Format en GitHub sin queries parseables. Reintentando archivo local..." -Level WARN
-        return Import-KqlCatalogFromMarkdown -Url $null -LocalPath $LocalPath -Format $Format
-    }
-
-    Write-Log "Catálogo $Format cargado desde Markdown: $($Catalog.Count) queries"
-    return $Catalog
-}
-
-# --- ENMASCARAMIENTO DE CREDENCIALES ---
 function Mask-String {
     param([string]$Value, [int]$VisibleChars = 4)
     if ([string]::IsNullOrEmpty($Value)) { return '****' }
@@ -282,2223 +69,778 @@ function Mask-String {
     return ('*' * ($Value.Length - $VisibleChars)) + $Value.Substring($Value.Length - $VisibleChars)
 }
 
-$MaskedTenantId  = Mask-String $TenantId
-$MaskedClientId  = Mask-String $ClientId
-$MaskedSecret    = if ($ClientSecret) { '********' } else { '(no configurado)' }
-$MaskedCertThumb = if ($CertificateThumbprint) { Mask-String $CertificateThumbprint 6 } else { '(no configurado)' }
-$MaskedCertPath  = if ($CertificatePath) { $CertificatePath } else { '(no configurado)' }
-
-# --- FUNCIÓN DE REGISTRO (LOG) ---
-function Write-Log {
-    param([string]$Message, [string]$Level="INFO")
-    $Color = switch($Level) { "INFO" {"Cyan"} "WARN" {"Yellow"} "ERROR" {"Red"} default {"White"} }
-    Write-Host "[$((Get-Date).ToString('HH:mm:ss'))] [$Level] $Message" -ForegroundColor $Color
+function Write-Step {
+    param([string]$Step, [string]$Message)
+    Write-Host "`n[$Step] $Message" -ForegroundColor Yellow
 }
 
-# --- POSTURA DE SEGURIDAD: Registrar credenciales enmascaradas al inicio ---
-Write-Log "=== Contexto de Seguridad ==="
-Write-Log "  Tenant ID   : $MaskedTenantId"
-Write-Log "  Client ID   : $MaskedClientId"
-Write-Log "  Secret      : $MaskedSecret"
-Write-Log "  Cert Thumb  : $MaskedCertThumb"
-Write-Log "  Cert Path   : $MaskedCertPath"
-Write-Log "  Auth Mode   : $AuthMode"
-Write-Log "=============================="
-
-# --- AUTENTICACIÓN ---
-function ConvertTo-Base64Url {
-    param([byte[]]$Bytes)
-
-    $B64 = [Convert]::ToBase64String($Bytes)
-    $B64 = $B64.TrimEnd('=')
-    $B64 = $B64.Replace('+', '-').Replace('/', '_')
-    return $B64
+function Write-Ok {
+    param([string]$Message)
+    Write-Host "  [OK] $Message" -ForegroundColor Green
 }
 
-function Get-ExceptionResponseBody {
-    param([Parameter(Mandatory)]$ErrorRecord)
-
-    $ErrorDetailsMessage = $ErrorRecord.ErrorDetails.Message
-    if ($ErrorDetailsMessage) {
-        return [string]$ErrorDetailsMessage
-    }
-
-    $Response = $ErrorRecord.Exception.Response
-    if (-not $Response) {
-        return $null
-    }
-
-    try {
-        if ($Response.Content) {
-            return $Response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
-        }
-    }
-    catch {}
-
-    try {
-        $Stream = $Response.GetResponseStream()
-        if ($Stream) {
-            $Reader = New-Object System.IO.StreamReader($Stream)
-            try {
-                return $Reader.ReadToEnd()
-            }
-            finally {
-                $Reader.Dispose()
-                $Stream.Dispose()
-            }
-        }
-    }
-    catch {}
-
-    return $null
+function Write-Skip {
+    param([string]$Message)
+    Write-Host "  [--] $Message" -ForegroundColor Gray
 }
 
-function Get-CertificateForAuth {
-    if ($CertificatePath) {
-        if (-not (Test-Path $CertificatePath)) {
-            throw "No se encontró el certificado en ruta: $CertificatePath"
-        }
-
-        if ($CertificatePassword) {
-            return [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
-                $CertificatePath,
-                $CertificatePassword,
-                [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable
-            )
-        }
-
-        return [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
-            $CertificatePath,
-            $null,
-            [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable
-        )
-    }
-
-    if (-not $CertificateThumbprint) {
-        throw "Para AuthMode 'Certificate', especifique -CertificateThumbprint o -CertificatePath."
-    }
-
-    $NormalizedThumb = ($CertificateThumbprint -replace '\s','').ToUpperInvariant()
-    foreach ($StoreLocation in @('CurrentUser', 'LocalMachine')) {
-        $Store = [System.Security.Cryptography.X509Certificates.X509Store]::new('My', $StoreLocation)
-        try {
-            $Store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadOnly)
-            $Found = $Store.Certificates | Where-Object { $_.Thumbprint -eq $NormalizedThumb } | Select-Object -First 1
-            if ($Found) {
-                return $Found
-            }
-        }
-        finally {
-            $Store.Close()
-        }
-    }
-
-    throw "No se encontró un certificado con thumbprint '$CertificateThumbprint' en CurrentUser/My o LocalMachine/My."
+function Write-Fail {
+    param([string]$Message)
+    Write-Host "  [!!] $Message" -ForegroundColor Red
 }
 
-function New-ClientAssertionJwt {
-    param(
-        [Parameter(Mandatory)][System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
-        [Parameter(Mandatory)][string]$ClientId,
-        [Parameter(Mandatory)][string]$TenantId
+function Write-Info {
+    param([string]$Message)
+    Write-Host "  $Message" -ForegroundColor Cyan
+}
+
+# ============================================================
+#  BANNER
+# ============================================================
+
+$Banner = @"
+
+  ===================================================================
+   Defender XDR Report Server - Setup
+   Daily & Weekly Security Operations Reports
+  ===================================================================
+   Usuario  : $env:USERDOMAIN\$env:USERNAME
+   Equipo   : $env:COMPUTERNAME
+   Fecha    : $(Get-Date -Format 'yyyy-MM-dd HH:mm')
+   PS       : $($PSVersionTable.PSVersion)
+  ===================================================================
+
+"@
+
+Write-Host $Banner -ForegroundColor Cyan
+
+# ============================================================
+#  PASO 1: Estructura de directorios
+# ============================================================
+
+Write-Step "1/9" "Creando estructura de directorios..."
+
+$Directories = @(
+    $ConfigPath,
+    "$ReportsPath\Daily",
+    "$ReportsPath\Weekly",
+    "$ReportsPath\Logs"
+)
+
+foreach ($Dir in $Directories) {
+    if (-not (Test-Path $Dir)) {
+        New-Item -ItemType Directory -Path $Dir -Force | Out-Null
+        Write-Ok "Creado: $Dir"
+    } else {
+        Write-Skip "Ya existe: $Dir"
+    }
+}
+
+# Proteger carpeta de configuracion (solo usuario actual + SYSTEM)
+try {
+    $Acl = Get-Acl $ConfigPath
+    $Acl.SetAccessRuleProtection($true, $false)
+    $Rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+        "$env:USERDOMAIN\$env:USERNAME", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
     )
-
-    if (-not $Certificate.HasPrivateKey) {
-        throw "El certificado no contiene clave privada."
-    }
-
-    $Rsa = $null
-    try {
-        # Compatibilidad amplia: en algunos hosts GetRSAPrivateKey no está disponible como método de instancia.
-        $Rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($Certificate)
-    }
-    catch {
-        $Rsa = $null
-    }
-
-    if (-not $Rsa -and $Certificate.PrivateKey -is [System.Security.Cryptography.RSA]) {
-        $Rsa = [System.Security.Cryptography.RSA]$Certificate.PrivateKey
-    }
-
-    if (-not $Rsa) {
-        throw "No se pudo obtener la clave privada RSA del certificado. Verifique que tenga clave privada exportable y algoritmo RSA."
-    }
-
-    $Now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-    $Audience = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
-
-    $Header = @{
-        alg = 'RS256'
-        typ = 'JWT'
-        x5t = (ConvertTo-Base64Url -Bytes $Certificate.GetCertHash())
-    }
-
-    $Payload = @{
-        aud = $Audience
-        iss = $ClientId
-        sub = $ClientId
-        jti = ([Guid]::NewGuid().ToString())
-        nbf = $Now - 300
-        exp = $Now + 600
-    }
-
-    $HeaderJson = ($Header | ConvertTo-Json -Compress)
-    $PayloadJson = ($Payload | ConvertTo-Json -Compress)
-
-    $EncodedHeader = ConvertTo-Base64Url -Bytes ([Text.Encoding]::UTF8.GetBytes($HeaderJson))
-    $EncodedPayload = ConvertTo-Base64Url -Bytes ([Text.Encoding]::UTF8.GetBytes($PayloadJson))
-    $UnsignedToken = "$EncodedHeader.$EncodedPayload"
-
-    $SignatureBytes = $Rsa.SignData(
-        [Text.Encoding]::UTF8.GetBytes($UnsignedToken),
-        [System.Security.Cryptography.HashAlgorithmName]::SHA256,
-        [System.Security.Cryptography.RSASignaturePadding]::Pkcs1
+    $Acl.AddAccessRule($Rule)
+    $RuleSystem = New-Object System.Security.AccessControl.FileSystemAccessRule(
+        "SYSTEM", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
     )
-    $EncodedSignature = ConvertTo-Base64Url -Bytes $SignatureBytes
-
-    return "$UnsignedToken.$EncodedSignature"
+    $Acl.AddAccessRule($RuleSystem)
+    Set-Acl -Path $ConfigPath -AclObject $Acl -ErrorAction SilentlyContinue
+    Write-Ok "ACL restringida aplicada a $ConfigPath"
+} catch {
+    Write-Skip "No se pudo restringir ACL (requiere permisos elevados)"
 }
 
-function Get-M365Token {
-    Write-Log "Obteniendo Token de Acceso vía $AuthMode..."
-    
-    try {
-        if ($AuthMode -eq "Secret") {
-            if (-not ($TenantId -and $ClientId -and $ClientSecret)) {
-                throw "Para autenticación 'Secret', se requieren TenantId, ClientId y ClientSecret."
-            }
-            $Body = @{
-                grant_type    = "client_credentials"
-                client_id     = $ClientId
-                client_secret = $ClientSecret
-                scope         = "$ResourceUrl/.default"
-            }
-            $TokenReq = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token" -Body $Body -ErrorAction Stop
-            return $TokenReq.access_token
-        }
-        elseif ($AuthMode -eq "Certificate") {
-            if (-not ($TenantId -and $ClientId)) {
-                throw "Para autenticación 'Certificate', se requieren TenantId y ClientId."
-            }
+# ============================================================
+#  PASO 2: Credenciales Azure AD
+# ============================================================
 
-            $Cert = Get-CertificateForAuth
-            Write-Log "Usando certificado '$($Cert.Subject)' (thumbprint: $($Cert.Thumbprint)) para autenticación por certificado."
+Write-Step "2/9" "Configuracion de Azure AD App Registration"
 
-            $ClientAssertion = New-ClientAssertionJwt -Certificate $Cert -ClientId $ClientId -TenantId $TenantId
-            $Body = @{
-                grant_type            = 'client_credentials'
-                client_id             = $ClientId
-                scope                 = "$ResourceUrl/.default"
-                client_assertion_type = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
-                client_assertion      = $ClientAssertion
-            }
+$TenantId = Read-Host "  Ingrese Tenant ID"
+$ClientId = Read-Host "  Ingrese Client ID (App Registration)"
 
-            $TokenReq = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token" -Body $Body -ErrorAction Stop
-            return $TokenReq.access_token
-        }
-        elseif ($AuthMode -in @("Interactive", "DeviceCode")) {
-            # --- Opción 1: Az.Accounts (recomendado) ---
-            if (Get-Module -ListAvailable -Name "Az.Accounts") {
-                Write-Log "Usando Az.Accounts para autenticación $AuthMode..."
+Write-Host ""
+Write-Info "Metodos de autenticacion disponibles:"
+Write-Host "    1. Client Secret  (Recomendado para ejecucion automatizada via Task Scheduler)" -ForegroundColor White
+Write-Host "    2. Certificado    (Recomendado para alta seguridad, soportado solo por Weekly)" -ForegroundColor White
+Write-Host "    3. Device Code    (Para testing manual o servidores sin browser)" -ForegroundColor White
+Write-Host "    4. Interactivo    (Login browser popup, solo para ejecucion manual)" -ForegroundColor White
+Write-Host "    5. Saltar         (Configurare las credenciales despues)" -ForegroundColor White
 
-                # Verificar si existe un contexto activo; conectar si no
-                $AzContext = Get-AzContext -ErrorAction SilentlyContinue
-                if (-not $AzContext) {
-                    Write-Log "No hay sesión activa de Azure. Iniciando conexión ($AuthMode)..."
-                    if ($AuthMode -eq "DeviceCode") {
-                        Connect-AzAccount -UseDeviceAuthentication -ErrorAction Stop | Out-Null
-                    } else {
-                        Connect-AzAccount -ErrorAction Stop | Out-Null
-                    }
-                }
+$AuthChoice = Read-Host "`n  Seleccione metodo [1-5]"
 
-                $TokenData = Get-AzAccessToken -ResourceUrl $ResourceUrl -ErrorAction Stop
+$AuthMode        = "Secret"
+$UseSecret       = $false
+$UseCertificate  = $false
+$SecretFile      = "$ConfigPath\ClientSecret.enc"
+$CertThumbprint  = $null
+$PlainSecretForValidation = $null
 
-                # Compatibilidad: Az.Accounts >= 3.0 devuelve Token como SecureString
-                if ($TokenData.Token -is [System.Security.SecureString]) {
-                    return $TokenData.Token | ConvertFrom-SecureString -AsPlainText
-                }
-                return $TokenData.Token
-            }
-            # --- Opción 2: Device Code manual vía REST (sin dependencias de módulos) ---
-            else {
-                Write-Log "Módulo 'Az.Accounts' no encontrado. Usando flujo Device Code vía REST..." -Level WARN
+if ($AuthChoice -eq "1") {
+    Write-Info "Configurando Client Secret..."
+    $SecretInput = Read-Host "  Ingrese Client Secret" -AsSecureString
 
-                if (-not $ClientId -or -not $TenantId) {
-                    throw "Se requieren ClientId y TenantId para autenticación sin Az.Accounts. Instale el módulo: Install-Module Az.Accounts -Scope CurrentUser"
-                }
+    # Guardar encriptado con DPAPI (solo usuario actual puede descifrar)
+    $SecretInput | ConvertFrom-SecureString | Out-File $SecretFile -Force
 
-                # Solicitar código de dispositivo
-                $DeviceCodeBody = @{
-                    client_id = $ClientId
-                    scope     = "$ResourceUrl/.default offline_access"
-                }
-                $DeviceCodeReq = Invoke-RestMethod -Method Post `
-                    -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/devicecode" `
-                    -Body $DeviceCodeBody -ErrorAction Stop
+    # Obtener plain text para validacion inmediata
+    $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecretInput)
+    $PlainSecretForValidation = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+    [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
 
-                Write-Log "=== AUTENTICACIÓN REQUERIDA ===" -Level WARN
-                Write-Log $DeviceCodeReq.message -Level WARN
+    Write-Ok "Secret encriptado (DPAPI) guardado en: $SecretFile"
+    Write-Host "       Solo funciona con el usuario: $env:USERDOMAIN\$env:USERNAME" -ForegroundColor DarkYellow
 
-                # Sondear hasta obtener token o expirar
-                $Interval = [int]$DeviceCodeReq.interval
-                $ExpiresIn = [int]$DeviceCodeReq.expires_in
-                $Elapsed = 0
+    $AuthMode  = "Secret"
+    $UseSecret = $true
+}
+elseif ($AuthChoice -eq "2") {
+    Write-Info "Configurando autenticacion por Certificado..."
+    $CertThumbprint = Read-Host "  Ingrese la huella digital (Thumbprint) del certificado"
 
-                while ($Elapsed -lt $ExpiresIn) {
-                    Start-Sleep -Seconds $Interval
-                    $Elapsed += $Interval
-
-                    try {
-                        $PollBody = @{
-                            grant_type  = "urn:ietf:params:oauth:grant-type:device_code"
-                            client_id   = $ClientId
-                            device_code = $DeviceCodeReq.device_code
-                        }
-                        $TokenReq = Invoke-RestMethod -Method Post `
-                            -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token" `
-                            -Body $PollBody -ErrorAction Stop
-
-                        Write-Log "Token obtenido exitosamente vía Device Code."
-                        return $TokenReq.access_token
-                    }
-                    catch {
-                        $ErrBody = $null
-                        $ErrDetailsMessage = $_.ErrorDetails.Message
-                        if ($ErrDetailsMessage) {
-                            try { $ErrBody = $ErrDetailsMessage | ConvertFrom-Json } catch {}
-                        }
-                        if ($ErrBody.error -eq "authorization_pending") { continue }
-                        elseif ($ErrBody.error -eq "expired_token") {
-                            throw "El código de dispositivo ha expirado. Ejecute el script nuevamente."
-                        }
-                        else { throw $_ }
-                    }
-                }
-
-                throw "Tiempo de espera agotado para la autenticación Device Code."
-            }
+    # Validar que el certificado existe en el almacen del usuario
+    $CertFound = Get-ChildItem Cert:\CurrentUser\My | Where-Object Thumbprint -eq $CertThumbprint
+    if ($CertFound) {
+        Write-Ok "Certificado encontrado: $($CertFound.Subject) (Expira: $($CertFound.NotAfter.ToString('yyyy-MM-dd')))"
+        if ($CertFound.NotAfter -lt (Get-Date).AddDays(30)) {
+            Write-Fail "ADVERTENCIA: El certificado expira en menos de 30 dias"
         }
     }
-    catch {
-        $RawMessage = $_.Exception.Message
-        $ErrorJson = $null
-        $ResponseBody = Get-ExceptionResponseBody -ErrorRecord $_
-        if ($ResponseBody) {
-            try { $ErrorJson = $ResponseBody | ConvertFrom-Json } catch {}
-        }
-
-        if ($ErrorJson -and $ErrorJson.error_codes -contains 700027) {
-            Write-Log "Error de Autenticación (AADSTS700027): certificado no registrado en la aplicación." -Level ERROR
-            Write-Log "AppId objetivo: $ClientId" -Level ERROR
-            Write-Log "Acción requerida: cargue el certificado público (.cer) del mismo certificado usado para firmar en Entra ID > App registrations > Certificates & secrets." -Level ERROR
-            Write-Log "Verifique que TenantId/AppId coincidan con el registro donde cargó el certificado y espere la propagación de claves (1-5 min)." -Level ERROR
-
-            if ($ErrorJson.error_description -match "Thumbprint of key used by client:\s*'([^']+)'") {
-                Write-Log "Thumbprint enviado por el cliente: $($Matches[1])" -Level ERROR
-            }
-
-            Write-Log $ErrorJson.error_description -Level ERROR
-        }
-        elseif ($ResponseBody) {
-            Write-Log "Error de Autenticación: $RawMessage" -Level ERROR
-            Write-Log "Detalle devuelto por Entra ID: $ResponseBody" -Level ERROR
+    else {
+        $CertFound = Get-ChildItem Cert:\LocalMachine\My -ErrorAction SilentlyContinue | Where-Object Thumbprint -eq $CertThumbprint
+        if ($CertFound) {
+            Write-Ok "Certificado encontrado en LocalMachine: $($CertFound.Subject)"
         }
         else {
-            Write-Log "Error de Autenticación: $RawMessage" -Level ERROR
+            Write-Fail "Certificado no encontrado en el almacen. Verifique el thumbprint."
+            Write-Host "    El certificado debe estar en Cert:\CurrentUser\My o Cert:\LocalMachine\My" -ForegroundColor DarkYellow
         }
-        throw $_
+    }
+
+    $AuthMode       = "Certificate"
+    $UseCertificate = $true
+
+    Write-Host ""
+    Write-Host "  NOTA: El modo Certificate solo es soportado por el reporte semanal." -ForegroundColor DarkYellow
+    Write-Host "    El reporte diario se ejecutara con DeviceCode o requiere Client Secret." -ForegroundColor DarkYellow
+
+    $DailyAuthFallback = Read-Host "  Desea configurar tambien Client Secret para el reporte diario? [S/n]"
+    if ($DailyAuthFallback -notin @("n", "N")) {
+        $SecretInput = Read-Host "  Ingrese Client Secret" -AsSecureString
+        $SecretInput | ConvertFrom-SecureString | Out-File $SecretFile -Force
+
+        $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecretInput)
+        $PlainSecretForValidation = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
+
+        Write-Ok "Secret para reporte diario guardado en: $SecretFile"
+        $UseSecret = $true
     }
 }
+elseif ($AuthChoice -eq "3") {
+    $AuthMode = "DeviceCode"
+    Write-Skip "Usara Device Code para autenticacion"
+    Write-Host "    El reporte diario requiere Az.Accounts o ClientId+TenantId (fallback REST)" -ForegroundColor DarkYellow
+}
+elseif ($AuthChoice -eq "4") {
+    $AuthMode = "Interactive"
+    Write-Skip "Usara autenticacion interactiva (browser popup)"
+    Write-Host ""
+    Write-Fail "ADVERTENCIA: El modo Interactivo NO es compatible con Task Scheduler."
+    Write-Host "    Las tareas programadas no pueden abrir ventanas de browser." -ForegroundColor DarkYellow
+    Write-Host "    Use este modo solo para ejecucion manual de pruebas." -ForegroundColor DarkYellow
+    Write-Host "    Para automatizacion, use Client Secret (opcion 1) o Certificado (opcion 2)." -ForegroundColor DarkYellow
+}
+else {
+    Write-Skip "Configuracion de autenticacion omitida"
+    Write-Host "    Se usara AuthMode=Secret por defecto (requiere ClientSecret o variable de entorno)." -ForegroundColor DarkYellow
+}
 
-# --- EJECUCIÓN DE API ---
-function Invoke-HuntingQuery {
-    param(
-        [string]$Token,
-        [string]$Query,
-        [string]$Name
-    )
+# Mostrar resumen enmascarado
+Write-Host ""
+Write-Info "Resumen de credenciales (enmascarado):"
+Write-Host "    Tenant ID   : $(Mask-String $TenantId)" -ForegroundColor White
+Write-Host "    Client ID   : $(Mask-String $ClientId)" -ForegroundColor White
+Write-Host "    Secret      : $(if ($UseSecret) {'********'} else {'(no configurado)'})" -ForegroundColor White
+Write-Host "    Certificado : $(if ($UseCertificate) { Mask-String $CertThumbprint } else { '(no configurado)' })" -ForegroundColor White
+Write-Host "    Auth Mode   : $AuthMode" -ForegroundColor White
 
-    $Uri = "$ApiBaseUrl/advancedhunting/run"
-    $Headers = @{
-        "Authorization" = "Bearer $Token"
-        "Content-Type"  = "application/json"
-    }
-    
-    # Inyectar ventana de tiempo
-    $FinalQuery = $Query -replace "ago\(24h\)", "ago($($TimeWindowHours)h)"
-    $Body = @{ Query = $FinalQuery } | ConvertTo-Json -Compress
+# ============================================================
+#  PASO 3: Guardar configuracion
+# ============================================================
 
-    $Retries = 0
-    $MaxRetries = 3
-    
-    do {
+Write-Step "3/9" "Guardando configuracion..."
+
+# Determinar AuthMode efectivo para cada script
+# Daily: soporta Secret, Interactive, DeviceCode (NO Certificate)
+# Weekly: soporta Secret, Interactive, DeviceCode, Certificate
+$DailyAuthMode = if ($AuthMode -eq "Certificate") {
+    if ($UseSecret) { "Secret" } else { "DeviceCode" }
+} else { $AuthMode }
+
+$WeeklyAuthMode = $AuthMode
+
+$Config = @{
+    TenantId        = $TenantId
+    ClientId        = $ClientId
+    AuthMode        = $AuthMode
+    DailyAuthMode   = $DailyAuthMode
+    WeeklyAuthMode  = $WeeklyAuthMode
+    SecretFile      = if ($UseSecret) { $SecretFile } else { $null }
+    CertThumbprint  = if ($UseCertificate) { $CertThumbprint } else { $null }
+    ConfigDate      = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+    ConfiguredBy    = "$env:USERDOMAIN\$env:USERNAME"
+    ScriptsPath     = $ScriptsPath
+    ReportsPath     = $ReportsPath
+    LogPath         = "$ReportsPath\Logs"
+    DailyScript     = "$ScriptsPath\New-DefenderXDRDailyReport.ps1"
+    WeeklyScript    = "$ScriptsPath\New-DefenderXDRWeeklyReport.ps1"
+    SendMail        = $false
+    SmtpServer      = $null
+    MailFrom        = $null
+    MailTo          = $null
+    DailyTimeWindowHours = 720
+    WeeklyTimeWindowDays = 7
+    WeeklyExportCsv      = $true
+    RetentionDays   = 90
+}
+
+$ConfigFile = "$ConfigPath\Config.json"
+$Config | ConvertTo-Json -Depth 3 | Out-File $ConfigFile -Encoding UTF8 -Force
+Write-Ok "Configuracion guardada en: $ConfigFile"
+
+# ============================================================
+#  PASO 4: Validar permisos contra la API
+# ============================================================
+
+Write-Step "4/9" "Validacion de permisos de App Registration"
+
+if ($SkipValidation) {
+    Write-Skip "Validacion omitida (parametro -SkipValidation)"
+}
+elseif (-not $UseSecret -and -not $UseCertificate) {
+    Write-Skip "Validacion requiere Client Secret o Certificado (AuthMode=$AuthMode)"
+}
+else {
+    $DoValidate = Read-Host "  Validar permisos ahora? (requiere conectividad) [S/n]"
+
+    if ($DoValidate -notin @("n", "N")) {
         try {
-            $Sw = [System.Diagnostics.Stopwatch]::StartNew()
-            $Response = Invoke-RestMethod -Method Post -Uri $Uri -Headers $Headers -Body $Body -TimeoutSec $TimeoutSec -ErrorAction Stop
-            $Sw.Stop()
-            
-            Write-Log "Consulta ['$Name'] ejecutada en $($Sw.ElapsedMilliseconds)ms. Filas: $($Response.Results.Count)"
-            
-            return @{
-                Name = $Name
-                Results = $Response.Results
-                Stats = $Response.Stats
-                Error = $null
+            Write-Info "Intentando autenticacion de prueba..."
+
+            $AuthUri = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
+            $TokenResponse = $null
+
+            if ($UseSecret -and $PlainSecretForValidation) {
+                # Validar con Client Secret
+                $Body = @{
+                    grant_type    = "client_credentials"
+                    client_id     = $ClientId
+                    client_secret = $PlainSecretForValidation
+                    scope         = "https://api.security.microsoft.com/.default"
+                }
+                $TokenResponse = Invoke-RestMethod -Method Post -Uri $AuthUri -Body $Body -ErrorAction Stop
+                Write-Ok "Autenticacion con Client Secret exitosa (token expira en $($TokenResponse.expires_in)s)"
+            }
+            elseif ($UseCertificate -and $CertThumbprint) {
+                # Validar con Certificado (requiere MSAL.PS o Az.Accounts)
+                if (Get-Module -ListAvailable -Name "Az.Accounts") {
+                    Connect-AzAccount -ServicePrincipal -TenantId $TenantId -ApplicationId $ClientId `
+                        -CertificateThumbprint $CertThumbprint -ErrorAction Stop | Out-Null
+                    $TokenData = Get-AzAccessToken -ResourceUrl "https://api.security.microsoft.com" -ErrorAction Stop
+                    $AccessToken = if ($TokenData.Token -is [System.Security.SecureString]) {
+                        $TokenData.Token | ConvertFrom-SecureString -AsPlainText
+                    } else { $TokenData.Token }
+                    Write-Ok "Autenticacion con Certificado exitosa"
+                }
+                else {
+                    Write-Skip "Validacion de certificado requiere Az.Accounts. Instale con: Install-Module Az.Accounts"
+                }
+            }
+
+            # Test Advanced Hunting (si se obtuvo token)
+            $TestToken = if ($TokenResponse) { $TokenResponse.access_token } elseif ($AccessToken) { $AccessToken } else { $null }
+
+            if ($TestToken) {
+                Write-Info "Probando acceso a Advanced Hunting API..."
+                $Headers = @{
+                    "Authorization" = "Bearer $TestToken"
+                    "Content-Type"  = "application/json"
+                }
+                $TestQuery = @{ Query = "print Test='OK', Timestamp=now()" } | ConvertTo-Json -Compress
+                $null = Invoke-RestMethod -Method Post `
+                    -Uri "https://api.security.microsoft.com/api/advancedhunting/run" `
+                    -Headers $Headers -Body $TestQuery -ErrorAction Stop
+
+                Write-Ok "Advanced Hunting API accesible - Permisos verificados"
+                Write-Ok "AdvancedHunting.Read.All: CONCEDIDO"
             }
         }
         catch {
-            $StatusCode = $_.Exception.Response.StatusCode.value__
-            if ($StatusCode -eq 429 -or $StatusCode -ge 500) {
-                $Retries++
-                $Wait = [math]::Pow(2, $Retries)
-                Write-Log "Error de API $StatusCode. Reintentando en $Wait segundos..." -Level WARN
-                Start-Sleep -Seconds $Wait
-            }
-            else {
-                Write-Log "Consulta ['$Name'] Falló: $_" -Level ERROR
-                if ($FailFast) { throw $_ }
-                return @{ Name = $Name; Results = @(); Error = $_.Exception.Message }
-            }
+            Write-Fail "Error en validacion: $($_.Exception.Message)"
+            Write-Host "    Verifique que la App Registration tenga:" -ForegroundColor DarkYellow
+            Write-Host "      - Permiso: AdvancedHunting.Read.All (Application)" -ForegroundColor DarkYellow
+            Write-Host "      - Admin Consent otorgado en el tenant" -ForegroundColor DarkYellow
+            Write-Host "      - Client Secret/Certificado vigente (no expirado)" -ForegroundColor DarkYellow
         }
-    } while ($Retries -lt $MaxRetries)
-
-    return @{ Name = $Name; Results = @(); Error = "Máximo de reintentos excedido" }
-}
-
-# --- DEFINICIONES KQL ---
-$Queries = @{
-    "MDO_Campaigns" = @"
-EmailEvents
-| where Timestamp >= ago(24h)
-| where ThreatTypes has_any ("Phish","Malware")
-| where DeliveryAction == "Delivered"
-| summarize Events=count(), Targets=dcount(RecipientEmailAddress) by Subject, SenderFromDomain
-| top 10 by Events desc
-"@
-
-    "MDO_TopUrls" = @"
-EmailUrlInfo
-| where Timestamp >= ago(24h)
-| summarize Hits=count() by UrlDomain
-| top 20 by Hits desc
-"@
-
-    "MDO_TopUsers" = @"
-EmailEvents
-| where Timestamp >= ago(24h) and ThreatTypes has "Phish"
-| summarize Attempts=count() by RecipientEmailAddress
-| top 20 by Attempts desc
-"@
-
-    "MDE_AlertsBySev" = @"
-AlertInfo
-| where Timestamp >= ago(24h)
-| where ServiceSource has "Endpoint"
-| summarize Count=count() by Severity
-| order by Count desc
-"@
-
-    "XDR_AllAlerts" = @"
-AlertInfo
-| where Timestamp >= ago(24h)
-| summarize Count=count() by ServiceSource, Severity
-| order by Count desc
-"@
-
-    "AlertsByWorkload" = @"
-AlertInfo
-| where Timestamp >= ago(24h)
-| project Timestamp,
-          AlertId,
-          Title = tostring(column_ifexists("Title", "")),
-          Severity = tostring(column_ifexists("Severity", "")),
-          ServiceSource = tostring(column_ifexists("ServiceSource", "")),
-          DetectionSource = tostring(column_ifexists("DetectionSource", "")),
-          ProviderName = tostring(column_ifexists("ProviderName", "")),
-          Category = tostring(column_ifexists("Category", ""))
-| order by Timestamp desc, Severity desc
-"@
-
-    "XDR_Incidents" = @"
-AlertInfo
-| where Timestamp >= ago(24h)
-| extend IncidentRef = tostring(column_ifexists("IncidentId", ""))
-| extend IncidentRef = iif(isempty(IncidentRef), tostring(AlertId), IncidentRef)
-| extend IncidentStatus = tostring(column_ifexists("Status", ""))
-| summarize arg_max(Timestamp, Title, Severity, IncidentStatus) by IncidentRef
-| where IncidentStatus == "" or IncidentStatus !in~ ("Resolved", "Closed")
-| project Timestamp, IncidentId=IncidentRef, Title, Severity, Status=IncidentStatus
-| order by Timestamp desc
-| take 25
-"@
-
-    "MDI_HighRiskUsers" = @"
-EntraIdSignInEvents
-| where Timestamp >= ago(24h)
-| where RiskLevelAggregated in (50, 100)
-| summarize Events=count() by 
-AccountUpn, RiskLevelAggregated
-| top 25 by Events desc
-"@
-
-    "MDE_Health" = @"
-DeviceInfo
-| summarize arg_max(Timestamp, *) by DeviceId
-| project Timestamp, DeviceName, OSPlatform, ExposureLevel, OnboardingStatus
-| where OnboardingStatus !in ("Onboarded","Unknown") or ExposureLevel in ("High","Medium")
-| top 50 by Timestamp desc
-"@
-
-    "MDI_BruteForce" = @"
-IdentityLogonEvents
-| where Timestamp >= ago(24h)
-| summarize Fails=countif(ActionType == "LogonFailed"), Success=countif(ActionType == "LogonSuccess"), LastSeen=max(Timestamp) by AccountUpn, IPAddress, Location
-| where Fails >= 20 and Success > 0
-| order by Fails desc
-"@
-
-    "MDI_AtypicalLocations" = @"
-IdentityLogonEvents
-| where Timestamp >= ago(24h)
-| summarize Locations=dcount(Location), LastSeen=max(Timestamp) by AccountUpn
-| where Locations >= 3
-| order by Locations desc
-"@
-
-    "MDA_OAuth" = @"
-CloudAppEvents
-| where Timestamp >= ago(24h)
-| where ActionType in ("Consent to application","Grant consent")
-| summarize Consents=count(), Users=dcount(AccountId) by Application, ApplicationId
-| top 20 by Consents desc
-"@
-
-    "MDA_ShadowIT" = @"
-CloudAppEvents
-| where Timestamp >= ago(24h)
-| summarize Events=count(), Users=dcount(AccountId) by Application
-| top 20 by Events desc
-"@
-}
-
-# --- EJECUCIÓN PRINCIPAL ---
-
-# 1. Autenticar
-$Token = Get-M365Token
-
-# 2. Ejecutar Consultas (filtradas por producto activo)
-$Data = @{}
-foreach ($Key in $Queries.Keys) {
-    if ($Key.StartsWith("MDO_") -and -not $RunMDO) { continue }
-    if ($Key.StartsWith("MDE_") -and -not $RunMDE) { continue }
-    if ($Key.StartsWith("MDI_") -and -not $RunMDI) { continue }
-    if ($Key.StartsWith("MDA_") -and -not $RunMDA) { continue }
-    $Result = Invoke-HuntingQuery -Token $Token -Query $Queries[$Key] -Name $Key
-    $Data[$Key] = $Result.Results
-}
-
-# 3. Calcular KPIs
-$Kpi_IncidentCount = $Data["XDR_Incidents"].Count
-if (-not $Kpi_IncidentCount) { $Kpi_IncidentCount = 0 }
-
-$Kpi_MdoAlerts = 0
-if ($RunMDO) {
-    $Kpi_MdoAlerts = ($Data["XDR_AllAlerts"] | Where-Object { $_.ServiceSource -match "Defender for Office 365|Office 365" } | Measure-Object -Property Count -Sum).Sum
-    if (-not $Kpi_MdoAlerts) { $Kpi_MdoAlerts = 0 }
-}
-
-$Kpi_MdeAlerts = 0
-if ($RunMDE) {
-    $Kpi_MdeAlerts = ($Data["XDR_AllAlerts"] | Where-Object { $_.ServiceSource -match "Defender for Endpoint|Endpoint" } | Measure-Object -Property Count -Sum).Sum
-    if (-not $Kpi_MdeAlerts) { $Kpi_MdeAlerts = 0 }
-}
-
-$Kpi_MdiAlerts = 0
-$Kpi_HighRiskUsers = 0
-if ($RunMDI) {
-    $Kpi_MdiAlerts = ($Data["XDR_AllAlerts"] | Where-Object { $_.ServiceSource -match "Defender for Identity" } | Measure-Object -Property Count -Sum).Sum
-    if (-not $Kpi_MdiAlerts) { $Kpi_MdiAlerts = 0 }
-    $Kpi_HighRiskUsers = $Data["MDI_HighRiskUsers"].Count
-}
-
-$Kpi_NewOAuth = 0
-if ($RunMDA) {
-    $Kpi_NewOAuth = ($Data["MDA_OAuth"] | Measure-Object -Property Consents -Sum).Sum
-    if (-not $Kpi_NewOAuth) { $Kpi_NewOAuth = 0 }
-}
-
-# --- Severidad máxima por workload para colorear KPIs ---
-function Get-SeverityRank {
-    param([string]$Severity)
-
-    switch -Regex (($Severity | ForEach-Object { $_.ToString().Trim().ToLower() })) {
-        'critical'      { return 5 }
-        '^high$'        { return 4 }
-        '^medium$'      { return 3 }
-        '^low$'         { return 2 }
-        'informational|info' { return 1 }
-        default         { return 0 }
+    }
+    else {
+        Write-Skip "Validacion omitida por el usuario"
     }
 }
 
-function Get-HighestSeverity {
-    param($Rows)
-
-    if (-not $Rows -or $Rows.Count -eq 0) { return $null }
-
-    $Top = $Rows |
-        Sort-Object -Property @{ Expression = { Get-SeverityRank $_.Severity }; Descending = $true } |
-        Select-Object -First 1
-
-    return [string]$Top.Severity
+# Limpiar secret de memoria
+if ($PlainSecretForValidation) {
+    $PlainSecretForValidation = $null
+    [System.GC]::Collect()
 }
 
-function Get-KpiSeverityClass {
-    param([string]$Severity)
+# ============================================================
+#  PASO 5: Copiar scripts de reporte
+# ============================================================
 
-    switch -Regex (($Severity | ForEach-Object { $_.ToString().Trim().ToLower() })) {
-        'critical'      { return 'critical' }
-        '^high$'        { return 'high' }
-        '^medium$'      { return 'medium' }
-        '^low$'         { return 'low' }
-        'informational|info' { return 'info' }
-        default         { return 'none' }
+Write-Step "5/9" "Copiando scripts de reporte..."
+
+$SourceDir = Split-Path $MyInvocation.MyCommand.Path -Parent
+
+$ScriptsToCopy = @(
+    "New-DefenderXDRDailyReport.ps1",
+    "New-DefenderXDRWeeklyReport.ps1"
+)
+
+foreach ($Script in $ScriptsToCopy) {
+    $Source = Join-Path $SourceDir $Script
+    $Dest   = Join-Path $ScriptsPath $Script
+
+    if ($Source -eq $Dest) {
+        Write-Skip "$Script ya esta en la ruta destino"
+    }
+    elseif (Test-Path $Source) {
+        Copy-Item $Source -Destination $Dest -Force
+        Write-Ok "Copiado: $Script -> $ScriptsPath"
+    }
+    else {
+        Write-Fail "No encontrado: $Source"
+        Write-Host "    Copie manualmente a: $Dest" -ForegroundColor DarkYellow
     }
 }
 
-function Get-KpiClassFromRiskLevel {
-    param([int]$RiskLevel)
+# ============================================================
+#  PASO 6: Configuracion de notificaciones por correo
+# ============================================================
 
-    if ($RiskLevel -ge 100) { return 'critical' }
-    if ($RiskLevel -ge 50)  { return 'high' }
-    if ($RiskLevel -gt 0)   { return 'medium' }
-    return 'none'
+Write-Step "6/9" "Configuracion de notificaciones por correo (opcional)"
+
+if ($SkipEmail) {
+    Write-Skip "Configuracion de correo omitida (parametro -SkipEmail)"
 }
+else {
+    $ConfigureEmail = Read-Host "  Configurar envio de reportes por correo? [s/N]"
 
-$AllAlerts = @($Data["XDR_AllAlerts"])
+    if ($ConfigureEmail -in @("s", "S")) {
+        $SmtpServer = Read-Host "  Servidor SMTP (ej: smtp.office365.com)"
+        $MailFrom   = Read-Host "  Direccion remitente (From)"
+        $MailTo     = Read-Host "  Direccion destinatario (To)"
 
-$XdrMaxSeverity = Get-HighestSeverity -Rows @($Data["XDR_Incidents"])
-$Kpi_XdrSeverityClass = Get-KpiSeverityClass -Severity $XdrMaxSeverity
-$Kpi_XdrSeverityLabel = if ($XdrMaxSeverity) { $XdrMaxSeverity } else { 'Sin alertas' }
+        # Actualizar config con datos de correo
+        $Config.SendMail   = $true
+        $Config.SmtpServer = $SmtpServer
+        $Config.MailFrom   = $MailFrom
+        $Config.MailTo     = $MailTo
 
-$Kpi_MdoSeverityClass = 'none'
-$Kpi_MdoSeverityLabel = 'Sin alertas'
-if ($RunMDO) {
-    $MdoAlerts = @($AllAlerts | Where-Object { $_.ServiceSource -match 'Defender for Office 365|Office 365' })
-    $MdoMaxSeverity = Get-HighestSeverity -Rows $MdoAlerts
-    $Kpi_MdoSeverityClass = Get-KpiSeverityClass -Severity $MdoMaxSeverity
-    if ($MdoMaxSeverity) { $Kpi_MdoSeverityLabel = $MdoMaxSeverity }
-}
+        $Config | ConvertTo-Json -Depth 3 | Out-File $ConfigFile -Encoding UTF8 -Force
 
-$Kpi_MdeSeverityClass = 'none'
-$Kpi_MdeSeverityLabel = 'Sin alertas'
-if ($RunMDE) {
-    $MdeAlerts = @($AllAlerts | Where-Object { $_.ServiceSource -match 'Defender for Endpoint|Endpoint' })
-    $MdeMaxSeverity = Get-HighestSeverity -Rows $MdeAlerts
-    $Kpi_MdeSeverityClass = Get-KpiSeverityClass -Severity $MdeMaxSeverity
-    if ($MdeMaxSeverity) { $Kpi_MdeSeverityLabel = $MdeMaxSeverity }
-}
-
-$Kpi_MdiSeverityClass = 'none'
-$Kpi_MdiSeverityLabel = 'Sin alertas'
-if ($RunMDI) {
-    $MdiAlerts = @($AllAlerts | Where-Object { $_.ServiceSource -match 'Defender for Identity|Identity' })
-    $MdiMaxSeverity = Get-HighestSeverity -Rows $MdiAlerts
-    $Kpi_MdiSeverityClass = Get-KpiSeverityClass -Severity $MdiMaxSeverity
-    if ($MdiMaxSeverity) { $Kpi_MdiSeverityLabel = $MdiMaxSeverity }
-}
-
-$Kpi_MdaSeverityClass = 'none'
-$Kpi_MdaSeverityLabel = 'Sin alertas'
-if ($RunMDA) {
-    $MdaAlerts = @($AllAlerts | Where-Object { $_.ServiceSource -match 'Defender for Cloud Apps|Cloud Apps|Microsoft Cloud App Security|MCAS' })
-    $MdaMaxSeverity = Get-HighestSeverity -Rows $MdaAlerts
-    $Kpi_MdaSeverityClass = Get-KpiSeverityClass -Severity $MdaMaxSeverity
-    if ($MdaMaxSeverity) { $Kpi_MdaSeverityLabel = $MdaMaxSeverity }
-}
-
-$Kpi_EntraMaxRiskLevel = 0
-if ($RunMDI -and $Data["MDI_HighRiskUsers"] -and $Data["MDI_HighRiskUsers"].Count -gt 0) {
-    $Kpi_EntraMaxRiskLevel = (($Data["MDI_HighRiskUsers"] | Measure-Object -Property RiskLevelAggregated -Maximum).Maximum)
-    if (-not $Kpi_EntraMaxRiskLevel) { $Kpi_EntraMaxRiskLevel = 0 }
-}
-$Kpi_EntraSeverityClass = Get-KpiClassFromRiskLevel -RiskLevel $Kpi_EntraMaxRiskLevel
-$Kpi_EntraSeverityLabel = if ($Kpi_EntraMaxRiskLevel -eq 100) { 'High (100)' } elseif ($Kpi_EntraMaxRiskLevel -eq 50) { 'Medium (50)' } elseif ($Kpi_EntraMaxRiskLevel -gt 0) { "Riesgo $Kpi_EntraMaxRiskLevel" } else { 'Sin riesgo' }
-
-# --- CATÁLOGO COMPLETO DE KQL (MDO Advanced Hunting) ---
-# Se carga dinámicamente desde GitHub (rama main) o archivo local como fallback.
-# Si ambos fallan, se usa el catálogo hardcoded.
-$MdoKqlCatalog = Import-KqlCatalogFromMarkdown `
-    -Url 'https://raw.githubusercontent.com/watchdogcode/gol2026/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md' `
-    -LocalPath (Join-Path $PSScriptRoot "..\MDO\Paquete MDO KQL Advance Hunting.md") `
-    -Format MDO
-
-if (-not $MdoKqlCatalog -or $MdoKqlCatalog.Count -eq 0) {
-Write-Log "Cargando catálogo MDO desde fallback hardcoded..." -Level WARN
-$MdoKqlCatalog = @(
-    # ── Spoofing y Autenticación ──
-    @{ Id=1;  Category="Spoofing y Autenticación"; Title="Spoofing: From (Header) ≠ MailFrom (Envelope)"; Query=@"
-let lookback = 7d;
-EmailEvents
-| where Timestamp >= ago(lookback)
-| where isempty(SenderFromDomain) == false and isempty(SenderMailFromDomain) == false
-| where SenderFromDomain != SenderMailFromDomain
-| project Timestamp, NetworkMessageId, SenderFromAddress, SenderFromDomain, SenderMailFromAddress, SenderMailFromDomain, RecipientEmailAddress, Subject, DeliveryAction, ThreatTypes
-| order by Timestamp desc
-"@ },
-    @{ Id=2;  Category="Spoofing y Autenticación"; Title="Spoofing: Header From interno vs MailFrom externo"; Query=@"
-let lookback = 7d;
-let orgDomains = dynamic(["contoso.com","contoso.mx"]); // <-- Cambia por tus dominios
-EmailEvents
-| where Timestamp >= ago(lookback)
-| where SenderFromDomain in (orgDomains)
-| where SenderMailFromDomain !in (orgDomains)
-| project Timestamp, NetworkMessageId, SenderFromAddress, SenderFromDomain, SenderMailFromAddress, SenderMailFromDomain, RecipientEmailAddress, Subject, DeliveryAction, ThreatTypes
-| order by Timestamp desc
-"@ },
-    @{ Id=3;  Category="Spoofing y Autenticación"; Title="Spoofing: Fallos de Autenticación (SPF/DKIM/DMARC)"; Query=@"
-let lookback = 7d;
-EmailEvents
-| where Timestamp >= ago(lookback)
-| extend Auth = parse_json(AuthenticationDetails)
-| extend SPF = tostring(Auth.SPF), DKIM = tostring(Auth.DKIM), DMARC = tostring(Auth.DMARC)
-| where SPF has_any ("fail","softfail","temperror","permerror") or DKIM has_any ("fail","none","temperror","permerror") or DMARC has_any ("fail","none","temperror","permerror")
-| project Timestamp, NetworkMessageId, SenderFromAddress, SenderFromDomain, SenderMailFromAddress, SenderMailFromDomain, SPF, DKIM, DMARC, RecipientEmailAddress, Subject, DeliveryAction, ThreatTypes
-| order by Timestamp desc
-"@ },
-    @{ Id=4;  Category="Spoofing y Autenticación"; Title="Spoofing: Análisis de Campañas"; Query=@"
-let lookback = 7d;
-EmailEvents
-| where Timestamp >= ago(lookback)
-| where SenderFromDomain != SenderMailFromDomain
-| summarize Msgs = count(), Recipients = dcount(RecipientEmailAddress), Subjects = make_set(Subject, 10), FirstSeen = min(Timestamp), LastSeen = max(Timestamp) by SenderFromDomain, SenderMailFromDomain, SenderFromAddress
-| order by Msgs desc, Recipients desc
-"@ },
-    # ── Impersonation & Brand Protection ──
-    @{ Id=5;  Category="Impersonation y Brand Protection"; Title="Impersonation: Dominios Typosquat (Levenshtein)"; Query=@"
-let lookback = 14d;
-let protectedDomains = dynamic(["contoso.com","fabrikam.com"]); // <-- dominios a proteger
-EmailEvents
-| where Timestamp >= ago(lookback)
-| where SenderFromDomain !in (protectedDomains)
-| mv-expand pd = protectedDomains
-| extend Distance = levenshtein_distance(SenderFromDomain, tostring(pd))
-| where Distance between (1 .. 2)
-| summarize Msgs = count(), Recipients = dcount(RecipientEmailAddress), FirstSeen = min(Timestamp), LastSeen = max(Timestamp), ExampleFrom = any(SenderFromAddress) by SenderFromDomain, ProtectedDomain=tostring(pd), Distance
-| order by Distance asc, Msgs desc
-"@ },
-    @{ Id=6;  Category="Impersonation y Brand Protection"; Title="Impersonation: Homoglyph / Punycode"; Query=@"
-let lookback = 30d;
-EmailEvents
-| where Timestamp >= ago(lookback)
-| where SenderFromDomain has "xn--" or SenderFromDomain matches regex @"[^\u0000-\u007F]"
-| summarize Msgs=count(), Recipients=dcount(RecipientEmailAddress), FirstSeen=min(Timestamp), LastSeen=max(Timestamp), ExampleFrom=any(SenderFromAddress), Subjects=make_set(Subject, 5) by SenderFromDomain
-| order by Msgs desc
-"@ },
-    @{ Id=7;  Category="Impersonation y Brand Protection"; Title="Impersonation: Usuario VIP"; Query=@"
-let lookback = 14d;
-let vipUsers = dynamic(["ceo@contoso.com","cfo@contoso.com","payments@contoso.com"]);
-EmailEvents
-| where Timestamp >= ago(lookback)
-| extend FromAddr = tolower(SenderFromAddress), FromAlias = tostring(split(tolower(SenderFromAddress),"@")[0])
-| mv-expand vip = vipUsers
-| extend VipAlias = tostring(split(tolower(tostring(vip)),"@")[0])
-| extend Dist = levenshtein_distance(FromAlias, VipAlias)
-| where Dist between (1 .. 2) and FromAddr != tolower(tostring(vip))
-| summarize Msgs=count(), Recipients=dcount(RecipientEmailAddress), FirstSeen=min(Timestamp), LastSeen=max(Timestamp), ExampleFrom=any(SenderFromAddress), Subjects=make_set(Subject, 5) by ImpersonatingAlias=FromAlias, VipImpersonated=tostring(vip), Dist, SenderFromDomain
-| order by Dist asc, Msgs desc
-"@ },
-    @{ Id=8;  Category="Impersonation y Brand Protection"; Title="Impersonation: Dominios Look-alike (Heurística Simple)"; Query=@"
-let Lookback = 30d;
-let brand = "contoso.com";
-EmailEvents
-| where Timestamp > ago(Lookback)
-| extend FromDomain = tostring(split(SenderFromAddress,"@")[1])
-| where FromDomain != brand
-| extend Dist = abs(strlen(FromDomain) - strlen(brand))
-| where Dist <= 3
-| where FromDomain contains "cont0so" or FromDomain contains "c0ntoso" or FromDomain contains "contoso-sec" or FromDomain contains "contoso-support"
-| summarize count(), Victims=dcount(RecipientEmailAddress) by FromDomain
-| order by count_ desc
-"@ },
-    # ── Phishing, BEC & Ingeniería Social ──
-    @{ Id=9;  Category="Phishing, BEC e Ingeniería Social"; Title="BEC: Señales de Urgencia y Pagos"; Query=@"
-let lookback = 7d;
-let becKeywords = dynamic(["urgent","wire","payment","invoice","transfer","bank","remittance","pago","transferencia","factura","urgente"]);
-EmailEvents
-| where Timestamp >= ago(lookback)
-| where SenderFromDomain != SenderMailFromDomain or SenderFromDomain has "xn--"
-| where Subject has_any (becKeywords)
-| project Timestamp, NetworkMessageId, SenderFromAddress, SenderFromDomain, SenderMailFromAddress, SenderMailFromDomain, RecipientEmailAddress, Subject, DeliveryAction, ThreatTypes
-| order by Timestamp desc
-"@ },
-    @{ Id=10; Category="Phishing, BEC e Ingeniería Social"; Title="Spear-phishing a VIPs"; Query=@"
-let Lookback = 14d;
-let vip_list = dynamic(["ceo@contoso.com","cfo@contoso.com","board.alias@contoso.com"]);
-EmailEvents
-| where Timestamp > ago(Lookback)
-| where RecipientEmailAddress in (vip_list)
-| where DeliveryLocation in ("Inbox","Folder","JunkFolder")
-| extend AuthFail = not( AuthenticationDetails has "dmarc=pass" and AuthenticationDetails has "spf=pass" )
-| summarize Total=count(), DistinctSenders=dcount(SenderFromAddress), WithAuthIssues=countif(AuthFail), HighConfidencePhish=countif(ThreatTypes has "Phish" and DetectionMethods has "ZAP" or DetectionMethods has "PhishFilter") by RecipientEmailAddress
-| order by HighConfidencePhish desc, WithAuthIssues desc
-"@ },
-    @{ Id=11; Category="Phishing, BEC e Ingeniería Social"; Title="BEC Ligero: Reply-To Mismatch"; Query=@"
-let Lookback = 14d;
-EmailEvents
-| where Timestamp > ago(Lookback)
-| where DeliveryLocation in ("Inbox","Folder")
-| extend ReplyToDomain = tostring(parse_json(AdditionalFields).ReplyToDomain)
-| extend FromDomain = tostring(split(SenderFromAddress,"@")[1])
-| where isnotempty(ReplyToDomain) and ReplyToDomain != FromDomain
-| summarize count(), DistinctSenders=dcount(SenderFromAddress) by ReplyToDomain, FromDomain
-| order by count_ desc
-"@ },
-    @{ Id=12; Category="Phishing, BEC e Ingeniería Social"; Title="Técnica Quasi-QRCode / Image Only"; Query=@"
-let Lookback = 14d;
-let delivered_images = EmailEvents
-    | where Timestamp > ago(Lookback)
-    | where DeliveryLocation in ("Inbox","Folder")
-    | join kind=leftanti (EmailUrlInfo | where Timestamp > ago(Lookback) | project NetworkMessageId) on NetworkMessageId
-    | join kind=inner (EmailAttachmentInfo | where Timestamp > ago(Lookback)
-        | where tolower(FileType) has "image" or FileName matches regex @"\.(png|jpg|jpeg|gif)$") on NetworkMessageId
-    | project NetworkMessageId, RecipientEmailAddress, SenderFromAddress, Subject, Timestamp;
-delivered_images
-| join kind=leftsemi (UrlClickEvents | where Timestamp > ago(Lookback) | project RecipientEmailAddress, Timestamp) on RecipientEmailAddress
-| summarize MensajesImagenes=count(), DistinctRecipients=dcount(RecipientEmailAddress)
-"@ },
-    @{ Id=13; Category="Phishing, BEC e Ingeniería Social"; Title="Kits de Phishing (Formularios)"; Query=@"
-let Lookback = 14d;
-let form_kits = dynamic(["forms.co","formcrafts.com","typeform.com","smartsheet.com","airtable.com","notion.site","google.com/forms","formulario.link"]);
-EmailUrlInfo
-| where Timestamp > ago(Lookback)
-| where UrlDomain has_any (form_kits)
-| summarize count(), Victims=dcount(RecipientEmailAddress) by UrlDomain
-| order by count_ desc
-"@ },
-    # ── Análisis de URLs & Adjuntos ──
-    @{ Id=14; Category="Análisis de URLs y Adjuntos"; Title="Pivot por URLs Sospechosas"; Query=@"
-let lookback = 7d;
-let suspicious = EmailEvents
-| where Timestamp >= ago(lookback)
-| where SenderFromDomain != SenderMailFromDomain
-| project NetworkMessageId, Timestamp, SenderFromAddress, SenderFromDomain, RecipientEmailAddress, Subject;
-suspicious
-| join kind=inner (
-    EmailUrlInfo
-    | where Timestamp >= ago(lookback)
-    | project NetworkMessageId, Url, UrlDomain
-) on NetworkMessageId
-| summarize UrlCount=count(), Recipients=dcount(RecipientEmailAddress), Examples=make_set(Url, 10) by SenderFromDomain, SenderFromAddress, Subject
-| order by UrlCount desc
-"@ },
-    @{ Id=15; Category="Análisis de URLs y Adjuntos"; Title="URLs de Bajo Rédito / TLDs de Riesgo"; Query=@"
-let Lookback = 14d;
-let risky_tlds = dynamic([".top",".xyz",".click",".monster",".fit",".rest",".lol",".casa"]);
-let delivered_urls = EmailEvents
-    | where Timestamp > ago(Lookback)
-    | where DeliveryLocation in ("Inbox","Folder","JunkFolder")
-    | join kind=inner (EmailUrlInfo | where Timestamp > ago(Lookback)) on NetworkMessageId
-    | extend Tld = tostring(extract(@"(\.[A-Za-z0-9\-]{2,})$", 1, UrlDomain))
-    | where Tld in (risky_tlds)
-    | project Timestamp, RecipientEmailAddress, SenderFromAddress, Url, UrlDomain, NetworkMessageId;
-delivered_urls
-| join kind=leftsemi (UrlClickEvents | where Timestamp > ago(Lookback) | project NetworkMessageId) on NetworkMessageId
-| summarize Clics=count() by UrlDomain
-| order by Clics desc
-"@ },
-    @{ Id=16; Category="Análisis de URLs y Adjuntos"; Title="Campaña Activa: Múltiples Clics en misma URL"; Query=@"
-let Lookback = 7d;
-UrlClickEvents
-| where Timestamp > ago(Lookback)
-| summarize DistinctVictims=dcount(RecipientEmailAddress), FirstClick=min(Timestamp), LastClick=max(Timestamp) by Url
-| where DistinctVictims >= 3
-| order by DistinctVictims desc, LastClick desc
-"@ },
-    @{ Id=17; Category="Análisis de URLs y Adjuntos"; Title="Bloqueos de Safe Links"; Query=@"
-let Lookback = 14d;
-UrlClickEvents
-| where Timestamp > ago(Lookback)
-| where ClickVerdict in ("Blocked","BlockedBySafeLinks")
-| summarize BlockedClicks=count(), Victims=dcount(RecipientEmailAddress) by UrlDomain
-| order by BlockedClicks desc
-"@ },
-    @{ Id=18; Category="Análisis de URLs y Adjuntos"; Title="Adjuntos de Riesgo (Ejecutables/Scripts)"; Query=@"
-let Lookback = 14d;
-let risky_ext = dynamic([".html",".htm",".hta",".js",".vbs",".wsf",".lnk",".iso",".img",".dll",".exe",".ps1",".bat",".cmd",".jar"]);
-EmailAttachmentInfo
-| where Timestamp > ago(Lookback)
-| extend Ext = tolower(tostring(extract(@"\.[^.]+$", 0, FileName)))
-| where Ext in (risky_ext)
-| join kind=inner (EmailEvents | where DeliveryLocation in ("Inbox","Folder","JunkFolder")) on NetworkMessageId
-| summarize count(), DistinctRecipients=dcount(RecipientEmailAddress) by Ext, SenderFromAddress
-| order by count_ desc
-"@ },
-    @{ Id=19; Category="Análisis de URLs y Adjuntos"; Title="Adjuntos HTML/HTA con Data URI"; Query=@"
-let Lookback = 14d;
-EmailAttachmentInfo
-| where Timestamp > ago(Lookback)
-| where tolower(FileName) matches regex @"\.(html|htm|hta)$"
-| join kind=inner (EmailEvents) on NetworkMessageId
-| join kind=leftouter (EmailUrlInfo) on NetworkMessageId
-| extend IsDataUri = iif(isnotempty(Url) and Url startswith "data:text/html", true, false)
-| summarize Total=count(), DataUri=countif(IsDataUri) by SenderFromAddress
-| order by DataUri desc, Total desc
-"@ },
-    # ── Detección de Anomalías & Comportamiento ──
-    @{ Id=20; Category="Detección de Anomalías y Comportamiento"; Title="Dominio del Remitente Recién Visto"; Query=@"
-let Lookback = 14d;
-let Baseline = 45d;
-let recent = EmailEvents
-  | where Timestamp > ago(Lookback)
-  | extend SenderDomain = tostring(split(SenderFromAddress, "@")[1])
-  | summarize FirstSeen=min(Timestamp), LastSeen=max(Timestamp), Cnt=count() by SenderDomain;
-let historical = EmailEvents
-  | where Timestamp between (ago(Baseline) .. ago(Lookback))
-  | extend SenderDomain = tostring(split(SenderFromAddress, "@")[1])
-  | summarize PrevCnt=count() by SenderDomain;
-recent
-| join kind=leftouter (historical) on SenderDomain
-| where isnull(PrevCnt) or PrevCnt == 0
-| order by Cnt desc, LastSeen desc
-"@ },
-    @{ Id=21; Category="Detección de Anomalías y Comportamiento"; Title="Usuarios con Alto Volumen de Reportes"; Query=@"
-let Lookback = 30d;
-CloudAppEvents
-| where Timestamp > ago(Lookback)
-| where ActionType == "UserSubmission"
-| summarize Reports=count() by UserId
-| order by Reports desc
-"@ },
-    @{ Id=22; Category="Detección de Anomalías y Comportamiento"; Title="Top Targets (Pareto de Riesgo)"; Query=@"
-let Lookback = 30d;
-let delivered_threats = EmailEvents
-  | where Timestamp > ago(Lookback)
-  | where ThreatTypes has_any ("Phish","Malware","CredentialPhish");
-let clicked = UrlClickEvents
-  | where Timestamp > ago(Lookback)
-  | summarize Clicks=count() by RecipientEmailAddress;
-delivered_threats
-| summarize Delivered=count(), DistinctSenders=dcount(SenderFromAddress) by RecipientEmailAddress
-| join kind=leftouter clicked on RecipientEmailAddress
-| extend Clicks = coalesce(Clicks, 0)
-| order by Delivered desc, Clicks desc
-"@ },
-    @{ Id=23; Category="Detección de Anomalías y Comportamiento"; Title="Reglas de Bandeja de Entrada Post-Compromiso"; Query=@"
-let Lookback = 7d;
-EmailEvents
-| where Timestamp > ago(Lookback)
-| where ActionType == "InboxRuleCreated" or ActionType == "InboxRuleUpdated"
-| extend Rule = parse_json(AdditionalDetails)
-| extend FwdTo = tostring(Rule.ForwardTo)
-| where isnotempty(FwdTo) and not(FwdTo endswith "@contoso.com")
-| project Timestamp, AccountUpn, FwdTo, SenderFromAddress, IPAddress, Subject
-| order by Timestamp desc
-"@ },
-    @{ Id=24; Category="Detección de Anomalías y Comportamiento"; Title="Clics desde Ubicaciones Atípicas"; Query=@"
-let Lookback = 14d;
-let baseline = UrlClickEvents
-  | where Timestamp between (ago(60d) .. ago(Lookback))
-  | summarize BaselineCountries=make_set(RecipientCountry) by RecipientEmailAddress;
-UrlClickEvents
-| where Timestamp > ago(Lookback)
-| join kind=leftouter baseline on RecipientEmailAddress
-| extend Known=set_has_element(BaselineCountries, RecipientCountry)
-| where Known == false
-| summarize Clicks=count() by RecipientEmailAddress, RecipientCountry
-| order by Clicks desc
-"@ },
-    @{ Id=25; Category="Detección de Anomalías y Comportamiento"; Title="Top Campañas Activas"; Query=@"
-let Lookback = 7d;
-EmailEvents
-| where Timestamp > ago(Lookback)
-| where DeliveryLocation in ("Inbox","Folder","JunkFolder")
-| summarize Msgs=count(), Victims=dcount(RecipientEmailAddress), Senders=dcount(SenderFromAddress) by SenderFromDomain, Subject
-| order by Msgs desc
-"@ },
-    # ── Efectividad de Defensa & Post-Delivery ──
-    @{ Id=26; Category="Efectividad de Defensa y Post-Delivery"; Title="Mensajes Remediados Post-Entrega (ZAP)"; Query=@"
-let lookback = 7d;
-EmailPostDeliveryEvents
-| where Timestamp >= ago(lookback)
-| where ActionType in ("ZAP","Quarantine","SoftDelete","HardDelete")
-| project Timestamp, NetworkMessageId, ActionType, ActionResult, RecipientEmailAddress
-| order by Timestamp desc
-"@ },
-    @{ Id=27; Category="Efectividad de Defensa y Post-Delivery"; Title="Evasión Inicial + ZAP Posterior"; Query=@"
-let Lookback = 14d;
-EmailPostDeliveryEvents
-| where Timestamp > ago(Lookback)
-| where ActionType in ("SoftDelete","MoveToQuarantine","ZAP")
-| join kind=inner (
-    EmailEvents
-    | where Timestamp > ago(Lookback)
-    | where DetectionMethods !has "PhishFilter" and ThreatTypes == ""
-) on NetworkMessageId
-| project Timestamp, ActionType, RecipientEmailAddress, SenderFromAddress, Subject, NetworkMessageId
-| order by Timestamp desc
-"@ },
-    @{ Id=28; Category="Efectividad de Defensa y Post-Delivery"; Title="Bypass por Allow/Override"; Query=@"
-let Lookback = 30d;
-EmailEvents
-| where Timestamp > ago(Lookback)
-| where OrgLevelAction in ("Allow","DeliverToInbox") or (DetectionMethods has "UserOverride" or DetectionMethods has "AdminOverride")
-| summarize Total=count(), DistinctSenders=dcount(SenderFromAddress) by OrgLevelAction, DetectionMethods
-| order by Total desc
-"@ },
-    # ── Validación de Correos Entregados con Amenazas ──
-    @{ Id=29; Category="Validación de Correos Entregados con Amenazas"; Title="Correos entregados con algún tipo de amenaza (Query base)"; Query=@"
-EmailEvents
-| where DeliveryAction == "Delivered"
-| where ThreatTypes != ""
-| project Timestamp, NetworkMessageId, SenderFromAddress, RecipientEmailAddress, Subject, ThreatTypes, DetectionMethods, ConfidenceLevel, DeliveryLocation
-| order by Timestamp desc
-"@ },
-    @{ Id=30; Category="Validación de Correos Entregados con Amenazas"; Title="Confirmar si fue Safe Attachments o Safe Links"; Query=@"
-EmailAttachmentInfo
-| where MalwareFilterVerdict != "Clean"
-| project Timestamp, NetworkMessageId, FileName, MalwareFilterVerdict, DetectionMethods
-"@ },
-    @{ Id=31; Category="Validación de Correos Entregados con Amenazas"; Title="Enlaces maliciosos entregados"; Query=@"
-EmailUrlInfo
-| where UrlThreatType != "None"
-| project Timestamp, NetworkMessageId, Url, UrlThreatType, DetectionMethods
-"@ }
-)
-} # fin fallback MDO
-
-# Seleccionar un KQL aleatorio del catálogo MDO
-$SelectedMdoKql = if ($RunMDO) { $MdoKqlCatalog | Get-Random } else { $null }
-
-# --- CATÁLOGO KQL: MDE (Advanced Hunting – Endpoint Security) ---
-$MdeKqlCatalog = @(
-    @{ Id=1; Category="Alertas y Severidad"; Title="Alertas MDE por Severidad y Categoría"; Query=@"
-let TimeRange = 7d;
-AlertInfo
-| where Timestamp >= ago(TimeRange)
-| where ServiceSource has "Endpoint"
-| summarize Count=count() by Severity, Category
-| order by Count desc
-"@ },
-    @{ Id=2; Category="Alertas y Severidad"; Title="Top 10 Alertas Repetitivas MDE"; Query=@"
-let TimeRange = 7d;
-AlertInfo
-| where Timestamp >= ago(TimeRange)
-| where ServiceSource has "Endpoint"
-| summarize Count=count(), Devices=dcount(AlertId) by Title, Severity, Category
-| top 10 by Count desc
-"@ },
-    @{ Id=3; Category="Procesos Sospechosos"; Title="Ejecución de LOLBins (Living Off The Land)"; Query=@"
-let TimeRange = 7d;
-let lolbins = dynamic(["certutil.exe","mshta.exe","regsvr32.exe","rundll32.exe","wscript.exe","cscript.exe","msiexec.exe","bitsadmin.exe","forfiles.exe","pcalua.exe"]);
-DeviceProcessEvents
-| where Timestamp >= ago(TimeRange)
-| where FileName in~ (lolbins)
-| summarize Count=count(), Devices=dcount(DeviceName), Users=dcount(AccountName) by FileName, FolderPath
-| order by Count desc
-"@ },
-    @{ Id=4; Category="Procesos Sospechosos"; Title="Ejecuciones de PowerShell con Encoding/Bypass"; Query=@"
-let TimeRange = 7d;
-DeviceProcessEvents
-| where Timestamp >= ago(TimeRange)
-| where FileName =~ "powershell.exe" or FileName =~ "pwsh.exe"
-| where ProcessCommandLine has_any ("-enc","-encoded","-bypass","hidden","-nop","-w hidden","IEX","Invoke-Expression","downloadstring")
-| project Timestamp, DeviceName, AccountName, ProcessCommandLine, InitiatingProcessFileName
-| order by Timestamp desc
-"@ },
-    @{ Id=5; Category="Procesos Sospechosos"; Title="Creación de Tareas Programadas Sospechosas"; Query=@"
-let TimeRange = 7d;
-DeviceProcessEvents
-| where Timestamp >= ago(TimeRange)
-| where FileName =~ "schtasks.exe"
-| where ProcessCommandLine has "/create"
-| project Timestamp, DeviceName, AccountName, ProcessCommandLine, InitiatingProcessFileName, InitiatingProcessCommandLine
-| order by Timestamp desc
-"@ },
-    @{ Id=6; Category="Conexiones de Red"; Title="Conexiones Salientes a IPs Públicas Poco Comunes"; Query=@"
-let TimeRange = 7d;
-DeviceNetworkEvents
-| where Timestamp >= ago(TimeRange)
-| where RemoteIPType == "Public"
-| where ActionType == "ConnectionSuccess"
-| summarize Connections=count(), Devices=dcount(DeviceName) by RemoteIP, RemotePort, RemoteUrl
-| where Connections >= 5
-| order by Connections desc
-"@ },
-    @{ Id=7; Category="Conexiones de Red"; Title="DNS Tunneling / Exfiltración DNS"; Query=@"
-let TimeRange = 1d;
-DeviceNetworkEvents
-| where Timestamp >= ago(TimeRange)
-| where RemotePort == 53
-| summarize DNSQueries=count(), DistinctDomains=dcount(RemoteUrl) by DeviceName, InitiatingProcessAccountName
-| where DNSQueries > 1000 or DistinctDomains > 500
-| order by DNSQueries desc
-"@ },
-    @{ Id=8; Category="Movimiento Lateral"; Title="Logons Exitosos en Múltiples Dispositivos (1h)"; Query=@"
-let TimeRange = 1d;
-let Window = 1h;
-let MinDevices = 5;
-DeviceLogonEvents
-| where Timestamp >= ago(TimeRange)
-| where ActionType == "LogonSuccess"
-| where LogonType in ("Interactive","RemoteInteractive","Network")
-| summarize Devices=dcount(DeviceName), DeviceList=make_set(DeviceName, 20), Logons=count() by AccountName, AccountDomain, bin(Timestamp, Window)
-| where Devices >= MinDevices
-| order by Devices desc
-"@ },
-    @{ Id=9; Category="Ransomware y Archivos"; Title="Indicadores de Ransomware (Renombrado Masivo)"; Query=@"
-let TimeRange = 1d;
-DeviceFileEvents
-| where Timestamp >= ago(TimeRange)
-| where ActionType == "FileRenamed"
-| summarize FilesRenamed=count(), Extensions=make_set(extract(@"\.[^.]+$", 0, FileName), 20) by DeviceName, InitiatingProcessAccountName, InitiatingProcessFileName
-| where FilesRenamed > 100
-| order by FilesRenamed desc
-"@ },
-    @{ Id=10; Category="Vulnerabilidades"; Title="Vulnerabilidades Críticas por Dispositivo (TVM)"; Query=@"
-DeviceTvmSoftwareVulnerabilities
-| where VulnerabilitySeverityLevel == "Critical"
-| summarize CriticalVulns=count(), Software=make_set(SoftwareName, 20) by DeviceName
-| order by CriticalVulns desc
-| take 25
-"@ },
-    @{ Id=11; Category="Vulnerabilidades"; Title="Top CVEs Críticos Explotables"; Query=@"
-DeviceTvmSoftwareVulnerabilities
-| where VulnerabilitySeverityLevel == "Critical"
-| where IsExploitAvailable == true
-| summarize AffectedDevices=dcount(DeviceName), Software=make_set(SoftwareName, 10) by CveId
-| order by AffectedDevices desc
-| take 20
-"@ },
-    @{ Id=12; Category="Exposición de Dispositivos"; Title="Dispositivos con Exposición Alta o Media"; Query=@"
-DeviceInfo
-| summarize arg_max(Timestamp, *) by DeviceId
-| where ExposureLevel in ("High","Medium")
-| project DeviceName, OSPlatform, ExposureLevel, OnboardingStatus, Timestamp
-| order by ExposureLevel asc, Timestamp desc
-| take 50
-"@ }
-)
-$SelectedMdeKql = if ($RunMDE) { $MdeKqlCatalog | Get-Random } else { $null }
-
-# --- CATÁLOGO KQL: MDI (Advanced Hunting – Identity Threat Detection) ---
-# Se carga dinámicamente desde GitHub (rama main) o archivo local como fallback.
-$MdiKqlCatalog = Import-KqlCatalogFromMarkdown `
-    -Url 'https://raw.githubusercontent.com/watchdogcode/gol2026/main/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md' `
-    -LocalPath (Join-Path $PSScriptRoot "..\MDI\Paquete MDI KQL Advance Hunting.md") `
-    -Format MDI
-
-if (-not $MdiKqlCatalog -or $MdiKqlCatalog.Count -eq 0) {
-Write-Log "Cargando catálogo MDI desde fallback hardcoded..." -Level WARN
-$MdiKqlCatalog = @(
-    @{ Id=1; Category="Alertas e Incidentes MDI"; Title="Alertas de Defender for Identity (últimos 7d)"; Query=@"
-let TimeRange = 7d;
-AlertInfo
-| where Timestamp >= ago(TimeRange)
-| where ServiceSource has_any ("Microsoft Defender for Identity", "MicrosoftDefenderForIdentity", "Defender for Identity", "MDI")
-| project Timestamp, AlertId, Title, Severity, Category, ServiceSource, DetectionSource, ProviderName
-| order by Timestamp desc
-"@ },
-    @{ Id=2; Category="Alertas e Incidentes MDI"; Title="Incidentes con Evidencias de Identidad"; Query=@"
-let TimeRange = 7d;
-IncidentInfo
-| where Timestamp >= ago(TimeRange)
-| project Timestamp, IncidentId, Title, Severity, Status, Classification, Determination
-| order by Timestamp desc
-"@ },
-    @{ Id=3; Category="Fuerza Bruta y Spray"; Title="Password Spraying – Múltiples Fallos por Cuenta"; Query=@"
-let TimeRange = 1d;
-let FailureThreshold = 15;
-IdentityLogonEvents
-| where Timestamp >= ago(TimeRange)
-| where ActionType in ("LogonFailed", "InvalidPassword", "UserLoginFailed", "Failure")
-| summarize FailedLogons=count(), SrcIPs=dcount(IPAddress) by AccountUpn, AccountName, AccountDomain
-| where FailedLogons >= FailureThreshold and SrcIPs >= 3
-| order by FailedLogons desc
-"@ },
-    @{ Id=4; Category="Fuerza Bruta y Spray"; Title="Cuentas Privilegiadas con Múltiples Fallos"; Query=@"
-let TimeRange = 1d;
-let FailureThreshold = 8;
-IdentityLogonEvents
-| where Timestamp >= ago(TimeRange)
-| where ActionType has "Fail"
-| summarize Failures=count() by AccountUpn, AccountName
-| where Failures >= FailureThreshold
-| join kind=leftouter IdentityAccountInfo on AccountUpn
-| where IsPrivileged == true
-| project AccountUpn, AccountName, Failures, IsPrivileged
-| order by Failures desc
-"@ },
-    @{ Id=5; Category="Reconocimiento LDAP/SAM-R"; Title="Enumeración LDAP / SAM-R Anómala"; Query=@"
-let TimeRange = 1d;
-IdentityQueryEvents
-| where Timestamp >= ago(TimeRange)
-| where ActionType in ("SamR query", "Ldap query")
-| summarize QueryCount=count() by DeviceName, AccountUpn, bin(Timestamp, 1h)
-| where QueryCount > 500
-| order by QueryCount desc
-"@ },
-    @{ Id=6; Category="Reconocimiento LDAP/SAM-R"; Title="Enumeración de Objetos AD (Usuarios/Grupos)"; Query=@"
-let TimeRange = 7d;
-IdentityQueryEvents
-| where Timestamp >= ago(TimeRange)
-| summarize Events=count(), SrcIPs=dcount(IPAddress) by AccountUpn, AccountName, AccountDomain
-| order by Events desc
-"@ },
-    @{ Id=7; Category="Movimiento Lateral"; Title="Logons Exitosos en Múltiples Equipos (1h)"; Query=@"
-let Lookback = 1d;
-let Window = 1h;
-let MinDevices = 6;
-IdentityLogonEvents
-| where Timestamp >= ago(Lookback)
-| where ActionType in ("LogonSuccess", "LogonAttempted")
-| summarize Devices=dcount(DeviceName), DeviceList=make_set(DeviceName, 25), TotalLogons=count() by AccountUpn, AccountName, AccountDomain, bin(Timestamp, Window)
-| where Devices >= MinDevices
-| order by Devices desc
-"@ },
-    @{ Id=8; Category="Persistencia y Escalación"; Title="sAMAccountName Spoofing / noPac"; Query=@"
-let TimeRange = 7d;
-IdentityDirectoryEvents
-| where Timestamp >= ago(TimeRange)
-| where ActionType contains "Account"
-| extend OldSamAccount = tostring(parse_json(AdditionalFields).OldValue)
-| extend NewSamAccount = tostring(parse_json(AdditionalFields).NewValue)
-| where OldSamAccount != NewSamAccount and NewSamAccount endswith "$"
-| project Timestamp, AccountUpn, TargetAccountUpn, OldSamAccount, NewSamAccount, DeviceName
-| order by Timestamp desc
-"@ },
-    @{ Id=9; Category="Persistencia y Escalación"; Title="Cambios de UPN Sospechosos"; Query=@"
-let TimeRange = 7d;
-IdentityDirectoryEvents
-| where Timestamp >= ago(TimeRange)
-| where ActionType has_any ("UPN", "User principal name", "UserPrincipalName")
-| project Timestamp, AccountUpn, TargetAccountUpn, ActionType, AdditionalFields, DeviceName
-| order by Timestamp desc
-"@ },
-    @{ Id=10; Category="Persistencia y Escalación"; Title="Actividad PowerShell en Domain Controllers"; Query=@"
-let TimeRange = 7d;
-IdentityDirectoryEvents
-| where Timestamp >= ago(TimeRange)
-| where ActionType has "PowerShell"
-| project Timestamp, AccountUpn, ActionType, AdditionalFields, DeviceName, DestinationDeviceName
-| order by Timestamp desc
-"@ },
-    @{ Id=11; Category="Exfiltración DNS"; Title="DNS Tunneling / Exfiltración"; Query=@"
-let TimeRange = 1d;
-DeviceNetworkEvents
-| where Timestamp >= ago(TimeRange)
-| where RemotePort == 53
-| summarize DNSQueries=count(), DistinctDomains=dcount(RemoteUrl) by DeviceName, InitiatingProcessAccountName
-| where DNSQueries > 1000 or DistinctDomains > 500
-| order by DNSQueries desc
-"@ }
-)
-} # fin fallback MDI
-
-$SelectedMdiKql = if ($RunMDI) { $MdiKqlCatalog | Get-Random } else { $null }
-
-# --- CATÁLOGO KQL: Entra ID (Advanced Hunting – Identity Governance) ---
-# Se carga dinámicamente desde GitHub (rama main) o archivo local como fallback.
-$EntraKqlCatalog = Import-KqlCatalogFromMarkdown `
-    -Url 'https://raw.githubusercontent.com/watchdogcode/gol2026/main/EntraID/Paquete%20KQL%20Queries%20EntraID%20Advanced%20Hunting.md' `
-    -LocalPath (Join-Path $PSScriptRoot "..\EntraID\Paquete KQL Queries EntraID Advanced Hunting.md") `
-    -Format EntraID
-
-if (-not $EntraKqlCatalog -or $EntraKqlCatalog.Count -eq 0) {
-Write-Log "Cargando catálogo EntraID desde fallback hardcoded..." -Level WARN
-$EntraKqlCatalog = @(
-    # ── A) Detección – Usuarios ──
-    @{ Id=1; Category="Detección de Usuarios"; Title="Top Fallos de Inicio de Sesión por Usuario"; Query=@"
-let Lookback = 1d;
-EntraIdSignInEvents
-| where Timestamp >= ago(Lookback)
-| where ErrorCode != 0
-| summarize Failures=count(), Apps=dcount(Application), IPs=dcount(IPAddress) by AccountUpn
-| order by Failures desc
-"@ },
-    @{ Id=2; Category="Detección de Usuarios"; Title="Top Fallos por IP (Brute Force / Spray)"; Query=@"
-let Lookback = 1d;
-EntraIdSignInEvents
-| where Timestamp >= ago(Lookback)
-| where ErrorCode != 0
-| summarize Failures=count(), Users=dcount(AccountUpn), Apps=dcount(Application) by IPAddress, Country
-| order by Users desc, Failures desc
-"@ },
-    @{ Id=3; Category="Detección de Usuarios"; Title="Password Spraying (una IP a Muchos Usuarios)"; Query=@"
-let Lookback = 1d;
-let MinUsers = 15;
-let MinFailures = 50;
-EntraIdSignInEvents
-| where Timestamp >= ago(Lookback)
-| where ErrorCode != 0
-| summarize Failures=count(), Users=dcount(AccountUpn), SampleUsers=make_set(AccountUpn, 20) by IPAddress, Country
-| where Users >= MinUsers and Failures >= MinFailures
-| order by Users desc, Failures desc
-"@ },
-    @{ Id=4; Category="Detección de Usuarios"; Title="Spray Distribuido (Muchas IPs a un Usuario)"; Query=@"
-let Lookback = 1d;
-let MinIPs = 10;
-let MinFailures = 30;
-EntraIdSignInEvents
-| where Timestamp >= ago(Lookback)
-| where ErrorCode != 0
-| summarize Failures=count(), IPs=dcount(IPAddress), SampleIPs=make_set(IPAddress, 20) by AccountUpn
-| where IPs >= MinIPs and Failures >= MinFailures
-| order by IPs desc, Failures desc
-"@ },
-    @{ Id=5; Category="Detección de Usuarios"; Title="Picos de Fallos por Ventana (Detección de Ráfagas)"; Query=@"
-let Lookback = 1d;
-let Window = 10m;
-let Spike = 30;
-EntraIdSignInEvents
-| where Timestamp >= ago(Lookback)
-| where ErrorCode != 0
-| summarize Failures=count() by IPAddress, AccountUpn, bin(Timestamp, Window)
-| where Failures >= Spike
-| order by Failures desc
-"@ },
-    @{ Id=6; Category="Detección de Riesgo"; Title="Sign-ins de Alto Riesgo (Medium/High)"; Query=@"
-let Lookback = 7d;
-EntraIdSignInEvents
-| where Timestamp >= ago(Lookback)
-| where RiskLevelAggregated in (50, 100)
-| project Timestamp, AccountUpn, RiskLevelAggregated, RiskState, RiskDetails, Application, ResourceDisplayName, IPAddress, Country
-| order by Timestamp desc
-"@ },
-    @{ Id=7; Category="Detección de Riesgo"; Title="Usuarios At Risk o Confirmed Compromised"; Query=@"
-let Lookback = 14d;
-EntraIdSignInEvents
-| where Timestamp >= ago(Lookback)
-| where RiskState in (4, 5)
-| project Timestamp, AccountUpn, RiskState, RiskDetails, Application, ResourceDisplayName, IPAddress, Country
-| order by Timestamp desc
-"@ },
-    @{ Id=8; Category="MFA y Conditional Access"; Title="Sign-in sin MFA Cuando se Esperaba MFA"; Query=@"
-let Lookback = 7d;
-EntraIdSignInEvents
-| where Timestamp >= ago(Lookback)
-| where AuthenticationRequirement == "singleFactorAuthentication"
-| summarize SignIns=count(), Apps=dcount(Application), Countries=dcount(Country) by AccountUpn
-| order by SignIns desc
-"@ },
-    @{ Id=9; Category="MFA y Conditional Access"; Title="MFA Requerido pero CA No Aplicado / Falló"; Query=@"
-let Lookback = 7d;
-EntraIdSignInEvents
-| where Timestamp >= ago(Lookback)
-| where AuthenticationRequirement == "multiFactorAuthentication"
-| where ConditionalAccessStatus in (1,2)
-| project Timestamp, AccountUpn, Application, ConditionalAccessStatus, ConditionalAccessPolicies, IPAddress, Country
-| order by Timestamp desc
-"@ },
-    @{ Id=10; Category="Anomalías Geográficas"; Title="Token Issuer ADFS (Entornos Híbridos)"; Query=@"
-let Lookback = 14d;
-EntraIdSignInEvents
-| where Timestamp >= ago(Lookback)
-| where TokenIssuerType == 1
-| summarize SignIns=count(), Users=dcount(AccountUpn), Apps=dcount(Application) by Application, ResourceDisplayName
-| order by SignIns desc
-"@ },
-    @{ Id=11; Category="Anomalías Geográficas"; Title="Sign-ins desde Países Nuevos por Usuario"; Query=@"
-let Lookback = 30d;
-let Recent = 2d;
-let historical = EntraIdSignInEvents
-| where Timestamp between (ago(Lookback) .. ago(Recent))
-| summarize KnownCountries=make_set(Country, 200) by AccountUpn;
-EntraIdSignInEvents
-| where Timestamp >= ago(Recent)
-| summarize RecentCountries=make_set(Country, 50), RecentIPs=make_set(IPAddress, 50) by AccountUpn
-| join kind=leftouter historical on AccountUpn
-| extend NewCountries = set_difference(RecentCountries, KnownCountries)
-| where array_length(NewCountries) > 0
-| project AccountUpn, NewCountries, RecentIPs
-| order by array_length(NewCountries) desc
-"@ },
-    @{ Id=12; Category="Anomalías Geográficas"; Title="Nuevos Dispositivos por Usuario"; Query=@"
-let Lookback = 30d;
-let Recent = 2d;
-let historical = EntraIdSignInEvents
-| where Timestamp between (ago(Lookback) .. ago(Recent))
-| summarize KnownDevices=make_set(EntraIdDeviceId, 500) by AccountUpn;
-EntraIdSignInEvents
-| where Timestamp >= ago(Recent)
-| summarize RecentDevices=make_set(EntraIdDeviceId, 100), SampleApps=make_set(Application, 20) by AccountUpn
-| join kind=leftouter historical on AccountUpn
-| extend NewDevices = set_difference(RecentDevices, KnownDevices)
-| where array_length(NewDevices) > 0
-| project AccountUpn, NewDevices, SampleApps
-"@ },
-    @{ Id=13; Category="Dispositivos y Compliance"; Title="Acceso desde Dispositivos No Gestionados"; Query=@"
-let Lookback = 7d;
-EntraIdSignInEvents
-| where Timestamp >= ago(Lookback)
-| where IsManaged == 0 or IsCompliant == 0
-| summarize SignIns=count(), Apps=dcount(Application), Countries=dcount(Country) by AccountUpn, IsManaged, IsCompliant
-| order by SignIns desc
-"@ },
-    @{ Id=14; Category="Dispositivos y Compliance"; Title="Invitados / Externos con Actividad"; Query=@"
-let Lookback = 14d;
-EntraIdSignInEvents
-| where Timestamp >= ago(Lookback)
-| where IsGuestUser == true or IsExternalUser == 1
-| summarize SignIns=count(), Apps=make_set(Application, 20), Countries=make_set(Country, 20) by AccountUpn
-| order by SignIns desc
-"@ },
-    # ── B) Workload Identities ──
-    @{ Id=15; Category="Workload Identities (SPN)"; Title="Fallos de Service Principals / Managed Identity"; Query=@"
-let Lookback = 7d;
-EntraIdSpnSignInEvents
-| where Timestamp >= ago(Lookback)
-| where ErrorCode != 0
-| summarize Failures=count(), IPs=dcount(IPAddress), Countries=dcount(Country) by ServicePrincipalName, ServicePrincipalId, IsManagedIdentity
-| order by Failures desc
-"@ },
-    @{ Id=16; Category="Workload Identities (SPN)"; Title="SPN con Muchas IPs (Posible Abuso / Token Theft)"; Query=@"
-let Lookback = 7d;
-let MinIPs = 10;
-EntraIdSpnSignInEvents
-| where Timestamp >= ago(Lookback)
-| summarize SignIns=count(), IPs=dcount(IPAddress), SampleIPs=make_set(IPAddress, 25) by ServicePrincipalName, ServicePrincipalId
-| where IPs >= MinIPs
-| order by IPs desc, SignIns desc
-"@ },
-    @{ Id=17; Category="Workload Identities (SPN)"; Title="Nuevos Países para un SPN (Baseline)"; Query=@"
-let Lookback = 30d;
-let Recent = 2d;
-let historical = EntraIdSpnSignInEvents
-| where Timestamp between (ago(Lookback) .. ago(Recent))
-| summarize KnownCountries=make_set(Country, 200) by ServicePrincipalId;
-EntraIdSpnSignInEvents
-| where Timestamp >= ago(Recent)
-| summarize RecentCountries=make_set(Country, 50), RecentIPs=make_set(IPAddress, 50) by ServicePrincipalId, ServicePrincipalName
-| join kind=leftouter historical on ServicePrincipalId
-| extend NewCountries = set_difference(RecentCountries, KnownCountries)
-| where array_length(NewCountries) > 0
-| project ServicePrincipalName, ServicePrincipalId, NewCountries, RecentIPs
-"@ },
-    # ── C) Abuso de Microsoft Graph ──
-    @{ Id=18; Category="Abuso de Microsoft Graph"; Title="Fallos 401/403 en Graph (Enumeración/Abuso)"; Query=@"
-let Lookback = 1d;
-GraphApiAuditEvents
-| where Timestamp >= ago(Lookback)
-| where ResponseStatusCode in ("401","403")
-| summarize Attempts=count(), URIs=make_set(RequestUri, 25) by AccountObjectId, ApplicationId, IPAddress, Scopes
-| order by Attempts desc
-"@ },
-    @{ Id=19; Category="Abuso de Microsoft Graph"; Title="Volumen Anómalo de Llamadas Graph"; Query=@"
-let Lookback = 1d;
-let Spike = 500;
-GraphApiAuditEvents
-| where Timestamp >= ago(Lookback)
-| summarize Requests=count(), DistinctUris=dcount(RequestUri) by AccountObjectId, ApplicationId
-| where Requests >= Spike
-| order by Requests desc
-"@ },
-    @{ Id=20; Category="Abuso de Microsoft Graph"; Title="Read-Heavy (Alto Ratio GET)"; Query=@"
-let Lookback = 1d;
-GraphApiAuditEvents
-| where Timestamp >= ago(Lookback)
-| summarize Total=count(), Gets=countif(RequestMethod == "GET"), Ratio=round(todouble(Gets)/todouble(Total), 3) by AccountObjectId, ApplicationId
-| where Total > 200 and Ratio > 0.9
-| order by Total desc
-"@ },
-    @{ Id=21; Category="Abuso de Microsoft Graph"; Title="Scopes Sensibles (Mail, Files, Directory)"; Query=@"
-let Lookback = 7d;
-let HighRiskScopes = dynamic(["Mail.Read","Mail.ReadWrite","Mail.ReadWrite.All","Files.Read","Files.ReadWrite","Files.ReadWrite.All","Sites.Read.All","Sites.ReadWrite.All","Directory.Read.All","Directory.ReadWrite.All","User.Read.All","Group.Read.All"]);
-GraphApiAuditEvents
-| where Timestamp >= ago(Lookback)
-| where Scopes has_any (HighRiskScopes)
-| summarize Requests=count(), IPs=dcount(IPAddress), URIs=make_set(RequestUri, 25) by AccountObjectId, ApplicationId, Scopes
-| order by Requests desc
-"@ },
-    # ── E) Investigación – Correlaciones ──
-    @{ Id=22; Category="Investigación y Correlación"; Title="Sign-ins de Alto Riesgo → Actividad Graph (±30 min)"; Query=@"
-let Lookback = 7d;
-let PivotWindow = 30m;
-let risky = EntraIdSignInEvents
-| where Timestamp >= ago(Lookback)
-| where RiskLevelAggregated in (50,100) or RiskState in (4,5)
-| project SignInTime=Timestamp, AccountUpn, AccountObjectId, IPAddress, Country, Application, CorrelationId;
-GraphApiAuditEvents
-| join kind=inner (risky) on AccountObjectId
-| where Timestamp between (SignInTime - PivotWindow .. SignInTime + PivotWindow)
-| project SignInTime, Timestamp, AccountUpn, ApplicationId, IPAddress, RequestMethod, RequestUri, Scopes, ResponseStatusCode
-| order by SignInTime desc, Timestamp desc
-"@ },
-    @{ Id=23; Category="Investigación y Correlación"; Title="Password Spraying → Éxitos Posteriores"; Query=@"
-let Lookback = 1d;
-let Window = 1h;
-let MinUsers = 15;
-let suspects = EntraIdSignInEvents
-| where Timestamp >= ago(Lookback)
-| where ErrorCode != 0
-| summarize Failures=count(), Users=dcount(AccountUpn) by IPAddress
-| where Users >= MinUsers
-| project IPAddress;
-EntraIdSignInEvents
-| where Timestamp >= ago(Lookback)
-| join kind=inner (suspects) on IPAddress
-| summarize Failures=countif(ErrorCode!=0), Success=countif(ErrorCode==0), Users=dcount(AccountUpn) by IPAddress, bin(Timestamp, Window)
-| order by Success desc
-"@ },
-    @{ Id=24; Category="Investigación y Correlación"; Title="CA No Aplicado → Qué Apps y Usuarios"; Query=@"
-let Lookback = 7d;
-EntraIdSignInEvents
-| where Timestamp >= ago(Lookback)
-| where ConditionalAccessStatus == 2
-| summarize Events=count(), Users=dcount(AccountUpn) by Application, ResourceDisplayName
-| order by Events desc
-"@ },
-    # ── G) Eventos de Gestión de Entra ──
-    @{ Id=25; Category="Gestión Administrativa Entra"; Title="Top Acciones Administrativas de Entra ID"; Query=@"
-let Lookback = 14d;
-let AppName = "Azure Active Directory";
-CloudAppEvents
-| where Timestamp >= ago(Lookback)
-| where Application == AppName
-| where IsAdminOperation == true
-| summarize Events=count(), Actors=make_set(AccountDisplayName, 20), IPs=make_set(IPAddress, 20) by ActionType
-| order by Events desc
-"@ },
-    @{ Id=26; Category="Gestión Administrativa Entra"; Title="Acciones de Consent / Permission / Role"; Query=@"
-let Lookback = 30d;
-let AppName = "Azure Active Directory";
-CloudAppEvents
-| where Timestamp >= ago(Lookback)
-| where Application == AppName
-| where ActionType has_any ("consent", "permission", "role", "grant", "app")
-| project Timestamp, ActionType, AccountDisplayName, AccountObjectId, IPAddress, CountryCode, RawEventData, AdditionalFields
-| order by Timestamp desc
-"@ }
-)
-} # fin fallback EntraID
-
-$SelectedEntraKql = if ($RunMDI) { $EntraKqlCatalog | Get-Random } else { $null }
-
-# --- CATÁLOGO KQL: MDA (Advanced Hunting – Cloud App Security) ---
-$MdaKqlCatalog = @(
-    @{ Id=1; Category="OAuth y Consentimientos"; Title="Nuevos Consentimientos OAuth (Últimos 7d)"; Query=@"
-let TimeRange = 7d;
-CloudAppEvents
-| where Timestamp >= ago(TimeRange)
-| where ActionType in ("Consent to application","Grant consent")
-| summarize Consents=count(), Users=dcount(AccountId) by Application, ApplicationId
-| top 20 by Consents desc
-"@ },
-    @{ Id=2; Category="OAuth y Consentimientos"; Title="Apps OAuth con Permisos de Alto Riesgo"; Query=@"
-let TimeRange = 30d;
-CloudAppEvents
-| where Timestamp >= ago(TimeRange)
-| where ActionType has_any ("consent","permission","grant")
-| where RawEventData has_any ("Mail.ReadWrite","Files.ReadWrite.All","Directory.ReadWrite.All","Sites.ReadWrite.All")
-| project Timestamp, ActionType, Application, AccountDisplayName, RawEventData
-| order by Timestamp desc
-"@ },
-    @{ Id=3; Category="Shadow IT"; Title="Top Aplicaciones Cloud por Actividad"; Query=@"
-let TimeRange = 7d;
-CloudAppEvents
-| where Timestamp >= ago(TimeRange)
-| summarize Events=count(), Users=dcount(AccountId) by Application
-| top 25 by Events desc
-"@ },
-    @{ Id=4; Category="Shadow IT"; Title="Aplicaciones Nuevas (Primera Vez Vistas en 7d)"; Query=@"
-let Lookback = 7d;
-let Baseline = 60d;
-let recent = CloudAppEvents
-| where Timestamp >= ago(Lookback)
-| summarize FirstSeen=min(Timestamp), Events=count() by Application;
-let historical = CloudAppEvents
-| where Timestamp between (ago(Baseline) .. ago(Lookback))
-| summarize PrevEvents=count() by Application;
-recent
-| join kind=leftanti historical on Application
-| order by Events desc
-"@ },
-    @{ Id=5; Category="Operaciones Administrativas"; Title="Operaciones Admin en Aplicaciones Cloud"; Query=@"
-let TimeRange = 7d;
-CloudAppEvents
-| where Timestamp >= ago(TimeRange)
-| where IsAdminOperation == true
-| summarize Events=count(), IPs=make_set(IPAddress, 20) by Application, ActionType, AccountDisplayName
-| order by Events desc
-"@ },
-    @{ Id=6; Category="Operaciones Administrativas"; Title="Acciones de Eliminación Masiva"; Query=@"
-let TimeRange = 7d;
-CloudAppEvents
-| where Timestamp >= ago(TimeRange)
-| where ActionType has_any ("Delete","Remove","Purge")
-| summarize Deletions=count(), Users=dcount(AccountId) by Application, ActionType
-| where Deletions > 10
-| order by Deletions desc
-"@ },
-    @{ Id=7; Category="Descarga y Exfiltración"; Title="Descargas Masivas desde Cloud Apps"; Query=@"
-let TimeRange = 7d;
-CloudAppEvents
-| where Timestamp >= ago(TimeRange)
-| where ActionType has_any ("Download","FileDownloaded","Export")
-| summarize Downloads=count(), Apps=dcount(Application) by AccountDisplayName, AccountObjectId
-| where Downloads > 50
-| order by Downloads desc
-"@ },
-    @{ Id=8; Category="Descarga y Exfiltración"; Title="Compartir Archivos con Externos"; Query=@"
-let TimeRange = 14d;
-CloudAppEvents
-| where Timestamp >= ago(TimeRange)
-| where ActionType has_any ("SharingSet","SharingInvitationCreated","Anonymous")
-| summarize Shares=count(), Apps=dcount(Application) by AccountDisplayName, AccountObjectId
-| where Shares > 20
-| order by Shares desc
-"@ },
-    @{ Id=9; Category="Anomalías de Acceso"; Title="Actividad desde Países Poco Comunes"; Query=@"
-let TimeRange = 7d;
-let Baseline = 60d;
-let known = CloudAppEvents
-| where Timestamp between (ago(Baseline) .. ago(TimeRange))
-| summarize KnownCountries=make_set(CountryCode, 200) by AccountId;
-CloudAppEvents
-| where Timestamp >= ago(TimeRange)
-| summarize RecentCountries=make_set(CountryCode, 50), Events=count() by AccountId, AccountDisplayName
-| join kind=leftouter known on AccountId
-| extend NewCountries = set_difference(RecentCountries, KnownCountries)
-| where array_length(NewCountries) > 0
-| project AccountDisplayName, NewCountries, Events
-| order by array_length(NewCountries) desc
-"@ },
-    @{ Id=10; Category="Anomalías de Acceso"; Title="Viaje Imposible (Actividad en 2+ Países en <2h)"; Query=@"
-let TimeRange = 1d;
-let Window = 2h;
-CloudAppEvents
-| where Timestamp >= ago(TimeRange)
-| summarize Countries=make_set(CountryCode, 10), MinTime=min(Timestamp), MaxTime=max(Timestamp) by AccountId, AccountDisplayName, bin(Timestamp, Window)
-| where array_length(Countries) >= 2
-| project AccountDisplayName, Countries, MinTime, MaxTime
-| order by MaxTime desc
-"@ }
-)
-$SelectedMdaKql = if ($RunMDA) { $MdaKqlCatalog | Get-Random } else { $null }
-
-# 4. Generar HTML
-function ConvertTo-HtmlTable {
-    param($Rows, $Columns)
-    if (-not $Rows -or $Rows.Count -eq 0) { return "<tr><td colspan='$($Columns.Count)' style='text-align:center; color:#666;'>No se encontraron datos en el período</td></tr>" }
-    
-    $Html = ""
-    foreach ($Row in $Rows) {
-        $Html += "<tr>"
-        foreach ($Col in $Columns) {
-            $Val = $Row.$Col
-            if ($Val -is [DateTime]) { $Val = $Val.ToString("yyyy-MM-dd HH:mm") }
-            $Html += "<td>$Val</td>"
-        }
-        $Html += "</tr>"
+        Write-Ok "Correo configurado: $MailFrom -> $MailTo via $SmtpServer"
     }
-    return $Html
-}
-
-# --- ESTRUCTURA HOMOGÉNEA DE TAREAS OPERATIVAS POR WORKLOAD ---
-$OperativeTasks = @{
-    "MDO" = @(
-        @{ Task="Revisar alertas activas"; Portal="https://security.microsoft.com/alerts"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#monitoreo-de-alertas" },
-        @{ Task="Monitoreo de Incidentes"; Portal="https://security.microsoft.com/incidents"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#monitoreo-de-incidentes" },
-        @{ Task="Triage de Mensajes de Teams Reportados"; Portal="https://admin.teams.microsoft.com/policies/messaging?view=reportedsafety"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#triage-de-mensajes-de-teams-reportados-por-usuarios" },
-        @{ Task="Revisar y Actuar sobre los AIRs"; Portal="https://security.microsoft.com/action-center/pending"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-y-actuar-sobre-los-airs" },
-        @{ Task="Revisar Tendencias de Detección MDO"; Portal="https://security.microsoft.com/reports/TPSAggregateReportATP"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-las-tendencias-de-detecci%C3%B3n-de-correo-en-microsoft-defender-for-office-365" },
-        @{ Task="Revisar Campañas Entregadas"; Portal="https://security.microsoft.com/threatexplorerv3"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-campa%C3%B1as-de-phishing-y-malware-que-resultaron-en-correos-entregados" },
-        @{ Task="Revisión de Top Targeted Users"; Portal="https://security.microsoft.com/threatexplorerv3"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisi%C3%B3n-de-top-targeted-users" }
-    );
-    "MDE" = @(
-        @{ Task="Revisar alertas críticas y de alto impacto"; Portal="https://security.microsoft.com/alerts"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md" },
-        @{ Task="Monitorear estado de detección de dispositivos"; Portal="https://security.microsoft.com/devices"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md" },
-        @{ Task="Revisar y actuar sobre incidentes de exposición"; Portal="https://security.microsoft.com/incidents"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md" },
-        @{ Task="Revisar tendencias de vulnerabilidades"; Portal="https://security.microsoft.com/vulnerabilities"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md" }
-    );
-    "MDI" = @(
-        @{ Task="Revisar ITDR Dashboard"; Portal="https://security.microsoft.com/identities/dashboard"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-itdr-dashboard-identities--dashboard" },
-        @{ Task="Triage de Incidentes por Prioridad"; Portal="https://security.microsoft.com/incidents"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#triage-de-incidentes-por-prioridad-incidents--alerts" },
-        @{ Task="Configurar Tuning para False Positives"; Portal="https://security.microsoft.com/advanced-hunting"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#configurar-tuning-para-benign--false-positives-advanced-hunting" },
-        @{ Task="Proactive hunting diario"; Portal="https://security.microsoft.com/v2/advanced-hunting"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#proactive-hunting-diario-o-semanal-seg%C3%BAn-madurez" },
-        @{ Task="Revisar Health Issues"; Portal="https://security.microsoft.com/identities/health-issues"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-health-issues-global-y-sensor" }
-    );
-    "ENTRA" = @(
-        @{ Task="Monitorear eventos de inicio de sesión"; Portal="https://entra.microsoft.com/#view/Microsoft_AAD_IAM/SignInLogsList.ReactView/timeRangeType/last24hours/showApplicationSignIns~/true"; Guide="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#monitorear-eventos-de-inicio-de-sesi%C3%B3n-y-autenticaci%C3%B3n" },
-        @{ Task="Revisión de Usuarios con Riesgo"; Portal="https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskyUsers"; Guide="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisi%C3%B3n-de-usuarios-con-riesgo-alto--medio" },
-        @{ Task="Revisión de Inicios de Sesión con Riesgo"; Portal="https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskySignIns"; Guide="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisi%C3%B3n-de-inicios-de-sesi%C3%B3n-con-riesgo" },
-        @{ Task="Revisar alertas de Entra Connect Health"; Portal="https://entra.microsoft.com/#view/Microsoft_AAD_Connect_Health/ConnectHealthMenuBlade/~/overview"; Guide="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisar-alertas-de-microsoft-entra-connect-health-entornos-h%C3%ADbridos" }
-    );
-    "MDA" = @(
-        @{ Task="Revisar alertas de aplicaciones riesgosas"; Portal="https://security.microsoft.com/alerts"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md" },
-        @{ Task="Monitorear nuevos consentimientos OAuth"; Portal="https://security.microsoft.com/cloud-app-security/oauth-apps"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md" },
-        @{ Task="Revisar Shadow IT y aplicaciones no autorizadas"; Portal="https://security.microsoft.com/cloud-app-security/discovered-apps"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md" },
-        @{ Task="Investigar actividades anómalas en la nube"; Portal="https://security.microsoft.com/v2/advanced-hunting"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md" }
-    );
-}
-
-# --- SECCIONES CONDICIONALES (KPIs y Recomendaciones) ---
-Write-Log "Productos incluidos: $(if($RunMDO){'MDO '})$(if($RunMDE){'MDE '})$(if($RunMDI){'MDI '})$(if($RunMDA){'MDA'})"
-
-function Build-WorkloadSection {
-    param(
-        [string]$WorkloadName,
-        [string]$WorkloadEmoji,
-        [string]$HeaderColor,
-        [array]$OperativeTasks,
-        [array]$ActiveAlerts,
-        [hashtable]$SelectedKql,
-        [string]$KqlCatalogUrl
-    )
-
-    $TaskCount = $OperativeTasks.Count
-    $TaskRows = ""
-    foreach ($Task in $OperativeTasks) {
-        $TaskRows += @"
-                        <tr><td class="ops-task-name">$($Task.Task)</td><td><a class="ops-btn portal" href="$($Task.Portal)" target="_blank">&#x1f517; Abrir</a></td><td><a class="ops-btn doc" href="$($Task.Guide)" target="_blank">&#x1f4d6; Guía</a></td></tr>
-"@
+    else {
+        Write-Skip "Notificaciones por correo omitidas"
     }
+}
 
-    # Procesar alertas activas de los últimos 7 días
-    $AlertRows = ""
-    if ($ActiveAlerts -and $ActiveAlerts.Count -gt 0) {
-        # Ordenar por severidad (crítica primero)
-        $SeverityMap = @{ "Critical" = 3; "High" = 2; "Medium" = 1; "Low" = 0; "Informational" = -1 }
-        $SortedAlerts = $ActiveAlerts | Sort-Object -Property @{ Expression = { if ($_.Severity) { $SeverityMap[$_.Severity] } else { 0 } }; Descending = $true } | Select-Object -First 5
+# ============================================================
+#  PASO 7: Crear wrappers para Task Scheduler
+# ============================================================
 
-        foreach ($Alert in $SortedAlerts) {
-            $AlertSeverity = if ($Alert.Severity) { $Alert.Severity } else { "Medium" }
-            $SeverityColor = switch ($AlertSeverity) {
-                "Critical" { "#7a0018" }
-                "High" { "#d13438" }
-                "Medium" { "#ff8c00" }
-                "Low" { "#8764b8" }
-                default { "#0078d4" }
-            }
-            $AlertTitle = if ($Alert.Title) { $Alert.Title } else { if ($Alert.AlertName) { $Alert.AlertName } else { "Alerta" } }
-            $AlertTime = if ($Alert.Timestamp) { ([datetime]$Alert.Timestamp).ToString("yyyy-MM-dd HH:mm") } else { "N/D" }
-            $AlertUrl = if ($Alert.AlertId) { "https://security.microsoft.com/alerts/$($Alert.AlertId)" } else { "https://security.microsoft.com/alerts" }
-            $AlertRows += @"
-                        <tr style="border-left: 4px solid $SeverityColor;">
-                            <td><strong>$AlertTitle</strong></td>
-                            <td><span style="background:$SeverityColor; color:#fff; padding:3px 8px; border-radius:3px; font-size:0.75em; font-weight:600;">$AlertSeverity</span></td>
-                            <td style="color:#666; font-size:0.9em;">$AlertTime</td>
-                            <td><a class="ops-btn portal" href="$AlertUrl" target="_blank">&#x1f517; Ver Alerta</a></td>
-                        </tr>
-"@
+Write-Step "7/9" "Creando wrappers de ejecucion programada..."
+
+# ---- WRAPPER: Daily Report ----
+$DailyWrapperContent = @"
+#Requires -Version 5.1
+<#
+.SYNOPSIS
+    Wrapper - Defender XDR Daily Report (ejecucion programada)
+    Generado automaticamente por Setup-DefenderReportServer.ps1
+
+.NOTES
+    Usuario : $env:USERDOMAIN\$env:USERNAME
+    Creado  : $(Get-Date -Format 'yyyy-MM-dd HH:mm')
+#>
+
+`$ErrorActionPreference = "Stop"
+
+# Cargar configuracion
+`$ConfigFile = "$ConfigFile"
+if (-not (Test-Path `$ConfigFile)) { Write-Error "Config no encontrado: `$ConfigFile"; exit 1 }
+`$Config = Get-Content `$ConfigFile -Raw | ConvertFrom-Json
+
+`$OutputDir = Join-Path `$Config.ReportsPath "Daily"
+if (-not (Test-Path `$OutputDir)) { New-Item -ItemType Directory -Path `$OutputDir -Force | Out-Null }
+
+# Determinar AuthMode para el Daily (no soporta Certificate)
+`$DailyAuth = `$Config.DailyAuthMode
+if (-not `$DailyAuth) { `$DailyAuth = `$Config.AuthMode }
+
+# Cargar Client Secret desde archivo encriptado (DPAPI)
+`$ClientSecretPlain = `$null
+if ((`$DailyAuth -eq "Secret") -and `$Config.SecretFile) {
+    if (Test-Path `$Config.SecretFile) {
+        try {
+            `$Secure = Get-Content `$Config.SecretFile | ConvertTo-SecureString -ErrorAction Stop
+            `$BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR(`$Secure)
+            `$ClientSecretPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(`$BSTR)
+            [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR(`$BSTR)
+        } catch {
+            Write-Error "No se pudo descifrar el secret. Ejecute Setup nuevamente con el usuario correcto."
+            exit 1
         }
     } else {
-        $AlertRows = @"
-                        <tr>
-                            <td colspan="4" style="text-align:center; padding:30px; color:#666;">
-                                <strong>No existen Alertas</strong><br/>
-                                <span style="font-size:0.9em;">No se detectaron alertas activas en el período analizado</span>
-                            </td>
-                        </tr>
-"@
+        Write-Error "Archivo de secret no encontrado: `$(`$Config.SecretFile)"
+        exit 1
     }
-
-    $KqlSection = ""
-    if ($SelectedKql) {
-        $KqlCatalogButton = ""
-        if ($KqlCatalogUrl) {
-            $KqlCatalogButton = "<a class=`"ops-btn doc`" href=`"$KqlCatalogUrl`" target=`"_blank`">&#x1f4da; Ver catálogo KQL de $WorkloadName</a>"
-        }
-
-        $KqlSection = @"
-
-        <!-- Recomendación de KQL diario – $WorkloadName -->
-        <div class="ops-group" style="margin-top: 20px;">
-            <div class="ops-group-header" style="background: $HeaderColor;">
-                <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – $WorkloadName
-                <span class="ops-badge daily">#$($SelectedKql.Id)</span>
-            </div>
-            <div style="padding: 20px;">
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <span style="background:rgba(0,0,0,0.1); color:$HeaderColor; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">$($SelectedKql.Category)</span>
-                </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">$($SelectedKql.Title)</h3>
-                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedKql.Query)</div>
-                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-                    <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
-                    $KqlCatalogButton
-                </div>
-            </div>
-        </div>
-"@
-    }
-
-    return @"
-
-        <!-- ═══════════════════════════════════════════════════════ -->
-        <!-- $WorkloadEmoji SECCIÓN $WorkloadName ═══ -->
-        <!-- ═══════════════════════════════════════════════════════ -->
-
-        <h2>$WorkloadName</h2>
-
-        <!-- Tareas Operativas $WorkloadName -->
-        <div class="ops-section">
-            <div class="ops-group">
-                <div class="ops-group-header" style="background: $HeaderColor;">
-                    $WorkloadEmoji Tareas Operativas - $WorkloadName
-                    <span class="ops-badge daily">$TaskCount Diarias</span>
-                </div>
-                <table class="ops-table">
-                    <thead><tr><th style="width:50%">Tarea</th><th style="width:25%">Portal</th><th style="width:25%">Documentación</th></tr></thead>
-                    <tbody>
-$TaskRows
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Alertas del Workload -->
-        <div class="ops-section" style="margin-top: 30px;">
-            <div class="ops-group">
-                <div class="ops-group-header" style="background: $HeaderColor;">
-                    &#x26a0; Alertas del Workload - Top 5 por Criticidad
-                    <span class="ops-badge daily">Critical/High</span>
-                </div>
-                <table class="ops-table">
-                    <thead><tr><th style="width:35%">Alerta</th><th style="width:15%">Severidad</th><th style="width:20%">Portal</th><th style="width:30%">Acción</th></tr></thead>
-                    <tbody>
-$AlertRows
-                    </tbody>
-                </table>
-            </div>
-        </div>
-$KqlSection
-"@
 }
 
-function Get-WorkloadAlerts {
-    param(
-        [string]$WorkloadType,
-        [array]$AllAlerts
-    )
-
-    $ServicePatterns = @{
-        "MDO"   = 'Defender for Office 365|Office 365|Email'
-        "MDE"   = 'Defender for Endpoint|Endpoint'
-        "MDI"   = 'Defender for Identity|MicrosoftDefenderForIdentity|Identity'
-        "ENTRA" = 'Entra ID|Azure AD|Azure Active Directory'
-        "MDA"   = 'Defender for Cloud Apps|Cloud Apps|Microsoft Cloud App Security|MCAS'
-    }
-
-    $ServicePattern = $ServicePatterns[$WorkloadType]
-    
-    $WorkloadAlerts = @()
-    if ($AllAlerts -and $ServicePattern) {
-        $WorkloadAlerts = $AllAlerts | Where-Object { 
-            $AlertSource = @(
-                $_.ServiceSource,
-                $_.DetectionSource,
-                $_.ProviderName,
-                $_.Category,
-                $_.Title
-            ) -join ' '
-            $AlertSource -match $ServicePattern
-        } | Sort-Object -Property @{ Expression = { 
-            $SeverityMap = @{ "Critical" = 3; "High" = 2; "Medium" = 1; "Low" = 0 }
-            $SeverityMap[$_.Severity]
-        }; Descending = $true } | Select-Object -First 5
-    }
-    
-    return $WorkloadAlerts
+# Construir parametros
+`$DailyTimeWindowHours = if (`$Config.DailyTimeWindowHours) { [int]`$Config.DailyTimeWindowHours } else { 720 }
+`$Params = @{
+    TenantId        = `$Config.TenantId
+    ClientId        = `$Config.ClientId
+    AuthMode        = `$DailyAuth
+    TimeWindowHours = `$DailyTimeWindowHours
+    OutputPath      = Join-Path `$OutputDir "Daily_SecOps_Report_`$(Get-Date -Format 'yyyyMMdd').html"
+    TimeoutSec      = 120
 }
 
-$HtmlMDOSection = if ($RunMDO) { 
-    $MdoAlerts = Get-WorkloadAlerts -WorkloadType "MDO" -AllAlerts $Data["AlertsByWorkload"]
-    Build-WorkloadSection -WorkloadName "MDO: Microsoft Defender for Office 365" -WorkloadEmoji "&#x1f4e7;" -HeaderColor "#0078d4" -OperativeTasks $OperativeTasks.MDO -ActiveAlerts $MdoAlerts -SelectedKql $SelectedMdoKql -KqlCatalogUrl "https://github.com/watchdogcode/gol2026/blob/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md"
-} else { "" }
+if (`$ClientSecretPlain) { `$Params['ClientSecret'] = `$ClientSecretPlain }
 
-$HtmlMDESection = if ($RunMDE) { 
-    $MdeAlerts = Get-WorkloadAlerts -WorkloadType "MDE" -AllAlerts $Data["AlertsByWorkload"]
-    Build-WorkloadSection -WorkloadName "MDE: Microsoft Defender for Endpoint" -WorkloadEmoji "&#x1f5a5;" -HeaderColor "#d83b01" -OperativeTasks $OperativeTasks.MDE -ActiveAlerts $MdeAlerts -SelectedKql $SelectedMdeKql -KqlCatalogUrl "https://learn.microsoft.com/defender-xdr/advanced-hunting-query-samples"
-} else { "" }
-
-$HtmlMDISection = if ($RunMDI) { 
-    $MdiAlerts = Get-WorkloadAlerts -WorkloadType "MDI" -AllAlerts $Data["AlertsByWorkload"]
-    Build-WorkloadSection -WorkloadName "MDI: Microsoft Defender for Identity" -WorkloadEmoji "&#x1f6e1;" -HeaderColor "#e97a00" -OperativeTasks $OperativeTasks.MDI -ActiveAlerts $MdiAlerts -SelectedKql $SelectedMdiKql -KqlCatalogUrl "https://github.com/watchdogcode/gol2026/blob/main/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md"
-} else { "" }
-
-$HtmlEntraSection = if ($RunMDI) { 
-    $EntraAlerts = Get-WorkloadAlerts -WorkloadType "ENTRA" -AllAlerts $Data["AlertsByWorkload"]
-    Build-WorkloadSection -WorkloadName "ENTRA: Microsoft Entra ID" -WorkloadEmoji "&#x1f510;" -HeaderColor "#107c10" -OperativeTasks $OperativeTasks.ENTRA -ActiveAlerts $EntraAlerts -SelectedKql $SelectedEntraKql -KqlCatalogUrl "https://github.com/watchdogcode/gol2026/blob/main/EntraID/Paquete%20KQL%20Queries%20EntraID%20Advanced%20Hunting.md"
-} else { "" }
-
-$HtmlMDASection = if ($RunMDA) { 
-    $MdaAlerts = Get-WorkloadAlerts -WorkloadType "MDA" -AllAlerts $Data["AlertsByWorkload"]
-    Build-WorkloadSection -WorkloadName "MDA: Microsoft Defender for Cloud Apps" -WorkloadEmoji "&#x2601;" -HeaderColor "#8764b8" -OperativeTasks $OperativeTasks.MDA -ActiveAlerts $MdaAlerts -SelectedKql $SelectedMdaKql -KqlCatalogUrl "https://learn.microsoft.com/defender-xdr/advanced-hunting-cloudappevents-table"
-} else { "" }
-
-$HtmlKpiMDO = ""
-if ($RunMDO) {
-$HtmlKpiMDO = @"
-            <div class="kpi-card $Kpi_MdoSeverityClass">
-                <div class="kpi-val">$Kpi_MdoAlerts</div>
-                <div class="kpi-label">Alertas de Defender for Office</div>
-                <div class="kpi-severity">Máx: $Kpi_MdoSeverityLabel</div>
-            </div>
-"@
+# Agregar parametros de correo si estan configurados
+if (`$Config.SendMail -eq `$true -and `$Config.SmtpServer) {
+    `$Params['SendMail']   = `$true
+    `$Params['SmtpServer'] = `$Config.SmtpServer
+    `$Params['From']       = `$Config.MailFrom
+    `$Params['To']         = `$Config.MailTo
+    `$Params['Subject']    = "Reporte Diario de Seguridad - M365 Defender XDR - `$(Get-Date -Format 'yyyy-MM-dd')"
 }
 
-$HtmlKpiMDE = ""
-if ($RunMDE) {
-$HtmlKpiMDE = @"
-            <div class="kpi-card $Kpi_MdeSeverityClass">
-                <div class="kpi-val">$Kpi_MdeAlerts</div>
-                <div class="kpi-label">Alertas Defender for Endpoint</div>
-                <div class="kpi-severity">Máx: $Kpi_MdeSeverityLabel</div>
-            </div>
-"@
-}
-
-$HtmlKpiMDI = ""
-if ($RunMDI) {
-$HtmlKpiMDI = @"
-            <div class="kpi-card $Kpi_EntraSeverityClass">
-                <div class="kpi-val">$Kpi_HighRiskUsers</div>
-                <div class="kpi-label">Usuarios en Riesgos Entra ID</div>
-                <div class="kpi-severity">Máx: $Kpi_EntraSeverityLabel</div>
-            </div>
-            <div class="kpi-card $Kpi_MdiSeverityClass">
-                <div class="kpi-val">$Kpi_MdiAlerts</div>
-                <div class="kpi-label">Alertas Defender for Identity</div>
-                <div class="kpi-severity">Máx: $Kpi_MdiSeverityLabel</div>
-            </div>
-"@
-}
-
-$HtmlKpiMDA = ""
-if ($RunMDA) {
-$HtmlKpiMDA = @"
-            <div class="kpi-card $Kpi_MdaSeverityClass">
-                <div class="kpi-val">$Kpi_NewOAuth</div>
-                <div class="kpi-label">Consentimientos OAuth Defender for Cloud Apps</div>
-                <div class="kpi-severity">Máx: $Kpi_MdaSeverityLabel</div>
-            </div>
-"@
-}
-
-$HtmlContent = @"
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reporte Diario de Seguridad</title>
-    <style>
-        :root {
-            --primary-color: #0078d4;
-            --secondary-color: #2b2b2b;
-            --bg-color: #f0f2f5;
-            --card-bg: #ffffff;
-            --text-color: #323130;
-            --border-color: #e1dfdd;
-            --danger-color: #a80000;
-            --critical-color: #7a0018;
-            --high-color: #d13438;
-            --medium-color: #ff8c00;
-            --low-color: #8764b8;
-            --info-color: #0078d4;
-            --none-color: #107c10;
-        }
-        body { 
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; 
-            background-color: var(--bg-color); 
-            color: var(--text-color); 
-            margin: 0; 
-            padding: 0; 
-            line-height: 1.5;
-        }
-        .header {
-            background-color: var(--primary-color);
-            color: white;
-            padding: 20px 40px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
-        .header .subtitle { margin-top: 6px; font-size: 0.92em; opacity: 0.95; }
-        .header .meta { font-size: 0.9em; opacity: 0.9; text-align: right; }
-        
-        .container { 
-            max-width: 1200px; 
-            margin: 30px auto; 
-            padding: 0 20px; 
-        }
-        
-        h2 { 
-            color: var(--secondary-color); 
-            margin-top: 40px; 
-            margin-bottom: 15px; 
-            font-size: 18px; 
-            border-left: 4px solid var(--primary-color); 
-            padding-left: 12px; 
-            display: flex;
-            align-items: center;
-        }
-
-        /* Cuadrícula de KPIs */
-        .kpi-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(220px, 250px)); 
-            justify-content: center;
-            align-items: stretch;
-            gap: 20px; 
-            margin: 0 auto 30px auto;
-        }
-        .kpi-card { 
-            background: var(--card-bg); 
-            min-height: 150px;
-            padding: 24px 18px; 
-            border-radius: 10px; 
-            text-align: center; 
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05); 
-            transition: transform 0.2s ease;
-            border-top: 4px solid transparent;
-        }
-        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .kpi-card.critical { border-top-color: var(--critical-color); }
-        .kpi-card.high { border-top-color: var(--high-color); }
-        .kpi-card.medium { border-top-color: var(--medium-color); }
-        .kpi-card.low { border-top-color: var(--low-color); }
-        .kpi-card.info { border-top-color: var(--info-color); }
-        .kpi-card.none { border-top-color: var(--none-color); }
-        
-        .kpi-val { font-size: 3em; font-weight: 700; color: var(--secondary-color); line-height: 1; margin-bottom: 10px; }
-        .kpi-label {
-            font-size: 0.85em;
-            color: #605e5c;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-weight: 600;
-            line-height: 1.35;
-            text-align: center;
-            max-width: 190px;
-            min-height: 2.8em;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .kpi-severity {
-            margin-top: 10px;
-            padding: 4px 10px;
-            border-radius: 999px;
-            font-size: 0.72em;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-            color: #ffffff;
-        }
-        .kpi-card.critical .kpi-severity { background: var(--critical-color); }
-        .kpi-card.high .kpi-severity { background: var(--high-color); }
-        .kpi-card.medium .kpi-severity { background: var(--medium-color); }
-        .kpi-card.low .kpi-severity { background: var(--low-color); }
-        .kpi-card.info .kpi-severity { background: var(--info-color); }
-        .kpi-card.none .kpi-severity { background: var(--none-color); }
-        
-        /* Tablas */
-        .table-container {
-            background: var(--card-bg);
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            overflow: hidden;
-            margin-bottom: 30px;
-        }
-        table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
-        th { background-color: #f8f9fa; color: #605e5c; text-align: left; padding: 12px 15px; font-weight: 600; border-bottom: 2px solid var(--border-color); }
-        td { border-bottom: 1px solid var(--border-color); padding: 12px 15px; color: var(--text-color); }
-        tr:last-child td { border-bottom: none; }
-        tr:hover { background-color: #f8f9fa; }
-        
-        /* Recomendaciones */
-        .recs { 
-            background-color: #e6f2ff; 
-            padding: 20px; 
-            border-radius: 8px; 
-            border: 1px solid #cce4ff;
-        }
-        .recs ul { margin: 0; padding-left: 20px; }
-        .recs li { margin-bottom: 8px; line-height: 1.6; }
-        
-        /* Actividades Diarias */
-        .activities { 
-            background-color: var(--card-bg); 
-            border-radius: 8px; 
-            padding: 20px; 
-            margin-bottom: 30px; 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            border-left: 5px solid var(--primary-color);
-        }
-        .activities h4 { margin-top: 0; margin-bottom: 15px; color: var(--secondary-color); font-size: 1.1em; }
-        .activities ul { margin: 0; padding-left: 20px; }
-        .activities li { margin-bottom: 8px; font-size: 1em; color: var(--text-color); }
-        .activities li a { color: var(--primary-color); text-decoration: none; font-weight: 500; }
-        .activities li a:hover { text-decoration: underline; }
-        
-        .footer { text-align: center; margin-top: 50px; color: #8a8886; font-size: 0.85em; padding-bottom: 20px; }
-
-        /* Tareas Operativas */
-        .ops-section { margin-bottom: 30px; }
-        .ops-group {
-            background: var(--card-bg);
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            overflow: hidden;
-            margin-bottom: 20px;
-        }
-        .ops-group-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 14px 20px;
-            font-weight: 600;
-            font-size: 1em;
-            color: #fff;
-            letter-spacing: 0.3px;
-        }
-        .ops-group-header.mdo  { background: linear-gradient(135deg, #0078d4, #005a9e); }
-        .ops-group-header.mde  { background: linear-gradient(135deg, #d83b01, #a52a00); }
-        .ops-group-header.mdi  { background: linear-gradient(135deg, #e97a00, #c25e00); }
-        .ops-group-header.entra { background: linear-gradient(135deg, #107c10, #0b5e0b); }
-        .ops-group-header.mda  { background: linear-gradient(135deg, #8764b8, #6b4fa0); }
-        .ops-group-header .icon { font-size: 1.2em; }
-        .ops-badge {
-            display: inline-block;
-            padding: 2px 10px;
-            border-radius: 12px;
-            font-size: 0.7em;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            line-height: 1.6;
-        }
-        .ops-badge.daily   { background: rgba(255,255,255,0.25); color: #fff; }
-        .ops-table { width: 100%; border-collapse: collapse; font-size: 0.92em; }
-        .ops-table th {
-            background-color: #f8f9fa;
-            color: #605e5c;
-            text-align: left;
-            padding: 10px 16px;
-            font-weight: 600;
-            font-size: 0.8em;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 2px solid var(--border-color);
-        }
-        .ops-table td {
-            padding: 11px 16px;
-            border-bottom: 1px solid #f0f0f0;
-            vertical-align: middle;
-        }
-        .ops-table tr:last-child td { border-bottom: none; }
-        .ops-table tr:hover { background-color: #fafbfc; }
-        .ops-task-name {
-            font-family: 'Segoe UI Semibold', 'Segoe UI', sans-serif;
-            font-weight: 600;
-            color: var(--text-color);
-            font-size: 0.93em;
-        }
-        .ops-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 5px 14px;
-            border-radius: 5px;
-            font-size: 0.82em;
-            font-weight: 600;
-            text-decoration: none;
-            transition: all 0.15s ease;
-        }
-        .ops-btn.portal {
-            background: #0078d4;
-            color: #fff;
-        }
-        .ops-btn.portal:hover { background: #005a9e; }
-        .ops-btn.doc {
-            background: #f3f2f1;
-            color: #323130;
-            border: 1px solid #d2d0ce;
-        }
-        .ops-btn.doc:hover { background: #e1dfdd; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <div>
-            <h1>Reporte Diario de Operaciones de Seguridad</h1>
-            <div class="subtitle">La tecnología habilita la seguridad, pero la disciplina la hace efectiva</div>
-        </div>
-        <div class="meta">
-            <div><strong>Período:</strong> $($StartDate.ToString("yyyy-MM-dd HH:mm")) - $($ReportDate.ToString("yyyy-MM-dd HH:mm"))</div>
-            <div style="font-size: 0.85em; margin-top: 4px;">Tenant ID: $MaskedTenantId</div>
-        </div>
-    </div>
-
-    <div class="container">
-        <!-- KPIs -->
-        <div class="kpi-grid">
-            <div class="kpi-card $Kpi_XdrSeverityClass">
-                <div class="kpi-val">$Kpi_IncidentCount</div>
-                <div class="kpi-label">Incidentes Activos</div>
-                <div class="kpi-severity">Máx: $Kpi_XdrSeverityLabel</div>
-            </div>
-$HtmlKpiMDO$HtmlKpiMDE$HtmlKpiMDI$HtmlKpiMDA
-        </div>
-"@
-
-$HtmlContent += @"
-$HtmlMDOSection$HtmlMDESection$HtmlMDISection$HtmlEntraSection$HtmlMDASection
-
-        <!-- ═══════════════════════════════════════════════════════ -->
-        <!-- ═══ SECCIÓN XDR: Alertas e Incidentes Consolidados ═══ -->
-        <!-- ═══════════════════════════════════════════════════════ -->
-
-        <h2>XDR: Alertas e Incidentes Consolidados</h2>
-
-        <h3>Alertas por Servicio y Severidad</h3>
-        <div class="table-container">
-            <table>
-                <thead><tr><th>Servicio</th><th>Severidad</th><th>Cantidad</th></tr></thead>
-                <tbody>$(ConvertTo-HtmlTable $Data["XDR_AllAlerts"] @("ServiceSource","Severity","Count"))</tbody>
-            </table>
-        </div>
-
-        <div class="footer">
-            Generado por Operaciones de Seguridad Automatizadas | Microsoft 365 Defender XDR
-        </div>
-    </div>
-</body>
-</html>
-"@
-
-# 5. Guardar Resultado
+# Ejecutar
 try {
-    $Dir = Split-Path $OutputPath -Parent
-    if (-not (Test-Path $Dir)) { New-Item -ItemType Directory -Path $Dir -Force | Out-Null }
-    $HtmlContent | Out-File -FilePath $OutputPath -Encoding UTF8 -Force
-    Write-Log "Reporte guardado en: $OutputPath"
+    Write-Host "[`$(Get-Date -Format 'HH:mm:ss')] Iniciando Defender XDR Daily Report (Auth: `$DailyAuth)..." -ForegroundColor Cyan
+    & `$Config.DailyScript @Params
+    Write-Host "[`$(Get-Date -Format 'HH:mm:ss')] Reporte diario completado." -ForegroundColor Green
+
+    # Limpieza de reportes antiguos
+    `$RetentionDays = if (`$Config.RetentionDays) { `$Config.RetentionDays } else { 90 }
+    Get-ChildItem "`$OutputDir\*.html" -ErrorAction SilentlyContinue |
+        Where-Object LastWriteTime -lt (Get-Date).AddDays(-`$RetentionDays) |
+        Remove-Item -Force -ErrorAction SilentlyContinue
 }
 catch {
-    Write-Log "Error al guardar el reporte: $_" -Level ERROR
+    Write-Error "Error en reporte diario: `$(`$_.Exception.Message)"
+    exit 1
 }
+finally {
+    `$ClientSecretPlain = `$null
+    [System.GC]::Collect()
+}
+"@
 
-# 6. Enviar Correo (Opcional)
-if ($SendMail) {
-    if ($SmtpServer -and $From -and $To) {
+$DailyWrapperPath = "$ScriptsPath\Run-DefenderXDRDailyReport.ps1"
+$DailyWrapperContent | Out-File $DailyWrapperPath -Encoding UTF8 -Force
+Write-Ok "Wrapper diario:  $DailyWrapperPath"
+
+# ---- WRAPPER: Weekly Report ----
+$WeeklyWrapperContent = @"
+#Requires -Version 5.1
+<#
+.SYNOPSIS
+    Wrapper - Defender XDR Weekly Report (ejecucion programada)
+    Generado automaticamente por Setup-DefenderReportServer.ps1
+
+.NOTES
+    Usuario : $env:USERDOMAIN\$env:USERNAME
+    Creado  : $(Get-Date -Format 'yyyy-MM-dd HH:mm')
+#>
+
+`$ErrorActionPreference = "Stop"
+
+# Cargar configuracion
+`$ConfigFile = "$ConfigFile"
+if (-not (Test-Path `$ConfigFile)) { Write-Error "Config no encontrado: `$ConfigFile"; exit 1 }
+`$Config = Get-Content `$ConfigFile -Raw | ConvertFrom-Json
+
+`$OutputDir = Join-Path `$Config.ReportsPath "Weekly"
+`$LogDir    = `$Config.LogPath
+if (-not (Test-Path `$OutputDir)) { New-Item -ItemType Directory -Path `$OutputDir -Force | Out-Null }
+if (-not (Test-Path `$LogDir))    { New-Item -ItemType Directory -Path `$LogDir -Force | Out-Null }
+
+# Determinar AuthMode para el Weekly
+`$WeeklyAuth = `$Config.WeeklyAuthMode
+if (-not `$WeeklyAuth) { `$WeeklyAuth = `$Config.AuthMode }
+
+# Cargar Client Secret desde archivo encriptado (DPAPI) si aplica
+`$ClientSecretPlain = `$null
+if (`$WeeklyAuth -eq "Secret" -and `$Config.SecretFile) {
+    if (Test-Path `$Config.SecretFile) {
         try {
-            Write-Log "Enviando correo a $To..."
-            Send-MailMessage -SmtpServer $SmtpServer -From $From -To $To -Subject $Subject -Body $HtmlContent -BodyAsHtml -Priority High
-            Write-Log "Correo enviado exitosamente."
-        }
-        catch {
-            Write-Log "Error al enviar correo: $_" -Level ERROR
+            `$Secure = Get-Content `$Config.SecretFile | ConvertTo-SecureString -ErrorAction Stop
+            `$BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR(`$Secure)
+            `$ClientSecretPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(`$BSTR)
+            [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR(`$BSTR)
+        } catch {
+            Write-Error "No se pudo descifrar el secret. Ejecute Setup nuevamente con el usuario correcto."
+            exit 1
         }
     } else {
-        Write-Log "Envío de correo omitido. Faltan parámetros SMTP." -Level WARN
+        Write-Error "Archivo de secret no encontrado: `$(`$Config.SecretFile)"
+        exit 1
     }
 }
+
+# Construir parametros
+`$WeeklyTimeWindowDays = if (`$Config.WeeklyTimeWindowDays) { [int]`$Config.WeeklyTimeWindowDays } else { 7 }
+`$WeeklyExportCsv = if (`$null -ne `$Config.WeeklyExportCsv) { [bool]`$Config.WeeklyExportCsv } else { `$true }
+`$Params = @{
+    TenantId       = `$Config.TenantId
+    ClientId       = `$Config.ClientId
+    AuthMode       = `$WeeklyAuth
+    TimeWindowDays = `$WeeklyTimeWindowDays
+    OutputPath     = Join-Path `$OutputDir "Weekly_SecOps_Report_`$(Get-Date -Format 'yyyyMMdd').html"
+    LogPath        = Join-Path `$LogDir "DefenderXDR_Weekly_`$(Get-Date -Format 'yyyyMMdd').log"
+    TimeoutSec     = 120
+    ExportCsv      = `$WeeklyExportCsv
+}
+
+if (`$ClientSecretPlain) { `$Params['ClientSecret'] = `$ClientSecretPlain }
+
+# Agregar certificado si aplica
+if (`$WeeklyAuth -eq "Certificate" -and `$Config.CertThumbprint) {
+    `$Params['CertThumbprint'] = `$Config.CertThumbprint
+}
+
+# Agregar parametros de correo si estan configurados
+if (`$Config.SendMail -eq `$true -and `$Config.SmtpServer) {
+    `$Params['SendMail']   = `$true
+    `$Params['SmtpServer'] = `$Config.SmtpServer
+    `$Params['To']         = `$Config.MailTo
+    `$Params['Subject']    = "Defender XDR - Reporte Semanal de Amenazas - Semana `$(Get-Date -Format 'yyyy-MM-dd')"
+}
+
+# Ejecutar
+try {
+    Write-Host "[`$(Get-Date -Format 'HH:mm:ss')] Iniciando Defender XDR Weekly Report (Auth: `$WeeklyAuth)..." -ForegroundColor Cyan
+    & `$Config.WeeklyScript @Params
+    Write-Host "[`$(Get-Date -Format 'HH:mm:ss')] Reporte semanal completado." -ForegroundColor Green
+
+    # Limpieza de reportes y CSVs antiguos
+    `$RetentionDays = if (`$Config.RetentionDays) { `$Config.RetentionDays } else { 90 }
+    Get-ChildItem "`$OutputDir\*" -Include "*.html","*.csv" -ErrorAction SilentlyContinue |
+        Where-Object LastWriteTime -lt (Get-Date).AddDays(-`$RetentionDays) |
+        Remove-Item -Force -ErrorAction SilentlyContinue
+
+    # Limpieza de logs antiguos
+    Get-ChildItem "`$LogDir\*.log" -ErrorAction SilentlyContinue |
+        Where-Object LastWriteTime -lt (Get-Date).AddDays(-`$RetentionDays) |
+        Remove-Item -Force -ErrorAction SilentlyContinue
+}
+catch {
+    Write-Error "Error en reporte semanal: `$(`$_.Exception.Message)"
+    exit 1
+}
+finally {
+    `$ClientSecretPlain = `$null
+    [System.GC]::Collect()
+}
+"@
+
+$WeeklyWrapperPath = "$ScriptsPath\Run-DefenderXDRWeeklyReport.ps1"
+$WeeklyWrapperContent | Out-File $WeeklyWrapperPath -Encoding UTF8 -Force
+Write-Ok "Wrapper semanal: $WeeklyWrapperPath"
+
+# ============================================================
+#  PASO 8: Tareas programadas
+# ============================================================
+
+Write-Step "8/9" "Tareas programadas (Task Scheduler)"
+
+if ($SkipScheduledTasks) {
+    Write-Skip "Creacion de tareas omitida (parametro -SkipScheduledTasks)"
+}
+else {
+    $CreateTasks = Read-Host "  Crear tareas programadas? [S/n]"
+
+    if ($CreateTasks -notin @("n", "N")) {
+
+        $TaskDefs = @()
+
+        if ($DailyAuthMode -in @("Secret")) {
+            $TaskDefs += @{
+                Name    = "DefenderXDR-DailyReport"
+                Script  = $DailyWrapperPath
+                Trigger = { New-ScheduledTaskTrigger -Daily -At 7am }
+                Desc    = "Reporte diario de seguridad - Defender XDR (Daily 7:00 AM) [Auth: $DailyAuthMode]"
+            }
+        }
+        else {
+            Write-Skip "Tarea diaria omitida: AuthMode '$DailyAuthMode' no recomendado para Task Scheduler."
+        }
+
+        if ($WeeklyAuthMode -in @("Secret", "Certificate")) {
+            $TaskDefs += @{
+                Name    = "DefenderXDR-WeeklyReport"
+                Script  = $WeeklyWrapperPath
+                Trigger = { New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday -At "7:30AM" }
+                Desc    = "Reporte semanal de seguridad - Defender XDR (Lunes 7:30 AM) [Auth: $WeeklyAuthMode]"
+            }
+        }
+        else {
+            Write-Skip "Tarea semanal omitida: AuthMode '$WeeklyAuthMode' no recomendado para Task Scheduler."
+        }
+
+        if ($TaskDefs.Count -eq 0) {
+            Write-Skip "No se crearon tareas: configure AuthMode Secret (o Certificate para Weekly) para automatizacion."
+        }
+
+        foreach ($Task in $TaskDefs) {
+            try {
+                $Action = New-ScheduledTaskAction -Execute 'PowerShell.exe' `
+                    -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$($Task.Script)`""
+
+                $Trigger = & $Task.Trigger
+
+                $Settings = New-ScheduledTaskSettingsSet `
+                    -ExecutionTimeLimit (New-TimeSpan -Hours 2) `
+                    -RestartCount 3 `
+                    -RestartInterval (New-TimeSpan -Minutes 10) `
+                    -StartWhenAvailable
+
+                Register-ScheduledTask `
+                    -TaskName $Task.Name `
+                    -Action $Action `
+                    -Trigger $Trigger `
+                    -Settings $Settings `
+                    -Description $Task.Desc `
+                    -User "$env:USERDOMAIN\$env:USERNAME" `
+                    -Force | Out-Null
+
+                Write-Ok "Tarea creada: $($Task.Name)"
+                Write-Host "    $($Task.Desc)" -ForegroundColor DarkGray
+            }
+            catch {
+                Write-Fail "Error creando '$($Task.Name)': $($_.Exception.Message)"
+                Write-Host "    Puede crearla manualmente desde Task Scheduler" -ForegroundColor DarkYellow
+            }
+        }
+    }
+    else {
+        Write-Skip "Tareas programadas omitidas por el usuario"
+    }
+}
+
+# ============================================================
+#  PASO 9: Prueba de ejecucion (opcional)
+# ============================================================
+
+Write-Step "9/9" "Prueba de ejecucion"
+
+if ($UseSecret -or $UseCertificate) {
+    $RunTest = Read-Host "  Ejecutar prueba del reporte diario ahora? [s/N]"
+
+    if ($RunTest -in @("s", "S")) {
+        $DailyTestWindow = if ($Config.DailyTimeWindowHours) { $Config.DailyTimeWindowHours } else { 720 }
+        Write-Info "Ejecutando prueba con ventana configurada de $DailyTestWindow horas..."
+        try {
+            & $DailyWrapperPath
+            Write-Ok "Prueba completada exitosamente"
+
+            # Mostrar path del reporte generado
+            $TestReport = Get-ChildItem "$ReportsPath\Daily\*.html" -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending | Select-Object -First 1
+            if ($TestReport) {
+                Write-Ok "Reporte de prueba: $($TestReport.FullName)"
+            }
+        }
+        catch {
+            Write-Fail "Error en prueba: $($_.Exception.Message)"
+            Write-Host "    Revise la configuracion y permisos. Ejecute manualmente:" -ForegroundColor DarkYellow
+            Write-Host "    & '$DailyWrapperPath'" -ForegroundColor White
+        }
+    }
+    else {
+        Write-Skip "Prueba de ejecucion omitida"
+    }
+}
+else {
+    Write-Skip "Prueba requiere Client Secret o Certificado configurado"
+}
+
+# ============================================================
+#  RESUMEN FINAL
+# ============================================================
+
+Write-Host ""
+Write-Host ("=" * 70) -ForegroundColor Cyan
+Write-Host "  CONFIGURACION COMPLETADA" -ForegroundColor Green
+Write-Host ("=" * 70) -ForegroundColor Cyan
+
+Write-Host "`n  Archivos de configuracion:" -ForegroundColor Yellow
+Write-Host "    Config       : $ConfigFile"
+if ($UseSecret) {
+    Write-Host "    Secret (DPAPI): $SecretFile  (usuario: $env:USERNAME)"
+}
+if ($UseCertificate) {
+    Write-Host "    Certificado  : $CertThumbprint (LocalMachine\My)"
+}
+
+Write-Host "`n  Autenticacion:" -ForegroundColor Yellow
+Write-Host "    Daily  : $DailyAuthMode"
+Write-Host "    Weekly : $WeeklyAuthMode"
+if ($AuthMode -eq "Interactive") {
+    Write-Host "    NOTA: Modo Interactive requiere sesion de usuario activa" -ForegroundColor DarkYellow
+}
+
+Write-Host "`n  Scripts de reporte:" -ForegroundColor Yellow
+Write-Host "    Daily  : $ScriptsPath\New-DefenderXDRDailyReport.ps1"
+Write-Host "    Weekly : $ScriptsPath\New-DefenderXDRWeeklyReport.ps1"
+
+Write-Host "`n  Wrappers (Task Scheduler):" -ForegroundColor Yellow
+Write-Host "    Daily  : $DailyWrapperPath"
+Write-Host "    Weekly : $WeeklyWrapperPath"
+
+Write-Host "`n  Reportes se guardan en:" -ForegroundColor Yellow
+Write-Host "    Daily  : $ReportsPath\Daily\"
+Write-Host "    Weekly : $ReportsPath\Weekly\"
+Write-Host "    Logs   : $ReportsPath\Logs\"
+Write-Host "    Retencion: $($Config.RetentionDays) dias (limpieza automatica)"
+
+if ($Config.SendMail) {
+    Write-Host "`n  Configuracion de correo:" -ForegroundColor Yellow
+    Write-Host "    SMTP Server : $($Config.SmtpServer)"
+    Write-Host "    From        : $($Config.MailFrom)"
+    Write-Host "    To          : $($Config.MailTo)"
+}
+
+Write-Host "`n  Ejecucion manual de prueba:" -ForegroundColor Yellow
+Write-Host "    & '$DailyWrapperPath'" -ForegroundColor White
+Write-Host "    & '$WeeklyWrapperPath'" -ForegroundColor White
+
+if (-not $Config.SendMail) {
+    Write-Host "`n  Agregar email (re-ejecutar setup o editar config.json):" -ForegroundColor Yellow
+    Write-Host "    SendMail: true, SmtpServer, MailFrom, MailTo" -ForegroundColor White
+}
+
+Write-Host "`n" -NoNewline
+Write-Host ("=" * 70) -ForegroundColor Cyan
+Write-Host "  Setup completado.`n" -ForegroundColor Green
