@@ -105,6 +105,26 @@ function Write-Info {
     Write-Host "  $Message" -ForegroundColor Cyan
 }
 
+function Get-PowerShell7ExecutablePath {
+    $PwshCommand = Get-Command pwsh.exe -ErrorAction SilentlyContinue
+    if ($PwshCommand) {
+        return $PwshCommand.Source
+    }
+
+    $CandidatePaths = @(
+        (Join-Path $env:ProgramFiles "PowerShell\7\pwsh.exe"),
+        (Join-Path ${env:ProgramFiles(x86)} "PowerShell\7\pwsh.exe")
+    )
+
+    foreach ($Candidate in $CandidatePaths) {
+        if ($Candidate -and (Test-Path $Candidate)) {
+            return $Candidate
+        }
+    }
+
+    return $null
+}
+
 function Normalize-InputValue {
     param([AllowNull()][string]$Value)
 
@@ -967,33 +987,48 @@ $ScriptsToCopy = @(
 foreach ($Script in $ScriptsToCopy) {
     $Source = Join-Path $SourceDir $Script
     $Dest   = Join-Path $ScriptsPath $Script
-    $DestExists = Test-Path $Dest
+    
+    # Validacion estricta: Garantizar que el archivo exista y pese mas de 500 bytes (evita falsos positivos de OneDrive/AV)
+    $DestIsValid   = (Test-Path $Dest -PathType Leaf) -and ((Get-Item $Dest).Length -gt 500)
+    $SourceIsValid = (Test-Path $Source -PathType Leaf) -and ((Get-Item $Source).Length -gt 500)
 
-    if (($Source -eq $Dest) -and $DestExists) {
-        Write-Skip "$Script ya esta en la ruta destino"
+    if (($Source -eq $Dest) -and $DestIsValid) {
+        Write-Skip "$Script ya esta en la ruta destino y es valido"
     }
-    elseif (Test-Path $Source) {
+    elseif ($SourceIsValid) {
         Copy-Item $Source -Destination $Dest -Force
         Write-Ok "Copiado: $Script -> $ScriptsPath"
     }
     else {
+        # Forzar TLS 1.2 para compatibilidad de Invoke-WebRequest
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
         $DownloadUrl = Get-RepositoryScriptUrl -ScriptName $Script -RawBaseUrl $RawRepoBaseUrl
+        $FallbackUrl = "https://raw.githubusercontent.com/watchdogcode/gol2026/main/XDR/$Script"
+        $Downloaded  = $false
+
         if ($DownloadUrl) {
             try {
                 Write-Info "No encontrado localmente. Descargando desde repositorio: $DownloadUrl"
                 Invoke-WebRequest -Uri $DownloadUrl -OutFile $Dest -UseBasicParsing -ErrorAction Stop
+                $Downloaded = $true
                 Write-Ok "Descargado: $Script -> $Dest"
             }
             catch {
                 Write-Fail "No se pudo descargar $Script desde el repositorio: $($_.Exception.Message)"
-                Write-Host "    URL intentada: $DownloadUrl" -ForegroundColor DarkYellow
-                Write-Host "    Puede definir -RepositoryRawBaseUrl manualmente." -ForegroundColor DarkYellow
             }
         }
-        else {
-            Write-Fail "No encontrado: $Source"
-            Write-Host "    No se detecto URL de repositorio (remote.origin.url)." -ForegroundColor DarkYellow
-            Write-Host "    Puede definir -RepositoryRawBaseUrl y reintentar." -ForegroundColor DarkYellow
+        
+        if (-not $Downloaded) {
+            Write-Info "Intentando metodo de descarga directa (Fallback)..."
+            try {
+                Invoke-WebRequest $FallbackUrl -OutFile $Dest -UseBasicParsing -ErrorAction Stop
+                Write-Ok "Descargado mediante enlace directo: $Script -> $Dest"
+            }
+            catch {
+                Write-Fail "No encontrado: $Source"
+                Write-Host "    No funciono la descarga directa ni se detecto URL base." -ForegroundColor DarkYellow
+            }
         }
     }
 }
@@ -1121,6 +1156,12 @@ if (`$Config.SendMail -eq `$true -and `$Config.SmtpServer) {
 }
 
 # Ejecutar
+if (-not (Test-Path `$Config.DailyScript -PathType Leaf)) {
+    Write-Error "El script principal no se encuentra o no es un archivo valido: `$(`$Config.DailyScript). Si usa OneDrive, verifique que este descargado localmente."
+    exit 1
+}
+void # Forzar hidratacion de OneDrive
+
 try {
     Write-Host "[`$(Get-Date -Format 'HH:mm:ss')] Iniciando Defender XDR Daily Report (Auth: `$DailyAuth)..." -ForegroundColor Cyan
     & `$Config.DailyScript @Params
@@ -1235,6 +1276,12 @@ if (`$Config.SendMail -eq `$true -and `$Config.SmtpServer) {
 }
 
 # Ejecutar
+if (-not (Test-Path `$Config.WeeklyScript -PathType Leaf)) {
+    Write-Error "El script principal no se encuentra o no es un archivo valido: `$(`$Config.WeeklyScript). Si usa OneDrive, verifique que este descargado localmente."
+    exit 1
+}
+void # Forzar hidratacion de OneDrive
+
 try {
     Write-Host "[`$(Get-Date -Format 'HH:mm:ss')] Iniciando Defender XDR Weekly Report (Auth: `$WeeklyAuth)..." -ForegroundColor Cyan
     & `$Config.WeeklyScript @Params
@@ -1283,6 +1330,19 @@ else {
     $CreateTasks = Read-Host "  Crear tareas programadas? [S/n]"
 
     if ($CreateTasks -notin @("n", "N")) {
+        $PwshExecutable = Get-PowerShell7ExecutablePath
+        if (-not $PwshExecutable) {
+            Write-Fail "No se encontro PowerShell 7 (pwsh.exe)."
+            Write-Host "    Instale PowerShell 7 y ejecute nuevamente el setup para crear tareas programadas." -ForegroundColor DarkYellow
+            Write-Skip "Creacion de tareas omitida automaticamente"
+            $CreateTasks = "n"
+        }
+        else {
+            Write-Ok "PowerShell 7 detectado: $PwshExecutable"
+        }
+    }
+
+    if ($CreateTasks -notin @("n", "N")) {
 
         $TaskDefs = @(
             @{
@@ -1301,7 +1361,7 @@ else {
 
         foreach ($Task in $TaskDefs) {
             try {
-                $Action = New-ScheduledTaskAction -Execute 'PowerShell.exe' `
+                $Action = New-ScheduledTaskAction -Execute $PwshExecutable `
                     -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$($Task.Script)`""
 
                 $Trigger = & $Task.Trigger
