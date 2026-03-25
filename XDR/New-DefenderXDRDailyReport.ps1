@@ -725,9 +725,11 @@ AlertInfo
 | where Timestamp >= ago(24h)
 | extend IncidentRef = tostring(column_ifexists("IncidentId", ""))
 | extend IncidentRef = iif(isempty(IncidentRef), tostring(AlertId), IncidentRef)
-| extend IncidentStatus = tostring(column_ifexists("Status", ""))
+| extend IncidentStatus = trim(@" ", tostring(column_ifexists("Status", "")))
+| extend IncidentStatusNorm = tolower(IncidentStatus)
 | summarize arg_max(Timestamp, Title, Severity, IncidentStatus) by IncidentRef
-| where IncidentStatus == "" or IncidentStatus !in~ ("Resolved", "Closed")
+| where isempty(IncidentStatusNorm) or not(IncidentStatusNorm has "closed")
+| where isempty(IncidentStatusNorm) or not(IncidentStatusNorm has "resolved")
 | project Timestamp, IncidentId=IncidentRef, Title, Severity, Status=IncidentStatus
 | order by Timestamp desc
 | take 25
