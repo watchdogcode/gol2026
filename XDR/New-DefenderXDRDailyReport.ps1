@@ -8,14 +8,72 @@
     consultas de hunting diarias y genera un reporte ejecutivo profesional en HTML.
 
 .PARAMETER TimeWindowHours
-    Ventana de tiempo en horas para el análisis (Por defecto: 24).
+    Ventana de tiempo en horas para el análisis (Por defecto: 720).
 
 .PARAMETER OutputPath
     Ruta completa para el archivo HTML de salida.
 
+.PARAMETER TenantId
+    Tenant ID de Entra ID. Toma por defecto $env:AZURE_TENANT_ID.
+
+.PARAMETER ClientId
+    App/Client ID de la aplicación registrada. Toma por defecto $env:AZURE_CLIENT_ID.
+
+.PARAMETER ClientSecret
+    Secreto de la aplicación para AuthMode Secret. Toma por defecto $env:AZURE_CLIENT_SECRET.
+
 .PARAMETER AuthMode
-    Método de autenticación: 'Secret', 'Interactive', 'DeviceCode'.
-    Para 'Secret', asegúrese de configurar $ClientId, $TenantId y $ClientSecret (o variables de entorno).
+    Método de autenticación: 'Secret', 'Certificate', 'Interactive', 'DeviceCode'.
+    Para 'Secret', configure $ClientId, $TenantId y $ClientSecret.
+    Para 'Certificate', configure $ClientId, $TenantId y el certificado por thumbprint o ruta PFX.
+
+.PARAMETER CertificateThumbprint
+    Thumbprint del certificado en CurrentUser/My o LocalMachine/My.
+
+.PARAMETER CertificatePath
+    Ruta a archivo PFX/P12 para autenticación por certificado.
+
+.PARAMETER CertificatePassword
+    Password SecureString para abrir CertificatePath (opcional si el PFX no tiene password).
+
+.PARAMETER TimeoutSec
+    Timeout por consulta a la API (segundos). Por defecto: 120.
+
+.PARAMETER FailFast
+    Si es $true, detiene ejecución ante el primer error de consulta.
+
+.PARAMETER IncludeMDO
+    Incluir secciones de Microsoft Defender for Office 365. Si no se especifica ningún producto, se incluyen todos.
+
+.PARAMETER IncludeMDE
+    Incluir secciones de Microsoft Defender for Endpoint. Si no se especifica ningún producto, se incluyen todos.
+
+.PARAMETER IncludeMDI
+    Incluir secciones de Microsoft Defender for Identity y Entra ID. Si no se especifica ningún producto, se incluyen todos.
+
+.PARAMETER IncludeMDA
+    Incluir secciones de Microsoft Defender for Cloud Apps. Si no se especifica ningún producto, se incluyen todos.
+
+.EXAMPLE
+    .\New-DefenderXDRDailyReport.ps1
+    Ejecuta el reporte con AuthMode Secret (default) y todos los productos habilitados.
+
+.EXAMPLE
+    .\New-DefenderXDRDailyReport.ps1 -AuthMode Certificate -TenantId "<tenant>" -ClientId "<appId>" -CertificateThumbprint "<thumbprint>"
+    Ejecuta el reporte usando autenticación por certificado desde el store de certificados.
+
+.EXAMPLE
+    $pwd = Read-Host "Password del PFX" -AsSecureString
+    .\New-DefenderXDRDailyReport.ps1 -AuthMode Certificate -TenantId "<tenant>" -ClientId "<appId>" -CertificatePath "C:\certs\app.pfx" -CertificatePassword $pwd
+    Ejecuta el reporte usando un certificado PFX.
+
+.EXAMPLE
+    .\New-DefenderXDRDailyReport.ps1 -IncludeMDO -IncludeMDE
+    Ejecuta el reporte solo con las secciones de MDO y MDE.
+
+.EXAMPLE
+    .\New-DefenderXDRDailyReport.ps1 -IncludeMDA
+    Ejecuta el reporte solo con la sección de MDA (Cloud Apps).
 
 .NOTES
     Endpoint de API: https://api.security.microsoft.com
@@ -23,12 +81,16 @@
 #>
 
 param(
-    [int]$TimeWindowHours = 720,
+    [int]$TimeWindowHours = 180,
     [string]$OutputPath = "$PSScriptRoot\Daily_SecOps_Report_$(Get-Date -Format 'yyyyMMdd').html",
     [string]$TenantId = $env:AZURE_TENANT_ID,
     [string]$ClientId = $env:AZURE_CLIENT_ID,
     [string]$ClientSecret = $env:AZURE_CLIENT_SECRET,
-    [ValidateSet("Secret", "Interactive", "DeviceCode")]
+    [Alias('CertThumbprint')]
+    [string]$CertificateThumbprint = $env:AZURE_CLIENT_CERT_THUMBPRINT,
+    [string]$CertificatePath = $env:AZURE_CLIENT_CERT_PATH,
+    [System.Security.SecureString]$CertificatePassword,
+    [ValidateSet("Secret", "Certificate", "Interactive", "DeviceCode")]
     [string]$AuthMode = "Secret",
     [bool]$SendMail = $false,
     [string]$SmtpServer,
@@ -36,8 +98,29 @@ param(
     [string]$To,
     [string]$Subject = "Reporte Diario de Seguridad - M365 Defender XDR",
     [int]$TimeoutSec = 120,
-    [bool]$FailFast = $false
+    [bool]$FailFast = $false,
+    [int]$CustomDetectionsWindowHours = 180,
+    [switch]$IncludeMDO,
+    [switch]$IncludeMDE,
+    [switch]$IncludeMDI,
+    [switch]$IncludeMDA
 )
+
+$TenantId = if ($null -ne $TenantId) { $TenantId.Trim() } else { $TenantId }
+$ClientId = if ($null -ne $ClientId) { $ClientId.Trim() } else { $ClientId }
+$ClientSecret = if ($null -ne $ClientSecret) { $ClientSecret.Trim() } else { $ClientSecret }
+$CertificateThumbprint = if ($null -ne $CertificateThumbprint) { ($CertificateThumbprint -replace '\s','').ToUpperInvariant() } else { $CertificateThumbprint }
+$CertificatePath = if ($null -ne $CertificatePath) { $CertificatePath.Trim() } else { $CertificatePath }
+$AuthMode = if ($null -ne $AuthMode) { $AuthMode.Trim() } else { $AuthMode }
+
+# --- SELECCIÓN DE PRODUCTOS (si no se especifica ninguno, se incluyen todos) ---
+$RunMDO = $IncludeMDO.IsPresent
+$RunMDE = $IncludeMDE.IsPresent
+$RunMDI = $IncludeMDI.IsPresent
+$RunMDA = $IncludeMDA.IsPresent
+if (-not ($RunMDO -or $RunMDE -or $RunMDI -or $RunMDA)) {
+    $RunMDO = $RunMDE = $RunMDI = $RunMDA = $true
+}
 
 # --- CONFIGURACIÓN Y VARIABLES GLOBALES ---
 $ErrorActionPreference = "Stop"
@@ -45,6 +128,152 @@ $ApiBaseUrl = "https://api.security.microsoft.com/api"
 $ResourceUrl = "https://api.security.microsoft.com"
 $ReportDate = Get-Date
 $StartDate = $ReportDate.AddHours(-$TimeWindowHours)
+
+# --- PARSER DE CATÁLOGOS KQL DESDE MARKDOWN ---
+# Carga automáticamente los catálogos KQL desde los archivos .md del repositorio.
+# Formatos soportados:
+#   MDO:     ## emoji Categoría  →  ### N. Título  →  ```kql ... ```
+#   MDI:     ## N. Título  →  ```kql ... ```  (sin categorías)
+#   EntraID: # X) Categoría  →  ## XN) Título  →  ```kql ... ```
+function Import-KqlCatalogFromMarkdown {
+    param(
+        [string]$Url,
+        [string]$LocalPath,
+        [Parameter(Mandatory)][ValidateSet('MDO','MDI','EntraID')][string]$Format
+    )
+
+    $Content = $null
+    $LoadedFrom = $null
+
+    # Intentar descarga desde GitHub (fuente canónica)
+    if ($Url) {
+        try {
+            if ($Url -match '^https://github\.com/.+/blob/.+$') {
+                $Url = $Url -replace '^https://github\.com/', 'https://raw.githubusercontent.com/' -replace '/blob/', '/'
+            }
+            Write-Log "Descargando catálogo $Format desde GitHub..."
+            $Content = (Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 15).Content
+            if ($Content) { $LoadedFrom = 'GitHub' }
+        }
+        catch {
+            Write-Log "No se pudo descargar catálogo $Format desde GitHub: $($_.Exception.Message)" -Level WARN
+        }
+    }
+
+    # Fallback: archivo local
+    if (-not $Content -and $LocalPath -and (Test-Path $LocalPath)) {
+        Write-Log "Cargando catálogo $Format desde archivo local: $LocalPath"
+        $Content = Get-Content $LocalPath -Raw -Encoding UTF8
+        if ($Content) { $LoadedFrom = 'Local' }
+    }
+
+    if (-not $Content) {
+        Write-Log "Catálogo $Format no disponible (ni GitHub ni local)" -Level WARN
+        return $null
+    }
+    $Lines     = $Content -split "`n"
+    $Catalog   = @()
+    $Category  = ""
+    $InKql     = $false
+    $KqlBuffer = ""
+    $CurrentId = $null
+    $CurrentTitle = ""
+
+    foreach ($Line in $Lines) {
+        $Trimmed = $Line.TrimEnd()
+
+        # --- Detectar categoría ---
+        switch ($Format) {
+            'MDO' {
+                # ## 🎭 Spoofing y Autenticación  (## + emoji + texto)
+                if ($Trimmed -match '^## [^\w\s#*].+') {
+                    $Cat = $Trimmed -replace '^## \S+\s*', ''
+                    if ($Cat -and $Cat -notmatch '^\*' -and $Cat -notmatch '^Índice' -and $Cat -notmatch '^Recomendaciones') {
+                        $Category = $Cat.Trim()
+                    }
+                }
+            }
+            'EntraID' {
+                # Compatibilidad: # A) ... (formato legado) y # 1) ... (formato actual)
+                if ($Trimmed -match '^# (?:[A-Z]|\d+)\)\s+(.+)$') {
+                    $Category = $Matches[1].Trim()
+                }
+            }
+            # MDI: sin categorías, se mantiene el valor vacío
+        }
+
+        # --- Detectar encabezado de query ---
+        $QueryMatch = $false
+        switch ($Format) {
+            'MDO' {
+                # ### 1. Spoofing: From (Header) ≠ MailFrom (Envelope)
+                if ($Trimmed -match '^### (\d+)\.\s+(.+)$') {
+                    $QueryMatch = $true
+                    $CurrentId = [int]$Matches[1]
+                    $CurrentTitle = $Matches[2].Trim()
+                }
+            }
+            'MDI' {
+                # ## 1. Alertas de Defender for Identity (últimos 7d)
+                if ($Trimmed -match '^## (\d+)\.\s+(.+)$') {
+                    $QueryMatch = $true
+                    $CurrentId = [int]$Matches[1]
+                    $CurrentTitle = $Matches[2].Trim()
+                }
+            }
+            'EntraID' {
+                # Compatibilidad: ## A1) ... (formato legado) y ## 1.1) ... (formato actual)
+                if ($Trimmed -match '^## ((?:[A-Z]\d+|\d+\.\d+))\)\s+(.+)$') {
+                    $QueryMatch = $true
+                    $CurrentId = $Matches[1].Trim()
+                    $CurrentTitle = $Matches[2].Trim()
+                }
+            }
+        }
+
+        # --- Capturar bloque KQL ---
+        if ($Trimmed -match '^```kql' -and $CurrentId) {
+            $InKql = $true
+            $KqlBuffer = ""
+            continue
+        }
+
+        if ($InKql -and $Trimmed -match '^```\s*$') {
+            $InKql = $false
+            # Emitir entrada del catálogo
+            $Entry = @{
+                Id       = $CurrentId
+                Category = if ($Category) { $Category } else { $CurrentTitle }
+                Title    = $CurrentTitle
+                Query    = $KqlBuffer.TrimEnd()
+            }
+            $Catalog += $Entry
+            $CurrentId = $null
+            $CurrentTitle = ""
+            $KqlBuffer = ""
+            continue
+        }
+
+        if ($InKql) {
+            $KqlBuffer += $Trimmed + "`n"
+        }
+    }
+
+    # Para EntraID, re-numerar secuencialmente (1, 2, 3...) ya que los IDs originales son alfanuméricos
+    if ($Format -eq 'EntraID') {
+        for ($i = 0; $i -lt $Catalog.Count; $i++) {
+            $Catalog[$i].Id = $i + 1
+        }
+    }
+
+    if ($Catalog.Count -eq 0 -and $LoadedFrom -eq 'GitHub' -and $LocalPath -and (Test-Path $LocalPath)) {
+        Write-Log "Catálogo $Format en GitHub sin queries parseables. Reintentando archivo local..." -Level WARN
+        return Import-KqlCatalogFromMarkdown -Url $null -LocalPath $LocalPath -Format $Format
+    }
+
+    Write-Log "Catálogo $Format cargado desde Markdown: $($Catalog.Count) queries"
+    return $Catalog
+}
 
 # --- ENMASCARAMIENTO DE CREDENCIALES ---
 function Mask-String {
@@ -57,6 +286,8 @@ function Mask-String {
 $MaskedTenantId  = Mask-String $TenantId
 $MaskedClientId  = Mask-String $ClientId
 $MaskedSecret    = if ($ClientSecret) { '********' } else { '(no configurado)' }
+$MaskedCertThumb = if ($CertificateThumbprint) { Mask-String $CertificateThumbprint 6 } else { '(no configurado)' }
+$MaskedCertPath  = if ($CertificatePath) { $CertificatePath } else { '(no configurado)' }
 
 # --- FUNCIÓN DE REGISTRO (LOG) ---
 function Write-Log {
@@ -70,10 +301,165 @@ Write-Log "=== Contexto de Seguridad ==="
 Write-Log "  Tenant ID   : $MaskedTenantId"
 Write-Log "  Client ID   : $MaskedClientId"
 Write-Log "  Secret      : $MaskedSecret"
+Write-Log "  Cert Thumb  : $MaskedCertThumb"
+Write-Log "  Cert Path   : $MaskedCertPath"
 Write-Log "  Auth Mode   : $AuthMode"
 Write-Log "=============================="
 
 # --- AUTENTICACIÓN ---
+function ConvertTo-Base64Url {
+    param([byte[]]$Bytes)
+
+    $B64 = [Convert]::ToBase64String($Bytes)
+    $B64 = $B64.TrimEnd('=')
+    $B64 = $B64.Replace('+', '-').Replace('/', '_')
+    return $B64
+}
+
+function Get-ExceptionResponseBody {
+    param([Parameter(Mandatory)]$ErrorRecord)
+
+    $ErrorDetailsMessage = $ErrorRecord.ErrorDetails.Message
+    if ($ErrorDetailsMessage) {
+        return [string]$ErrorDetailsMessage
+    }
+
+    $Response = $ErrorRecord.Exception.Response
+    if (-not $Response) {
+        return $null
+    }
+
+    try {
+        if ($Response.Content) {
+            return $Response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+        }
+    }
+    catch {}
+
+    try {
+        $Stream = $Response.GetResponseStream()
+        if ($Stream) {
+            $Reader = New-Object System.IO.StreamReader($Stream)
+            try {
+                return $Reader.ReadToEnd()
+            }
+            finally {
+                $Reader.Dispose()
+                $Stream.Dispose()
+            }
+        }
+    }
+    catch {}
+
+    return $null
+}
+
+function Get-CertificateForAuth {
+    if ($CertificatePath) {
+        if (-not (Test-Path $CertificatePath)) {
+            throw "No se encontró el certificado en ruta: $CertificatePath"
+        }
+
+        if ($CertificatePassword) {
+            return [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
+                $CertificatePath,
+                $CertificatePassword,
+                [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable
+            )
+        }
+
+        return [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
+            $CertificatePath,
+            $null,
+            [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable
+        )
+    }
+
+    if (-not $CertificateThumbprint) {
+        throw "Para AuthMode 'Certificate', especifique -CertificateThumbprint o -CertificatePath."
+    }
+
+    $NormalizedThumb = ($CertificateThumbprint -replace '\s','').ToUpperInvariant()
+    foreach ($StoreLocation in @('CurrentUser', 'LocalMachine')) {
+        $Store = [System.Security.Cryptography.X509Certificates.X509Store]::new('My', $StoreLocation)
+        try {
+            $Store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadOnly)
+            $Found = $Store.Certificates | Where-Object { $_.Thumbprint -eq $NormalizedThumb } | Select-Object -First 1
+            if ($Found) {
+                return $Found
+            }
+        }
+        finally {
+            $Store.Close()
+        }
+    }
+
+    throw "No se encontró un certificado con thumbprint '$CertificateThumbprint' en CurrentUser/My o LocalMachine/My."
+}
+
+function New-ClientAssertionJwt {
+    param(
+        [Parameter(Mandatory)][System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+        [Parameter(Mandatory)][string]$ClientId,
+        [Parameter(Mandatory)][string]$TenantId
+    )
+
+    if (-not $Certificate.HasPrivateKey) {
+        throw "El certificado no contiene clave privada."
+    }
+
+    $Rsa = $null
+    try {
+        # Compatibilidad amplia: en algunos hosts GetRSAPrivateKey no está disponible como método de instancia.
+        $Rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($Certificate)
+    }
+    catch {
+        $Rsa = $null
+    }
+
+    if (-not $Rsa -and $Certificate.PrivateKey -is [System.Security.Cryptography.RSA]) {
+        $Rsa = [System.Security.Cryptography.RSA]$Certificate.PrivateKey
+    }
+
+    if (-not $Rsa) {
+        throw "No se pudo obtener la clave privada RSA del certificado. Verifique que tenga clave privada exportable y algoritmo RSA."
+    }
+
+    $Now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    $Audience = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
+
+    $Header = @{
+        alg = 'RS256'
+        typ = 'JWT'
+        x5t = (ConvertTo-Base64Url -Bytes $Certificate.GetCertHash())
+    }
+
+    $Payload = @{
+        aud = $Audience
+        iss = $ClientId
+        sub = $ClientId
+        jti = ([Guid]::NewGuid().ToString())
+        nbf = $Now - 300
+        exp = $Now + 600
+    }
+
+    $HeaderJson = ($Header | ConvertTo-Json -Compress)
+    $PayloadJson = ($Payload | ConvertTo-Json -Compress)
+
+    $EncodedHeader = ConvertTo-Base64Url -Bytes ([Text.Encoding]::UTF8.GetBytes($HeaderJson))
+    $EncodedPayload = ConvertTo-Base64Url -Bytes ([Text.Encoding]::UTF8.GetBytes($PayloadJson))
+    $UnsignedToken = "$EncodedHeader.$EncodedPayload"
+
+    $SignatureBytes = $Rsa.SignData(
+        [Text.Encoding]::UTF8.GetBytes($UnsignedToken),
+        [System.Security.Cryptography.HashAlgorithmName]::SHA256,
+        [System.Security.Cryptography.RSASignaturePadding]::Pkcs1
+    )
+    $EncodedSignature = ConvertTo-Base64Url -Bytes $SignatureBytes
+
+    return "$UnsignedToken.$EncodedSignature"
+}
+
 function Get-M365Token {
     Write-Log "Obteniendo Token de Acceso vía $AuthMode..."
     
@@ -88,6 +474,26 @@ function Get-M365Token {
                 client_secret = $ClientSecret
                 scope         = "$ResourceUrl/.default"
             }
+            $TokenReq = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token" -Body $Body -ErrorAction Stop
+            return $TokenReq.access_token
+        }
+        elseif ($AuthMode -eq "Certificate") {
+            if (-not ($TenantId -and $ClientId)) {
+                throw "Para autenticación 'Certificate', se requieren TenantId y ClientId."
+            }
+
+            $Cert = Get-CertificateForAuth
+            Write-Log "Usando certificado '$($Cert.Subject)' (thumbprint: $($Cert.Thumbprint)) para autenticación por certificado."
+
+            $ClientAssertion = New-ClientAssertionJwt -Certificate $Cert -ClientId $ClientId -TenantId $TenantId
+            $Body = @{
+                grant_type            = 'client_credentials'
+                client_id             = $ClientId
+                scope                 = "$ResourceUrl/.default"
+                client_assertion_type = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
+                client_assertion      = $ClientAssertion
+            }
+
             $TokenReq = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token" -Body $Body -ErrorAction Stop
             return $TokenReq.access_token
         }
@@ -159,7 +565,10 @@ function Get-M365Token {
                     }
                     catch {
                         $ErrBody = $null
-                        try { $ErrBody = $_.ErrorDetails.Message | ConvertFrom-Json } catch {}
+                        $ErrDetailsMessage = $_.ErrorDetails.Message
+                        if ($ErrDetailsMessage) {
+                            try { $ErrBody = $ErrDetailsMessage | ConvertFrom-Json } catch {}
+                        }
                         if ($ErrBody.error -eq "authorization_pending") { continue }
                         elseif ($ErrBody.error -eq "expired_token") {
                             throw "El código de dispositivo ha expirado. Ejecute el script nuevamente."
@@ -173,7 +582,32 @@ function Get-M365Token {
         }
     }
     catch {
-        Write-Log "Error de Autenticación: $_" -Level ERROR
+        $RawMessage = $_.Exception.Message
+        $ErrorJson = $null
+        $ResponseBody = Get-ExceptionResponseBody -ErrorRecord $_
+        if ($ResponseBody) {
+            try { $ErrorJson = $ResponseBody | ConvertFrom-Json } catch {}
+        }
+
+        if ($ErrorJson -and $ErrorJson.error_codes -contains 700027) {
+            Write-Log "Error de Autenticación (AADSTS700027): certificado no registrado en la aplicación." -Level ERROR
+            Write-Log "AppId objetivo: $ClientId" -Level ERROR
+            Write-Log "Acción requerida: cargue el certificado público (.cer) del mismo certificado usado para firmar en Entra ID > App registrations > Certificates & secrets." -Level ERROR
+            Write-Log "Verifique que TenantId/AppId coincidan con el registro donde cargó el certificado y espere la propagación de claves (1-5 min)." -Level ERROR
+
+            if ($ErrorJson.error_description -match "Thumbprint of key used by client:\s*'([^']+)'") {
+                Write-Log "Thumbprint enviado por el cliente: $($Matches[1])" -Level ERROR
+            }
+
+            Write-Log $ErrorJson.error_description -Level ERROR
+        }
+        elseif ($ResponseBody) {
+            Write-Log "Error de Autenticación: $RawMessage" -Level ERROR
+            Write-Log "Detalle devuelto por Entra ID: $ResponseBody" -Level ERROR
+        }
+        else {
+            Write-Log "Error de Autenticación: $RawMessage" -Level ERROR
+        }
         throw $_
     }
 }
@@ -273,11 +707,31 @@ AlertInfo
 | order by Count desc
 "@
 
+    "AlertsByWorkload" = @"
+AlertInfo
+| where Timestamp >= ago(24h)
+| project Timestamp,
+          AlertId,
+          Title = tostring(column_ifexists("Title", "")),
+          Severity = tostring(column_ifexists("Severity", "")),
+          ServiceSource = tostring(column_ifexists("ServiceSource", "")),
+          DetectionSource = tostring(column_ifexists("DetectionSource", "")),
+          ProviderName = tostring(column_ifexists("ProviderName", "")),
+          Category = tostring(column_ifexists("Category", ""))
+| order by Timestamp desc, Severity desc
+"@
+
     "XDR_Incidents" = @"
 AlertInfo
 | where Timestamp >= ago(24h)
-| join kind=leftouter (AlertEvidence | where Timestamp >= ago(24h) | summarize Entities=dcount(EntityType), DevicesAffected=dcount(DeviceId) by AlertId) on AlertId
-| project Timestamp, AlertId, Title, Severity, ServiceSource, Category, Entities=coalesce(Entities, 0), DevicesAffected=coalesce(DevicesAffected, 0)
+| extend IncidentRef = tostring(column_ifexists("IncidentId", ""))
+| extend IncidentRef = iif(isempty(IncidentRef), tostring(AlertId), IncidentRef)
+| extend IncidentStatus = trim(@" ", tostring(column_ifexists("Status", "")))
+| extend IncidentStatusNorm = tolower(IncidentStatus)
+| summarize arg_max(Timestamp, Title, Severity, IncidentStatus) by IncidentRef
+| where isempty(IncidentStatusNorm) or not(IncidentStatusNorm has "closed")
+| where isempty(IncidentStatusNorm) or not(IncidentStatusNorm has "resolved")
+| project Timestamp, IncidentId=IncidentRef, Title, Severity, Status=IncidentStatus
 | order by Timestamp desc
 | take 25
 "@
@@ -329,6 +783,14 @@ CloudAppEvents
 | summarize Events=count(), Users=dcount(AccountId) by Application
 | top 20 by Events desc
 "@
+
+    "XDR_CustomDetections" = @"
+AlertInfo
+| where Timestamp >= ago($($CustomDetectionsWindowHours)h)
+| where DetectionSource =~ "Custom Detection"
+| summarize Count=count() by Severity, Title
+| order by Count desc
+"@
 }
 
 # --- EJECUCIÓN PRINCIPAL ---
@@ -336,30 +798,169 @@ CloudAppEvents
 # 1. Autenticar
 $Token = Get-M365Token
 
-# 2. Ejecutar Consultas
+# 2. Ejecutar Consultas (filtradas por producto activo)
 $Data = @{}
 foreach ($Key in $Queries.Keys) {
+    if ($Key.StartsWith("MDO_") -and -not $RunMDO) { continue }
+    if ($Key.StartsWith("MDE_") -and -not $RunMDE) { continue }
+    if ($Key.StartsWith("MDI_") -and -not $RunMDI) { continue }
+    if ($Key.StartsWith("MDA_") -and -not $RunMDA) { continue }
     $Result = Invoke-HuntingQuery -Token $Token -Query $Queries[$Key] -Name $Key
     $Data[$Key] = $Result.Results
 }
 
 # 3. Calcular KPIs
-$Kpi_TotalAlerts = ($Data["XDR_AllAlerts"] | Measure-Object -Property Count -Sum).Sum
-if (-not $Kpi_TotalAlerts) { $Kpi_TotalAlerts = 0 }
-
 $Kpi_IncidentCount = $Data["XDR_Incidents"].Count
 if (-not $Kpi_IncidentCount) { $Kpi_IncidentCount = 0 }
 
-$Kpi_PhishDelivered = ($Data["MDO_Campaigns"] | Measure-Object -Property Events -Sum).Sum
-if (-not $Kpi_PhishDelivered) { $Kpi_PhishDelivered = 0 }
+$Kpi_MdoAlerts = 0
+if ($RunMDO) {
+    $Kpi_MdoAlerts = ($Data["XDR_AllAlerts"] | Where-Object { $_.ServiceSource -match "Defender for Office 365|Office 365" } | Measure-Object -Property Count -Sum).Sum
+    if (-not $Kpi_MdoAlerts) { $Kpi_MdoAlerts = 0 }
+}
 
-$Kpi_CompromisedIdentities = $Data["MDI_BruteForce"].Count
-$Kpi_HighRiskUsers = $Data["MDI_HighRiskUsers"].Count
-$Kpi_NewOAuth = ($Data["MDA_OAuth"] | Measure-Object -Property Consents -Sum).Sum
-if (-not $Kpi_NewOAuth) { $Kpi_NewOAuth = 0 }
+$Kpi_MdeAlerts = 0
+if ($RunMDE) {
+    $Kpi_MdeAlerts = ($Data["XDR_AllAlerts"] | Where-Object { $_.ServiceSource -match "Defender for Endpoint|Endpoint" } | Measure-Object -Property Count -Sum).Sum
+    if (-not $Kpi_MdeAlerts) { $Kpi_MdeAlerts = 0 }
+}
+
+$Kpi_MdiAlerts = 0
+$Kpi_HighRiskUsers = 0
+if ($RunMDI) {
+    $Kpi_MdiAlerts = ($Data["XDR_AllAlerts"] | Where-Object { $_.ServiceSource -match "Defender for Identity" } | Measure-Object -Property Count -Sum).Sum
+    if (-not $Kpi_MdiAlerts) { $Kpi_MdiAlerts = 0 }
+    $Kpi_HighRiskUsers = $Data["MDI_HighRiskUsers"].Count
+}
+
+$Kpi_NewOAuth = 0
+if ($RunMDA) {
+    $Kpi_NewOAuth = ($Data["MDA_OAuth"] | Measure-Object -Property Consents -Sum).Sum
+    if (-not $Kpi_NewOAuth) { $Kpi_NewOAuth = 0 }
+}
+
+$Kpi_CustomDetections = 0
+if ($Data["XDR_CustomDetections"] -and $Data["XDR_CustomDetections"].Count -gt 0) {
+    $Kpi_CustomDetections = ($Data["XDR_CustomDetections"] | Measure-Object -Property Count -Sum).Sum
+    if (-not $Kpi_CustomDetections) { $Kpi_CustomDetections = 0 }
+}
+
+# --- Severidad máxima por workload para colorear KPIs ---
+function Get-SeverityRank {
+    param([string]$Severity)
+
+    switch -Regex (($Severity | ForEach-Object { $_.ToString().Trim().ToLower() })) {
+        'critical'      { return 5 }
+        '^high$'        { return 4 }
+        '^medium$'      { return 3 }
+        '^low$'         { return 2 }
+        'informational|info' { return 1 }
+        default         { return 0 }
+    }
+}
+
+function Get-HighestSeverity {
+    param($Rows)
+
+    if (-not $Rows -or $Rows.Count -eq 0) { return $null }
+
+    $Top = $Rows |
+        Sort-Object -Property @{ Expression = { Get-SeverityRank $_.Severity }; Descending = $true } |
+        Select-Object -First 1
+
+    return [string]$Top.Severity
+}
+
+function Get-KpiSeverityClass {
+    param([string]$Severity)
+
+    switch -Regex (($Severity | ForEach-Object { $_.ToString().Trim().ToLower() })) {
+        'critical'      { return 'critical' }
+        '^high$'        { return 'high' }
+        '^medium$'      { return 'medium' }
+        '^low$'         { return 'low' }
+        'informational|info' { return 'info' }
+        default         { return 'none' }
+    }
+}
+
+function Get-KpiClassFromRiskLevel {
+    param([int]$RiskLevel)
+
+    if ($RiskLevel -ge 100) { return 'critical' }
+    if ($RiskLevel -ge 50)  { return 'high' }
+    if ($RiskLevel -gt 0)   { return 'medium' }
+    return 'none'
+}
+
+$AllAlerts = @($Data["XDR_AllAlerts"])
+
+$XdrMaxSeverity = Get-HighestSeverity -Rows @($Data["XDR_Incidents"])
+$Kpi_XdrSeverityClass = Get-KpiSeverityClass -Severity $XdrMaxSeverity
+$Kpi_XdrSeverityLabel = if ($XdrMaxSeverity) { $XdrMaxSeverity } else { 'Sin alertas' }
+
+$Kpi_MdoSeverityClass = 'none'
+$Kpi_MdoSeverityLabel = 'Sin alertas'
+if ($RunMDO) {
+    $MdoAlerts = @($AllAlerts | Where-Object { $_.ServiceSource -match 'Defender for Office 365|Office 365' })
+    $MdoMaxSeverity = Get-HighestSeverity -Rows $MdoAlerts
+    $Kpi_MdoSeverityClass = Get-KpiSeverityClass -Severity $MdoMaxSeverity
+    if ($MdoMaxSeverity) { $Kpi_MdoSeverityLabel = $MdoMaxSeverity }
+}
+
+$Kpi_MdeSeverityClass = 'none'
+$Kpi_MdeSeverityLabel = 'Sin alertas'
+if ($RunMDE) {
+    $MdeAlerts = @($AllAlerts | Where-Object { $_.ServiceSource -match 'Defender for Endpoint|Endpoint' })
+    $MdeMaxSeverity = Get-HighestSeverity -Rows $MdeAlerts
+    $Kpi_MdeSeverityClass = Get-KpiSeverityClass -Severity $MdeMaxSeverity
+    if ($MdeMaxSeverity) { $Kpi_MdeSeverityLabel = $MdeMaxSeverity }
+}
+
+$Kpi_MdiSeverityClass = 'none'
+$Kpi_MdiSeverityLabel = 'Sin alertas'
+if ($RunMDI) {
+    $MdiAlerts = @($AllAlerts | Where-Object { $_.ServiceSource -match 'Defender for Identity|Identity' })
+    $MdiMaxSeverity = Get-HighestSeverity -Rows $MdiAlerts
+    $Kpi_MdiSeverityClass = Get-KpiSeverityClass -Severity $MdiMaxSeverity
+    if ($MdiMaxSeverity) { $Kpi_MdiSeverityLabel = $MdiMaxSeverity }
+}
+
+$Kpi_MdaSeverityClass = 'none'
+$Kpi_MdaSeverityLabel = 'Sin alertas'
+if ($RunMDA) {
+    $MdaAlerts = @($AllAlerts | Where-Object { $_.ServiceSource -match 'Defender for Cloud Apps|Cloud Apps|Microsoft Cloud App Security|MCAS' })
+    $MdaMaxSeverity = Get-HighestSeverity -Rows $MdaAlerts
+    $Kpi_MdaSeverityClass = Get-KpiSeverityClass -Severity $MdaMaxSeverity
+    if ($MdaMaxSeverity) { $Kpi_MdaSeverityLabel = $MdaMaxSeverity }
+}
+
+$Kpi_EntraMaxRiskLevel = 0
+if ($RunMDI -and $Data["MDI_HighRiskUsers"] -and $Data["MDI_HighRiskUsers"].Count -gt 0) {
+    $Kpi_EntraMaxRiskLevel = (($Data["MDI_HighRiskUsers"] | Measure-Object -Property RiskLevelAggregated -Maximum).Maximum)
+    if (-not $Kpi_EntraMaxRiskLevel) { $Kpi_EntraMaxRiskLevel = 0 }
+}
+$Kpi_EntraSeverityClass = Get-KpiClassFromRiskLevel -RiskLevel $Kpi_EntraMaxRiskLevel
+$Kpi_EntraSeverityLabel = if ($Kpi_EntraMaxRiskLevel -eq 100) { 'High (100)' } elseif ($Kpi_EntraMaxRiskLevel -eq 50) { 'Medium (50)' } elseif ($Kpi_EntraMaxRiskLevel -gt 0) { "Riesgo $Kpi_EntraMaxRiskLevel" } else { 'Sin riesgo' }
+
+$Kpi_CustomDetectionsSeverityClass = 'none'
+$Kpi_CustomDetectionsSeverityLabel = 'Sin detecciones'
+if ($Data["XDR_CustomDetections"] -and $Data["XDR_CustomDetections"].Count -gt 0) {
+    $CustomMaxSeverity = Get-HighestSeverity -Rows $Data["XDR_CustomDetections"]
+    $Kpi_CustomDetectionsSeverityClass = Get-KpiSeverityClass -Severity $CustomMaxSeverity
+    if ($CustomMaxSeverity) { $Kpi_CustomDetectionsSeverityLabel = $CustomMaxSeverity }
+}
 
 # --- CATÁLOGO COMPLETO DE KQL (MDO Advanced Hunting) ---
-# Fuente: https://github.com/watchdogcode/gol2026/blob/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md
+# Se carga dinámicamente desde GitHub (rama main) o archivo local como fallback.
+# Si ambos fallan, se usa el catálogo hardcoded.
+$MdoKqlCatalog = Import-KqlCatalogFromMarkdown `
+    -Url 'https://raw.githubusercontent.com/watchdogcode/gol2026/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md' `
+    -LocalPath (Join-Path $PSScriptRoot "..\MDO\Paquete MDO KQL Advance Hunting.md") `
+    -Format MDO
+
+if (-not $MdoKqlCatalog -or $MdoKqlCatalog.Count -eq 0) {
+Write-Log "Cargando catálogo MDO desde fallback hardcoded..." -Level WARN
 $MdoKqlCatalog = @(
     # ── Spoofing y Autenticación ──
     @{ Id=1;  Category="Spoofing y Autenticación"; Title="Spoofing: From (Header) ≠ MailFrom (Envelope)"; Query=@"
@@ -670,11 +1271,30 @@ EmailEvents
 | where OrgLevelAction in ("Allow","DeliverToInbox") or (DetectionMethods has "UserOverride" or DetectionMethods has "AdminOverride")
 | summarize Total=count(), DistinctSenders=dcount(SenderFromAddress) by OrgLevelAction, DetectionMethods
 | order by Total desc
+"@ },
+    # ── Validación de Correos Entregados con Amenazas ──
+    @{ Id=29; Category="Validación de Correos Entregados con Amenazas"; Title="Correos entregados con algún tipo de amenaza (Query base)"; Query=@"
+EmailEvents
+| where DeliveryAction == "Delivered"
+| where ThreatTypes != ""
+| project Timestamp, NetworkMessageId, SenderFromAddress, RecipientEmailAddress, Subject, ThreatTypes, DetectionMethods, ConfidenceLevel, DeliveryLocation
+| order by Timestamp desc
+"@ },
+    @{ Id=30; Category="Validación de Correos Entregados con Amenazas"; Title="Confirmar si fue Safe Attachments o Safe Links"; Query=@"
+EmailAttachmentInfo
+| where MalwareFilterVerdict != "Clean"
+| project Timestamp, NetworkMessageId, FileName, MalwareFilterVerdict, DetectionMethods
+"@ },
+    @{ Id=31; Category="Validación de Correos Entregados con Amenazas"; Title="Enlaces maliciosos entregados"; Query=@"
+EmailUrlInfo
+| where UrlThreatType != "None"
+| project Timestamp, NetworkMessageId, Url, UrlThreatType, DetectionMethods
 "@ }
 )
+} # fin fallback MDO
 
 # Seleccionar un KQL aleatorio del catálogo MDO
-$SelectedMdoKql = $MdoKqlCatalog | Get-Random
+$SelectedMdoKql = if ($RunMDO) { $MdoKqlCatalog | Get-Random } else { $null }
 
 # --- CATÁLOGO KQL: MDE (Advanced Hunting – Endpoint Security) ---
 $MdeKqlCatalog = @(
@@ -785,10 +1405,17 @@ DeviceInfo
 | take 50
 "@ }
 )
-$SelectedMdeKql = $MdeKqlCatalog | Get-Random
+$SelectedMdeKql = if ($RunMDE) { $MdeKqlCatalog | Get-Random } else { $null }
 
 # --- CATÁLOGO KQL: MDI (Advanced Hunting – Identity Threat Detection) ---
-# Fuente: https://github.com/watchdogcode/gol2026/blob/main/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md
+# Se carga dinámicamente desde GitHub (rama main) o archivo local como fallback.
+$MdiKqlCatalog = Import-KqlCatalogFromMarkdown `
+    -Url 'https://raw.githubusercontent.com/watchdogcode/gol2026/main/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md' `
+    -LocalPath (Join-Path $PSScriptRoot "..\MDI\Paquete MDI KQL Advance Hunting.md") `
+    -Format MDI
+
+if (-not $MdiKqlCatalog -or $MdiKqlCatalog.Count -eq 0) {
+Write-Log "Cargando catálogo MDI desde fallback hardcoded..." -Level WARN
 $MdiKqlCatalog = @(
     @{ Id=1; Category="Alertas e Incidentes MDI"; Title="Alertas de Defender for Identity (últimos 7d)"; Query=@"
 let TimeRange = 7d;
@@ -892,10 +1519,19 @@ DeviceNetworkEvents
 | order by DNSQueries desc
 "@ }
 )
-$SelectedMdiKql = $MdiKqlCatalog | Get-Random
+} # fin fallback MDI
+
+$SelectedMdiKql = if ($RunMDI) { $MdiKqlCatalog | Get-Random } else { $null }
 
 # --- CATÁLOGO KQL: Entra ID (Advanced Hunting – Identity Governance) ---
-# Fuente: https://github.com/watchdogcode/gol2026/blob/main/EntraID/Paquete%20KQL%20Queries%20EntraID%20Advanced%20Hunting.md
+# Se carga dinámicamente desde GitHub (rama main) o archivo local como fallback.
+$EntraKqlCatalog = Import-KqlCatalogFromMarkdown `
+    -Url 'https://raw.githubusercontent.com/watchdogcode/gol2026/main/EntraID/Paquete%20KQL%20Queries%20EntraID%20Advanced%20Hunting.md' `
+    -LocalPath (Join-Path $PSScriptRoot "..\EntraID\Paquete KQL Queries EntraID Advanced Hunting.md") `
+    -Format EntraID
+
+if (-not $EntraKqlCatalog -or $EntraKqlCatalog.Count -eq 0) {
+Write-Log "Cargando catálogo EntraID desde fallback hardcoded..." -Level WARN
 $EntraKqlCatalog = @(
     # ── A) Detección – Usuarios ──
     @{ Id=1; Category="Detección de Usuarios"; Title="Top Fallos de Inicio de Sesión por Usuario"; Query=@"
@@ -1160,7 +1796,9 @@ CloudAppEvents
 | order by Timestamp desc
 "@ }
 )
-$SelectedEntraKql = $EntraKqlCatalog | Get-Random
+} # fin fallback EntraID
+
+$SelectedEntraKql = if ($RunMDI) { $EntraKqlCatalog | Get-Random } else { $null }
 
 # --- CATÁLOGO KQL: MDA (Advanced Hunting – Cloud App Security) ---
 $MdaKqlCatalog = @(
@@ -1262,7 +1900,7 @@ CloudAppEvents
 | order by MaxTime desc
 "@ }
 )
-$SelectedMdaKql = $MdaKqlCatalog | Get-Random
+$SelectedMdaKql = if ($RunMDA) { $MdaKqlCatalog | Get-Random } else { $null }
 
 # 4. Generar HTML
 function ConvertTo-HtmlTable {
@@ -1282,6 +1920,296 @@ function ConvertTo-HtmlTable {
     return $Html
 }
 
+# --- ESTRUCTURA HOMOGÉNEA DE TAREAS OPERATIVAS POR WORKLOAD ---
+$OperativeTasks = @{
+    "MDO" = @(
+        @{ Task="Revisar alertas activas"; Portal="https://security.microsoft.com/alerts"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#monitoreo-de-alertas" },
+        @{ Task="Monitoreo de Incidentes"; Portal="https://security.microsoft.com/incidents"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#monitoreo-de-incidentes" },
+        @{ Task="Triage de Mensajes de Teams Reportados"; Portal="https://admin.teams.microsoft.com/policies/messaging?view=reportedsafety"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#triage-de-mensajes-de-teams-reportados-por-usuarios" },
+        @{ Task="Revisar y Actuar sobre los AIRs"; Portal="https://security.microsoft.com/action-center/pending"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-y-actuar-sobre-los-airs" },
+        @{ Task="Revisar Tendencias de Detección MDO"; Portal="https://security.microsoft.com/reports/TPSAggregateReportATP"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-las-tendencias-de-detecci%C3%B3n-de-correo-en-microsoft-defender-for-office-365" },
+        @{ Task="Revisar Campañas Entregadas"; Portal="https://security.microsoft.com/threatexplorerv3"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-campa%C3%B1as-de-phishing-y-malware-que-resultaron-en-correos-entregados" },
+        @{ Task="Revisión de Top Targeted Users"; Portal="https://security.microsoft.com/threatexplorerv3"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisi%C3%B3n-de-top-targeted-users" }
+    );
+    "MDE" = @(
+        @{ Task="Revisar alertas críticas y de alto impacto"; Portal="https://security.microsoft.com/alerts"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md" },
+        @{ Task="Monitorear estado de detección de dispositivos"; Portal="https://security.microsoft.com/devices"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md" },
+        @{ Task="Revisar y actuar sobre incidentes de exposición"; Portal="https://security.microsoft.com/incidents"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md" },
+        @{ Task="Revisar tendencias de vulnerabilidades"; Portal="https://security.microsoft.com/vulnerabilities"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md" }
+    );
+    "MDI" = @(
+        @{ Task="Revisar ITDR Dashboard"; Portal="https://security.microsoft.com/identities/dashboard"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-itdr-dashboard-identities--dashboard" },
+        @{ Task="Triage de Incidentes por Prioridad"; Portal="https://security.microsoft.com/incidents"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#triage-de-incidentes-por-prioridad-incidents--alerts" },
+        @{ Task="Configurar Tuning para False Positives"; Portal="https://security.microsoft.com/advanced-hunting"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#configurar-tuning-para-benign--false-positives-advanced-hunting" },
+        @{ Task="Proactive hunting diario"; Portal="https://security.microsoft.com/v2/advanced-hunting"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#proactive-hunting-diario-o-semanal-seg%C3%BAn-madurez" },
+        @{ Task="Revisar Health Issues"; Portal="https://security.microsoft.com/identities/health-issues"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-health-issues-global-y-sensor" }
+    );
+    "ENTRA" = @(
+        @{ Task="Monitorear eventos de inicio de sesión"; Portal="https://entra.microsoft.com/#view/Microsoft_AAD_IAM/SignInLogsList.ReactView/timeRangeType/last24hours/showApplicationSignIns~/true"; Guide="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#monitorear-eventos-de-inicio-de-sesi%C3%B3n-y-autenticaci%C3%B3n" },
+        @{ Task="Revisión de Usuarios con Riesgo"; Portal="https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskyUsers"; Guide="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisi%C3%B3n-de-usuarios-con-riesgo-alto--medio" },
+        @{ Task="Revisión de Inicios de Sesión con Riesgo"; Portal="https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskySignIns"; Guide="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisi%C3%B3n-de-inicios-de-sesi%C3%B3n-con-riesgo" },
+        @{ Task="Revisar alertas de Entra Connect Health"; Portal="https://entra.microsoft.com/#view/Microsoft_AAD_Connect_Health/ConnectHealthMenuBlade/~/overview"; Guide="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisar-alertas-de-microsoft-entra-connect-health-entornos-h%C3%ADbridos" }
+    );
+    "MDA" = @(
+        @{ Task="Revisar alertas de aplicaciones riesgosas"; Portal="https://security.microsoft.com/alerts"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md" },
+        @{ Task="Monitorear nuevos consentimientos OAuth"; Portal="https://security.microsoft.com/cloud-app-security/oauth-apps"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md" },
+        @{ Task="Revisar Shadow IT y aplicaciones no autorizadas"; Portal="https://security.microsoft.com/cloud-app-security/discovered-apps"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md" },
+        @{ Task="Investigar actividades anómalas en la nube"; Portal="https://security.microsoft.com/v2/advanced-hunting"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md" }
+    );
+}
+
+# --- SECCIONES CONDICIONALES (KPIs y Recomendaciones) ---
+Write-Log "Productos incluidos: $(if($RunMDO){'MDO '})$(if($RunMDE){'MDE '})$(if($RunMDI){'MDI '})$(if($RunMDA){'MDA'})"
+
+function Build-WorkloadSection {
+    param(
+        [string]$WorkloadName,
+        [string]$WorkloadEmoji,
+        [string]$HeaderColor,
+        [array]$OperativeTasks,
+        [array]$ActiveAlerts,
+        [hashtable]$SelectedKql,
+        [string]$KqlCatalogUrl
+    )
+
+    $TaskCount = $OperativeTasks.Count
+    $TaskRows = ""
+    foreach ($Task in $OperativeTasks) {
+        $TaskRows += @"
+                        <tr><td class="ops-task-name">$($Task.Task)</td><td><a class="ops-btn portal" href="$($Task.Portal)" target="_blank">&#x1f517; Abrir</a></td><td><a class="ops-btn doc" href="$($Task.Guide)" target="_blank">&#x1f4d6; Guía</a></td></tr>
+"@
+    }
+
+    # Procesar alertas activas de los últimos 7 días
+    $AlertRows = ""
+    if ($ActiveAlerts -and $ActiveAlerts.Count -gt 0) {
+        # Ordenar por severidad (crítica primero)
+        $SeverityMap = @{ "Critical" = 3; "High" = 2; "Medium" = 1; "Low" = 0; "Informational" = -1 }
+        $SortedAlerts = $ActiveAlerts | Sort-Object -Property @{ Expression = { if ($_.Severity) { $SeverityMap[$_.Severity] } else { 0 } }; Descending = $true } | Select-Object -First 5
+
+        foreach ($Alert in $SortedAlerts) {
+            $AlertSeverity = if ($Alert.Severity) { $Alert.Severity } else { "Medium" }
+            $SeverityColor = switch ($AlertSeverity) {
+                "Critical" { "#7a0018" }
+                "High" { "#d13438" }
+                "Medium" { "#ff8c00" }
+                "Low" { "#8764b8" }
+                default { "#0078d4" }
+            }
+            $AlertTitle = if ($Alert.Title) { $Alert.Title } else { if ($Alert.AlertName) { $Alert.AlertName } else { "Alerta" } }
+            $AlertTime = if ($Alert.Timestamp) { ([datetime]$Alert.Timestamp).ToString("yyyy-MM-dd HH:mm") } else { "N/D" }
+            $AlertUrl = if ($Alert.AlertId) { "https://security.microsoft.com/alerts/$($Alert.AlertId)" } else { "https://security.microsoft.com/alerts" }
+            $AlertRows += @"
+                        <tr style="border-left: 4px solid $SeverityColor;">
+                            <td><strong>$AlertTitle</strong></td>
+                            <td><span style="background:$SeverityColor; color:#fff; padding:3px 8px; border-radius:3px; font-size:0.75em; font-weight:600;">$AlertSeverity</span></td>
+                            <td style="color:#666; font-size:0.9em;">$AlertTime</td>
+                            <td><a class="ops-btn portal" href="$AlertUrl" target="_blank">&#x1f517; Ver Alerta</a></td>
+                        </tr>
+"@
+        }
+    } else {
+        $AlertRows = @"
+                        <tr>
+                            <td colspan="4" style="text-align:center; padding:30px; color:#666;">
+                                <strong>No existen Alertas</strong><br/>
+                                <span style="font-size:0.9em;">No se detectaron alertas activas en el período analizado</span>
+                            </td>
+                        </tr>
+"@
+    }
+
+    $KqlSection = ""
+    if ($SelectedKql) {
+        $KqlCatalogButton = ""
+        if ($KqlCatalogUrl) {
+            $KqlCatalogButton = "<a class=`"ops-btn doc`" href=`"$KqlCatalogUrl`" target=`"_blank`">&#x1f4da; Ver catálogo KQL de $WorkloadName</a>"
+        }
+
+        $KqlSection = @"
+
+        <!-- Recomendación de KQL diario – $WorkloadName -->
+        <div class="ops-group" style="margin-top: 20px;">
+            <div class="ops-group-header" style="background: $HeaderColor;">
+                <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – $WorkloadName
+                <span class="ops-badge daily">#$($SelectedKql.Id)</span>
+            </div>
+            <div style="padding: 20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <span style="background:rgba(0,0,0,0.1); color:$HeaderColor; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">$($SelectedKql.Category)</span>
+                </div>
+                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">$($SelectedKql.Title)</h3>
+                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedKql.Query)</div>
+                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
+                    $KqlCatalogButton
+                </div>
+            </div>
+        </div>
+"@
+    }
+
+    return @"
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- $WorkloadEmoji SECCIÓN $WorkloadName ═══ -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+
+        <h2>$WorkloadName</h2>
+
+        <!-- Tareas Operativas $WorkloadName -->
+        <div class="ops-section">
+            <div class="ops-group">
+                <div class="ops-group-header" style="background: $HeaderColor;">
+                    $WorkloadEmoji Tareas Operativas - $WorkloadName
+                    <span class="ops-badge daily">$TaskCount Diarias</span>
+                </div>
+                <table class="ops-table">
+                    <thead><tr><th style="width:50%">Tarea</th><th style="width:25%">Portal</th><th style="width:25%">Documentación</th></tr></thead>
+                    <tbody>
+$TaskRows
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Alertas del Workload -->
+        <div class="ops-section" style="margin-top: 30px;">
+            <div class="ops-group">
+                <div class="ops-group-header" style="background: $HeaderColor;">
+                    &#x26a0; Alertas del Workload - Top 5 por Criticidad
+                    <span class="ops-badge daily">Critical/High</span>
+                </div>
+                <table class="ops-table">
+                    <thead><tr><th style="width:35%">Alerta</th><th style="width:15%">Severidad</th><th style="width:20%">Portal</th><th style="width:30%">Acción</th></tr></thead>
+                    <tbody>
+$AlertRows
+                    </tbody>
+                </table>
+            </div>
+        </div>
+$KqlSection
+"@
+}
+
+function Get-WorkloadAlerts {
+    param(
+        [string]$WorkloadType,
+        [array]$AllAlerts
+    )
+
+    $ServicePatterns = @{
+        "MDO"   = 'Defender for Office 365|Office 365|Email'
+        "MDE"   = 'Defender for Endpoint|Endpoint'
+        "MDI"   = 'Defender for Identity|MicrosoftDefenderForIdentity|Identity'
+        "ENTRA" = 'Entra ID|Azure AD|Azure Active Directory'
+        "MDA"   = 'Defender for Cloud Apps|Cloud Apps|Microsoft Cloud App Security|MCAS'
+    }
+
+    $ServicePattern = $ServicePatterns[$WorkloadType]
+    
+    $WorkloadAlerts = @()
+    if ($AllAlerts -and $ServicePattern) {
+        $WorkloadAlerts = $AllAlerts | Where-Object { 
+            $AlertSource = @(
+                $_.ServiceSource,
+                $_.DetectionSource,
+                $_.ProviderName,
+                $_.Category,
+                $_.Title
+            ) -join ' '
+            $AlertSource -match $ServicePattern
+        } | Sort-Object -Property @{ Expression = { 
+            $SeverityMap = @{ "Critical" = 3; "High" = 2; "Medium" = 1; "Low" = 0 }
+            $SeverityMap[$_.Severity]
+        }; Descending = $true } | Select-Object -First 5
+    }
+    
+    return $WorkloadAlerts
+}
+
+$HtmlMDOSection = if ($RunMDO) { 
+    $MdoAlerts = Get-WorkloadAlerts -WorkloadType "MDO" -AllAlerts $Data["AlertsByWorkload"]
+    Build-WorkloadSection -WorkloadName "MDO: Microsoft Defender for Office 365" -WorkloadEmoji "&#x1f4e7;" -HeaderColor "#0078d4" -OperativeTasks $OperativeTasks.MDO -ActiveAlerts $MdoAlerts -SelectedKql $SelectedMdoKql -KqlCatalogUrl "https://github.com/watchdogcode/gol2026/blob/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md"
+} else { "" }
+
+$HtmlMDESection = if ($RunMDE) { 
+    $MdeAlerts = Get-WorkloadAlerts -WorkloadType "MDE" -AllAlerts $Data["AlertsByWorkload"]
+    Build-WorkloadSection -WorkloadName "MDE: Microsoft Defender for Endpoint" -WorkloadEmoji "&#x1f5a5;" -HeaderColor "#d83b01" -OperativeTasks $OperativeTasks.MDE -ActiveAlerts $MdeAlerts -SelectedKql $SelectedMdeKql -KqlCatalogUrl "https://learn.microsoft.com/defender-xdr/advanced-hunting-query-samples"
+} else { "" }
+
+$HtmlMDISection = if ($RunMDI) { 
+    $MdiAlerts = Get-WorkloadAlerts -WorkloadType "MDI" -AllAlerts $Data["AlertsByWorkload"]
+    Build-WorkloadSection -WorkloadName "MDI: Microsoft Defender for Identity" -WorkloadEmoji "&#x1f6e1;" -HeaderColor "#e97a00" -OperativeTasks $OperativeTasks.MDI -ActiveAlerts $MdiAlerts -SelectedKql $SelectedMdiKql -KqlCatalogUrl "https://github.com/watchdogcode/gol2026/blob/main/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md"
+} else { "" }
+
+$HtmlEntraSection = if ($RunMDI) { 
+    $EntraAlerts = Get-WorkloadAlerts -WorkloadType "ENTRA" -AllAlerts $Data["AlertsByWorkload"]
+    Build-WorkloadSection -WorkloadName "ENTRA: Microsoft Entra ID" -WorkloadEmoji "&#x1f510;" -HeaderColor "#107c10" -OperativeTasks $OperativeTasks.ENTRA -ActiveAlerts $EntraAlerts -SelectedKql $SelectedEntraKql -KqlCatalogUrl "https://github.com/watchdogcode/gol2026/blob/main/EntraID/Paquete%20KQL%20Queries%20EntraID%20Advanced%20Hunting.md"
+} else { "" }
+
+$HtmlMDASection = if ($RunMDA) { 
+    $MdaAlerts = Get-WorkloadAlerts -WorkloadType "MDA" -AllAlerts $Data["AlertsByWorkload"]
+    Build-WorkloadSection -WorkloadName "MDA: Microsoft Defender for Cloud Apps" -WorkloadEmoji "&#x2601;" -HeaderColor "#8764b8" -OperativeTasks $OperativeTasks.MDA -ActiveAlerts $MdaAlerts -SelectedKql $SelectedMdaKql -KqlCatalogUrl "https://learn.microsoft.com/defender-xdr/advanced-hunting-cloudappevents-table"
+} else { "" }
+
+$HtmlKpiMDO = ""
+if ($RunMDO) {
+$HtmlKpiMDO = @"
+            <div class="kpi-card $Kpi_MdoSeverityClass">
+                <div class="kpi-val">$Kpi_MdoAlerts</div>
+                <div class="kpi-label">Alertas de Defender for Office</div>
+                <div class="kpi-severity">Máx: $Kpi_MdoSeverityLabel</div>
+            </div>
+"@
+}
+
+$HtmlKpiMDE = ""
+if ($RunMDE) {
+$HtmlKpiMDE = @"
+            <div class="kpi-card $Kpi_MdeSeverityClass">
+                <div class="kpi-val">$Kpi_MdeAlerts</div>
+                <div class="kpi-label">Alertas Defender for Endpoint</div>
+                <div class="kpi-severity">Máx: $Kpi_MdeSeverityLabel</div>
+            </div>
+"@
+}
+
+$HtmlKpiMDI = ""
+if ($RunMDI) {
+$HtmlKpiMDI = @"
+            <div class="kpi-card $Kpi_EntraSeverityClass">
+                <div class="kpi-val">$Kpi_HighRiskUsers</div>
+                <div class="kpi-label">Usuarios en Riesgos Entra ID</div>
+                <div class="kpi-severity">Máx: $Kpi_EntraSeverityLabel</div>
+            </div>
+            <div class="kpi-card $Kpi_MdiSeverityClass">
+                <div class="kpi-val">$Kpi_MdiAlerts</div>
+                <div class="kpi-label">Alertas Defender for Identity</div>
+                <div class="kpi-severity">Máx: $Kpi_MdiSeverityLabel</div>
+            </div>
+"@
+}
+
+$HtmlKpiMDA = ""
+if ($RunMDA) {
+$HtmlKpiMDA = @"
+            <div class="kpi-card $Kpi_MdaSeverityClass">
+                <div class="kpi-val">$Kpi_NewOAuth</div>
+                <div class="kpi-label">Consentimientos OAuth Defender for Cloud Apps</div>
+                <div class="kpi-severity">Máx: $Kpi_MdaSeverityLabel</div>
+            </div>
+"@
+}
+
+$HtmlKpiCustomDetections = @"
+            <div class="kpi-card $Kpi_CustomDetectionsSeverityClass">
+                <div class="kpi-val">$Kpi_CustomDetections</div>
+                <div class="kpi-label">Detecciones Personalizadas</div>
+                <div class="kpi-severity">Máx: $Kpi_CustomDetectionsSeverityLabel</div>
+            </div>
+"@
+
 $HtmlContent = @"
 <!DOCTYPE html>
 <html>
@@ -1298,6 +2226,12 @@ $HtmlContent = @"
             --text-color: #323130;
             --border-color: #e1dfdd;
             --danger-color: #a80000;
+            --critical-color: #7a0018;
+            --high-color: #d13438;
+            --medium-color: #ff8c00;
+            --low-color: #8764b8;
+            --info-color: #0078d4;
+            --none-color: #107c10;
         }
         body { 
             font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; 
@@ -1317,6 +2251,7 @@ $HtmlContent = @"
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+        .header .subtitle { margin-top: 6px; font-size: 0.92em; opacity: 0.95; }
         .header .meta { font-size: 0.9em; opacity: 0.9; text-align: right; }
         
         .container { 
@@ -1339,25 +2274,65 @@ $HtmlContent = @"
         /* Cuadrícula de KPIs */
         .kpi-grid { 
             display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
+            grid-template-columns: repeat(auto-fit, minmax(220px, 250px)); 
+            justify-content: center;
+            align-items: stretch;
             gap: 20px; 
-            margin-bottom: 30px; 
+            margin: 0 auto 30px auto;
         }
         .kpi-card { 
             background: var(--card-bg); 
-            padding: 25px 20px; 
-            border-radius: 8px; 
+            min-height: 150px;
+            padding: 24px 18px; 
+            border-radius: 10px; 
             text-align: center; 
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05); 
             transition: transform 0.2s ease;
             border-top: 4px solid transparent;
         }
         .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .kpi-card.alert { border-top-color: var(--primary-color); }
-        .kpi-card.danger { border-top-color: var(--danger-color); }
+        .kpi-card.critical { border-top-color: var(--critical-color); }
+        .kpi-card.high { border-top-color: var(--high-color); }
+        .kpi-card.medium { border-top-color: var(--medium-color); }
+        .kpi-card.low { border-top-color: var(--low-color); }
+        .kpi-card.info { border-top-color: var(--info-color); }
+        .kpi-card.none { border-top-color: var(--none-color); }
         
-        .kpi-val { font-size: 3em; font-weight: 700; color: var(--secondary-color); line-height: 1; margin-bottom: 5px; }
-        .kpi-label { font-size: 0.85em; color: #605e5c; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+        .kpi-val { font-size: 3em; font-weight: 700; color: var(--secondary-color); line-height: 1; margin-bottom: 10px; }
+        .kpi-label {
+            font-size: 0.85em;
+            color: #605e5c;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            line-height: 1.35;
+            text-align: center;
+            max-width: 190px;
+            min-height: 2.8em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .kpi-severity {
+            margin-top: 10px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.72em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: #ffffff;
+        }
+        .kpi-card.critical .kpi-severity { background: var(--critical-color); }
+        .kpi-card.high .kpi-severity { background: var(--high-color); }
+        .kpi-card.medium .kpi-severity { background: var(--medium-color); }
+        .kpi-card.low .kpi-severity { background: var(--low-color); }
+        .kpi-card.info .kpi-severity { background: var(--info-color); }
+        .kpi-card.none .kpi-severity { background: var(--none-color); }
         
         /* Tablas */
         .table-container {
@@ -1487,7 +2462,10 @@ $HtmlContent = @"
 </head>
 <body>
     <div class="header">
-        <h1>Reporte Diario de Operaciones de Seguridad</h1>
+        <div>
+            <h1>Reporte Diario de Operaciones de Seguridad</h1>
+            <div class="subtitle">La tecnología habilita la seguridad, pero la disciplina la hace efectiva</div>
+        </div>
         <div class="meta">
             <div><strong>Período:</strong> $($StartDate.ToString("yyyy-MM-dd HH:mm")) - $($ReportDate.ToString("yyyy-MM-dd HH:mm"))</div>
             <div style="font-size: 0.85em; margin-top: 4px;">Tenant ID: $MaskedTenantId</div>
@@ -1497,72 +2475,17 @@ $HtmlContent = @"
     <div class="container">
         <!-- KPIs -->
         <div class="kpi-grid">
-            <div class="kpi-card $(if($Kpi_TotalAlerts -gt 0){'danger'}else{'alert'})">
-                <div class="kpi-val">$Kpi_TotalAlerts</div>
-                <div class="kpi-label">Total Alertas XDR</div>
-            </div>
-            <div class="kpi-card $(if($Kpi_IncidentCount -gt 0){'danger'}else{'alert'})">
+            <div class="kpi-card $Kpi_XdrSeverityClass">
                 <div class="kpi-val">$Kpi_IncidentCount</div>
                 <div class="kpi-label">Incidentes Activos</div>
+                <div class="kpi-severity">Máx: $Kpi_XdrSeverityLabel</div>
             </div>
-            <div class="kpi-card $(if($Kpi_PhishDelivered -gt 0){'danger'}else{'alert'})">
-                <div class="kpi-val">$Kpi_PhishDelivered</div>
-                <div class="kpi-label">Phishing Entregado</div>
-            </div>
-            <div class="kpi-card $(if($Kpi_HighRiskUsers -gt 0){'danger'}else{'alert'})">
-                <div class="kpi-val">$Kpi_HighRiskUsers</div>
-                <div class="kpi-label">Usuarios de Alto Riesgo</div>
-            </div>
-            <div class="kpi-card $(if($Kpi_CompromisedIdentities -gt 0){'danger'}else{'alert'})">
-                <div class="kpi-val">$Kpi_CompromisedIdentities</div>
-                <div class="kpi-label">Fuerza Bruta en Identidades</div>
-            </div>
-            <div class="kpi-card alert">
-                <div class="kpi-val">$Kpi_NewOAuth</div>
-                <div class="kpi-label">Nuevos Consentimientos OAuth</div>
-            </div>
+$HtmlKpiMDO$HtmlKpiMDE$HtmlKpiMDI$HtmlKpiMDA$HtmlKpiCustomDetections
         </div>
+"@
 
-        <!-- ═══ Tareas Operativas MDO (Daily) ═══ -->
-        <div class="ops-section">
-            <div class="ops-group">
-                <div class="ops-group-header mdo">
-                    <span class="icon">&#x1f4e7;</span> Tareas Operativas - Microsoft Defender for Office 365
-                    <span class="ops-badge daily">7 Diarias</span>
-                </div>
-                <table class="ops-table">
-                    <thead><tr><th style="width:50%">Tarea</th><th style="width:25%">Portal</th><th style="width:25%">Documentación</th></tr></thead>
-                    <tbody>
-                        <tr><td class="ops-task-name">Revisar alertas activas</td><td><a class="ops-btn portal" href="https://security.microsoft.com/alerts" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#monitoreo-de-alertas" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                        <tr><td class="ops-task-name">Monitoreo de Incidentes</td><td><a class="ops-btn portal" href="https://security.microsoft.com/incidents" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#monitoreo-de-incidentes" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                        <tr><td class="ops-task-name">Triage de Mensajes de Teams Reportados por Usuarios</td><td><a class="ops-btn portal" href="https://admin.teams.microsoft.com/policies/messaging?view=reportedsafety" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#triage-de-mensajes-de-teams-reportados-por-usuarios" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                        <tr><td class="ops-task-name">Revisar y Actuar sobre los AIRs</td><td><a class="ops-btn portal" href="https://security.microsoft.com/action-center/pending" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-y-actuar-sobre-los-airs" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                        <tr><td class="ops-task-name">Revisar las Tendencias de Detección de Correo en MDO</td><td><a class="ops-btn portal" href="https://security.microsoft.com/reports/TPSAggregateReportATP" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-las-tendencias-de-detecci%C3%B3n-de-correo-en-microsoft-defender-for-office-365" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                        <tr><td class="ops-task-name">Revisar Campañas de Phishing y Malware Entregados</td><td><a class="ops-btn portal" href="https://security.microsoft.com/threatexplorerv3" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-campa%C3%B1as-de-phishing-y-malware-que-resultaron-en-correos-entregados" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                        <tr><td class="ops-task-name">Revisión de Top Targeted Users</td><td><a class="ops-btn portal" href="https://security.microsoft.com/threatexplorerv3" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisi%C3%B3n-de-top-targeted-users" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Recomendación de KQL diario – MDO -->
-        <div class="ops-group" style="margin-top: 20px;">
-            <div class="ops-group-header mdo">
-                <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDO
-                <span class="ops-badge daily">#$($SelectedMdoKql.Id) de 28</span>
-            </div>
-            <div style="padding: 20px;">
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <span style="background:#e6f2ff; color:#0078d4; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">$($SelectedMdoKql.Category)</span>
-                </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">$($SelectedMdoKql.Title)</h3>
-                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedMdoKql.Query)</div>
-                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-                    <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
-                    <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md" target="_blank">&#x1f4d6; Ver Catálogo Completo (28 KQL)</a>
-                </div>
-            </div>
-        </div>
+$HtmlContent += @"
+$HtmlMDOSection$HtmlMDESection$HtmlMDISection$HtmlEntraSection$HtmlMDASection
 
         <!-- ═══════════════════════════════════════════════════════ -->
         <!-- ═══ SECCIÓN XDR: Alertas e Incidentes Consolidados ═══ -->
@@ -1571,201 +2494,17 @@ $HtmlContent = @"
         <h2>XDR: Alertas e Incidentes Consolidados</h2>
 
         <h3>Alertas por Servicio y Severidad</h3>
+        <div style="margin-bottom:10px;">
+            <a href="https://security.microsoft.com/alerts" target="_blank" rel="noopener noreferrer"
+               style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;background:#0078d4;color:#fff;text-decoration:none;border-radius:4px;font-size:0.85em;font-weight:600;">
+                &#x1F6E1; Ver Alertas en Microsoft Defender XDR
+            </a>
+        </div>
         <div class="table-container">
             <table>
                 <thead><tr><th>Servicio</th><th>Severidad</th><th>Cantidad</th></tr></thead>
                 <tbody>$(ConvertTo-HtmlTable $Data["XDR_AllAlerts"] @("ServiceSource","Severity","Count"))</tbody>
             </table>
-        </div>
-
-        <h3>Top 25 Alertas Recientes</h3>
-        <div class="table-container">
-            <table>
-                <thead><tr><th>Hora</th><th>Alerta</th><th>Severidad</th><th>Servicio</th><th>Categoría</th><th>Entidades</th><th>Dispositivos</th></tr></thead>
-                <tbody>$(ConvertTo-HtmlTable $Data["XDR_Incidents"] @("Timestamp","Title","Severity","ServiceSource","Category","Entities","DevicesAffected"))</tbody>
-            </table>
-        </div>
-
-        <!-- ═══════════════════════════════════════════════════════ -->
-        <!-- ═══ SECCIÓN MDE: Seguridad de Endpoints ═══ -->
-        <!-- ═══════════════════════════════════════════════════════ -->
-
-        <h2>MDE: Seguridad de Endpoints</h2>
-        <h3>Alertas MDE por Severidad</h3>
-        <div class="table-container">
-            <table>
-                <thead><tr><th>Severidad</th><th>Cantidad</th></tr></thead>
-                <tbody>$(ConvertTo-HtmlTable $Data["MDE_AlertsBySev"] @("Severity","Count"))</tbody>
-            </table>
-        </div>
-
-        <!-- Recomendación de KQL diario – MDE -->
-        <div class="ops-group" style="margin-top: 20px;">
-            <div class="ops-group-header mde">
-                <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDE
-                <span class="ops-badge daily">#$($SelectedMdeKql.Id) de 12</span>
-            </div>
-            <div style="padding: 20px;">
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <span style="background:#fce4ec; color:#d83b01; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">$($SelectedMdeKql.Category)</span>
-                </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">$($SelectedMdeKql.Title)</h3>
-                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedMdeKql.Query)</div>
-                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-                    <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- ═══════════════════════════════════════════════════════ -->
-        <!-- ═══ SECCIÓN MDI: Seguridad de Identidades ═══ -->
-        <!-- ═══════════════════════════════════════════════════════ -->
-
-        <h2>MDI: Seguridad de Identidades</h2>
-
-        <!-- Tareas Operativas MDI -->
-        <div class="ops-section">
-            <div class="ops-group">
-                <div class="ops-group-header mdi">
-                    <span class="icon">&#x1f6e1;</span> Tareas Operativas - Microsoft Defender for Identity
-                    <span class="ops-badge daily">5 Diarias</span>
-                </div>
-                <table class="ops-table">
-                    <thead><tr><th style="width:50%">Tarea</th><th style="width:25%">Portal</th><th style="width:25%">Documentación</th></tr></thead>
-                    <tbody>
-                        <tr><td class="ops-task-name">Revisar ITDR Dashboard</td><td><a class="ops-btn portal" href="https://security.microsoft.com/identities/dashboard" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-itdr-dashboard-identities--dashboard" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                        <tr><td class="ops-task-name">Triage de Incidentes por Prioridad</td><td><a class="ops-btn portal" href="https://security.microsoft.com/incidents" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#triage-de-incidentes-por-prioridad-incidents--alerts" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                        <tr><td class="ops-task-name">Configurar Tuning para Benign False Positives</td><td><a class="ops-btn portal" href="https://security.microsoft.com/advanced-hunting" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#configurar-tuning-para-benign--false-positives-advanced-hunting" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                        <tr><td class="ops-task-name">Proactive hunting diario o semanal</td><td><a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#proactive-hunting-diario-o-semanal-seg%C3%BAn-madurez" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                        <tr><td class="ops-task-name">Revisar Health Issues Global y Sensor</td><td><a class="ops-btn portal" href="https://security.microsoft.com/identities/health-issues" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-health-issues-global-y-sensor" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <h3>Potencial de éxito de Ataque de Fuerza Bruta</h3>
-        <div class="table-container">
-            <table>
-                <thead><tr><th>Cuenta</th><th>Dirección IP</th><th>Ubicación</th><th>Fallos</th><th>Éxitos</th></tr></thead>
-                <tbody>$(ConvertTo-HtmlTable $Data["MDI_BruteForce"] @("AccountUpn","IPAddress","Location","Fails","Success"))</tbody>
-            </table>
-        </div>
-
-        <h3>Usuarios con Inicios de Sesión de Alto Riesgo</h3>
-        <div class="table-container">
-            <table>
-                <thead><tr><th>Cuenta</th><th>Nivel de Riesgo</th><th>Eventos</th></tr></thead>
-                <tbody>$(ConvertTo-HtmlTable $Data["MDI_HighRiskUsers"] @("UserPrincipalName","RiskLevelAggregated","Events"))</tbody>
-            </table>
-        </div>
-
-        <!-- Recomendación de KQL diario – MDI -->
-        <div class="ops-group" style="margin-top: 20px;">
-            <div class="ops-group-header mdi">
-                <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDI
-                <span class="ops-badge daily">#$($SelectedMdiKql.Id) de 11</span>
-            </div>
-            <div style="padding: 20px;">
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <span style="background:#fff3e0; color:#e97a00; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">$($SelectedMdiKql.Category)</span>
-                </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">$($SelectedMdiKql.Title)</h3>
-                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedMdiKql.Query)</div>
-                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-                    <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
-                    <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md" target="_blank">&#x1f4d6; Ver Catálogo Completo (11 KQL)</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- ═══════════════════════════════════════════════════════ -->
-        <!-- ═══ SECCIÓN Entra ID: Gobernanza de Identidades ═══ -->
-        <!-- ═══════════════════════════════════════════════════════ -->
-
-        <h2>Entra ID: Gobernanza de Identidades</h2>
-
-        <!-- Tareas Operativas EntraID -->
-        <div class="ops-section">
-            <div class="ops-group">
-                <div class="ops-group-header entra">
-                    <span class="icon">&#x1f510;</span> Tareas Operativas - Microsoft Entra ID
-                    <span class="ops-badge daily">4 Diarias</span>
-                </div>
-                <table class="ops-table">
-                    <thead><tr><th style="width:50%">Tarea</th><th style="width:25%">Portal</th><th style="width:25%">Documentación</th></tr></thead>
-                    <tbody>
-                        <tr><td class="ops-task-name">Monitorear eventos de inicio de sesión y autenticación</td><td><a class="ops-btn portal" href="https://entra.microsoft.com/#view/Microsoft_AAD_IAM/SignInLogsList.ReactView/timeRangeType/last24hours/showApplicationSignIns~/true" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#monitorear-eventos-de-inicio-de-sesi%C3%B3n-y-autenticaci%C3%B3n" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                        <tr><td class="ops-task-name">Revisión de Usuarios con Riesgo Alto Medio</td><td><a class="ops-btn portal" href="https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskyUsers" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisi%C3%B3n-de-usuarios-con-riesgo-alto--medio" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                        <tr><td class="ops-task-name">Revisión de Inicios de Sesión con Riesgo</td><td><a class="ops-btn portal" href="https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskySignIns" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisi%C3%B3n-de-inicios-de-sesi%C3%B3n-con-riesgo" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                        <tr><td class="ops-task-name">Revisar alertas de Microsoft Entra Connect Health</td><td><a class="ops-btn portal" href="https://entra.microsoft.com/#view/Microsoft_AAD_Connect_Health/ConnectHealthMenuBlade/~/overview" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisar-alertas-de-microsoft-entra-connect-health-entornos-h%C3%ADbridos" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Recomendación de KQL diario – Entra ID -->
-        <div class="ops-group" style="margin-top: 20px;">
-            <div class="ops-group-header entra">
-                <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – Entra ID
-                <span class="ops-badge daily">#$($SelectedEntraKql.Id) de 26</span>
-            </div>
-            <div style="padding: 20px;">
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <span style="background:#e8f5e9; color:#107c10; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">$($SelectedEntraKql.Category)</span>
-                </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">$($SelectedEntraKql.Title)</h3>
-                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedEntraKql.Query)</div>
-                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-                    <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
-                    <a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Paquete%20KQL%20Queries%20EntraID%20Advanced%20Hunting.md" target="_blank">&#x1f4d6; Ver Catálogo Completo (26 KQL)</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- ═══════════════════════════════════════════════════════ -->
-        <!-- ═══ SECCIÓN MDA: Aplicaciones en la Nube ═══ -->
-        <!-- ═══════════════════════════════════════════════════════ -->
-
-        <h2>MDA: Aplicaciones en la Nube y Shadow IT</h2>
-
-        <h3>Nuevos Consentimientos OAuth</h3>
-        <div class="table-container">
-            <table>
-                <thead><tr><th>Aplicación</th><th>AppId</th><th>Consentimientos</th><th>Usuarios</th></tr></thead>
-                <tbody>$(ConvertTo-HtmlTable $Data["MDA_OAuth"] @("Application","ApplicationId","Consents","Users"))</tbody>
-            </table>
-        </div>
-
-        <!-- Recomendación de KQL diario – MDA -->
-        <div class="ops-group" style="margin-top: 20px;">
-            <div class="ops-group-header mda">
-                <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – MDA
-                <span class="ops-badge daily">#$($SelectedMdaKql.Id) de 10</span>
-            </div>
-            <div style="padding: 20px;">
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <span style="background:#ede7f6; color:#8764b8; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">$($SelectedMdaKql.Category)</span>
-                </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">$($SelectedMdaKql.Title)</h3>
-                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedMdaKql.Query)</div>
-                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-                    <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- ═══════════════════════════════════════════════════════ -->
-        <!-- ═══ Recomendaciones y Acciones ═══ -->
-        <!-- ═══════════════════════════════════════════════════════ -->
-
-        <h2>Recomendaciones y Acciones Diarias</h2>
-        <div class="recs">
-            <ul>
-                <li><strong>MDO:</strong> Revisar $(if($Kpi_PhishDelivered -gt 0){"las <b>$Kpi_PhishDelivered</b> campañas de phishing entregadas"}else{"las campañas de phishing"}) y validar la efectividad de ZAP. Verificar los usuarios más atacados para capacitación de concientización.</li>
-                <li><strong>MDI:</strong> Investigar los <b>$Kpi_HighRiskUsers</b> usuarios con inicios de sesión de alto riesgo. Restablecer contraseñas o aplicar MFA en sesiones riesgosas.</li>
-                <li><strong>MDI:</strong> Analizar las <b>$Kpi_CompromisedIdentities</b> cuentas con éxito de fuerza bruta. Restablecer contraseñas y aplicar MFA si no está configurado.</li>
-                <li><strong>MDA:</strong> Auditar los <b>$Kpi_NewOAuth</b> nuevos consentimientos OAuth. Revocar permisos de publicadores sospechosos o no verificados.</li>
-            </ul>
         </div>
 
         <div class="footer">
