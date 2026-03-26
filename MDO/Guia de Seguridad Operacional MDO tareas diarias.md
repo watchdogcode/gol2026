@@ -76,8 +76,9 @@ Pegar la siguiente consulta en el panel **Query**:
 
 ```kql
 EmailEvents
+| where Timestamp >= ago(7d)
 | where DeliveryAction == "Delivered"
-| where ThreatTypes has_any ("Malware", "Pish", "spam")
+| where ThreatTypes has_any ("Malware", "Phish", "spam")
 | project
     Timestamp,
     NetworkMessageId,
@@ -88,17 +89,11 @@ EmailEvents
     DetectionMethods,
     AuthenticationDetails,
     ConfidenceLevel,
-    DeliveryLocation
+    DeliveryLocation,
+    EmailClusterId,
+    ReportId,
 | order by Timestamp desc
 ```
-
-### Sugerencias de mejora
-- Revisa la ortografía: por ejemplo, *"Pish"* quizá debería ser *"Phish"*.
-- Considera agregar filtros de fecha para mejorar el rendimiento:
-  ```kql
-  | where Timestamp > ago(7d)
-  ```
-- Puedes agregar campos adicionales como `EmailClusterId` o `ReportId` si deseas más contexto.
 
 ## 3. Ejecutar la consulta
 - Hacer clic en **Run query**.
