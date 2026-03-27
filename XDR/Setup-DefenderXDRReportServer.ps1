@@ -1099,7 +1099,7 @@ function Get-WorkloadPreferenceFromCsv {
     }
 
     if ([string]::IsNullOrWhiteSpace($InputValue)) {
-        Write-Skip "$ScopeName: selección Predeterminada aplicada (MDO, MDE, MDI, MDA)."
+        Write-Skip "$($ScopeName): selección Predeterminada aplicada (MDO, MDE, MDI, MDA)."
         return $Preference
     }
 
@@ -1111,12 +1111,12 @@ function Get-WorkloadPreferenceFromCsv {
 
     $Invalid = $Selected | Where-Object { $_ -notin $Allowed }
     if ($Invalid.Count -gt 0) {
-        Write-Skip "$ScopeName: se ignorarán valores no válidos: $($Invalid -join ', ')"
+        Write-Skip "$($ScopeName): se ignorarán valores no válidos: $($Invalid -join ', ')"
     }
 
     $Valid = $Selected | Where-Object { $_ -in $Allowed }
     if ($Valid.Count -eq 0) {
-        Write-Skip "$ScopeName: no se detectaron workloads válidos; se aplicará selección Predeterminada (MDO, MDE, MDI, MDA)."
+        Write-Skip "$($ScopeName): no se detectaron workloads válidos; se aplicará selección Predeterminada (MDO, MDE, MDI, MDA)."
         return $Preference
     }
 
@@ -1137,7 +1137,7 @@ function Get-WorkloadPreferenceFromCsv {
     # Entra ID depende de MDI y debe permanecer siempre habilitado.
     if (-not $Preference.IncludeMDI) {
         $Preference.IncludeMDI = $true
-        Write-Info "$ScopeName: Entra ID siempre va incluido; se habilitó MDI automáticamente."
+        Write-Info "$($ScopeName): Entra ID siempre va incluido; se habilitó MDI automáticamente."
     }
 
     return $Preference
