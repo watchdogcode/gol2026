@@ -36,7 +36,7 @@ Todos los scripts de reportería XDR/MDE se autentican contra la API de Microsof
 1. Iniciar sesión en el portal de Azure: [https://entra.microsoft.com/](https://entra.microsoft.com/).
 2. Navegar a **Microsoft Entra ID** > **App registrations** > **+ New registration**.
 3. Configurar los campos:
-   - **Name:** Un nombre descriptivo, por ejemplo `**SecOps-Defender-Reports**`.
+   - **Name:** Un nombre descriptivo, por ejemplo **`SecOps-Defender-Reports`**.
    - **Supported account types:** Seleccionar *Single tenant only - [Tenant]*.
    - **Redirect URI:** Dejar en blanco (no se requiere para autenticación con Client Secret).
 4. Hacer clic en **Register**.
