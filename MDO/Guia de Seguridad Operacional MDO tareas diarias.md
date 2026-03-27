@@ -2,7 +2,7 @@
 
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 
-Esta guía establece los procedimientos diarias para analizar tendencias, identificar usuarios de alto riesgo y gestionar campañas de amenazas en Microsoft Defender for Office 365 (MDO).
+Esta guía establece los procedimientos diarios para analizar tendencias, identificar usuarios de alto riesgo y gestionar campañas de amenazas en Microsoft Defender for Office 365 (MDO).
 
 ---
 ## Índice
@@ -415,7 +415,7 @@ Con base en los hallazgos:
 2. Seleccionar **Phishing** o **All email** Tab
 3. Configurar los filtros de la siguiente forma:
     * **Período:** Últimas 24 horas
-    * **Seleccionar:** `Recipient domian -> Equal ony of -> dominio.com`
+    * **Seleccionar:** `Recipient domain -> Equal any of -> dominio.com`
 4. En la parte inferior del Explorer seleccionar **Top targeted users**
 5. Click en el usuario para ver detalles revisar:
     * Tipos de amenazas recibidas
@@ -429,33 +429,6 @@ Con base en los hallazgos:
         * Revisar actividad en Azure AD Sign-ins
         * Verificar reglas de buzón (forwarding rules)
 
- 
-
-Revisión de Top Targeted Users
-
- 
-
-Ir a https://security.microsoft.com/threatexplorer
-Seleccionar Phishing o All email Tab
-Configurar los filtros de la siguiente forma:
-Período: Últimas 24 horas
-Seleccionar: Recipient domian -> Equal ony of -> dominio.com
-En la parte inferior del Explorer seleccionar Top targeted users
-Click en el usuario para ver detalles revisar:
-Tipos de amenazas recibidas
-Tasa de entrega vs. bloqueo
-Si hicieron clic en enlaces maliciosos
-Acciones preventivas:
-Si el usuario es VIP/Ejecutivo:
-Agregar a "Priority Accounts"
-Si hay indicios de compromiso:
-Forzar cambio de contraseña
-Revisar actividad en Azure AD Sign-ins
-Verificar reglas de buzón (forwarding rules)
- 
-
 Documentar usuarios críticos para monitoreo continuo
 
 ---
-
-Internal Tools 2026
