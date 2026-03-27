@@ -1,5 +1,7 @@
 # Firma de Scripts PowerShell (AuthentiCode) – **SIN PKI corporativa**
 
+##*La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
+
 > **Objetivo:** firmar scripts PowerShell con un **certificado autofirmado** y hacer que el sistema **solo ejecute scripts firmados** (ExecutionPolicy **AllSigned**), incluyendo una prueba de integridad.
 
 ---
