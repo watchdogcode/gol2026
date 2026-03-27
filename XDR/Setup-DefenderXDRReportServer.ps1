@@ -14,9 +14,10 @@
       3. Valida permisos de App Registration contra la API
       4. Copia los scripts a la ruta de ejecucion
       5. Configura notificaciones por correo (opcional)
-            6. Genera wrappers seguros para Task Scheduler
-      7. Crea tareas programadas (Daily 7:00 AM / Weekly Lunes 7:30 AM)
-      8. Ejecuta prueba de validacion (opcional)
+        6. Configura workloads por defecto para el reporte diario (MDO/MDE/MDI/MDA)
+            7. Genera wrappers seguros para Task Scheduler
+        8. Crea tareas programadas (Daily 7:00 AM / Weekly Lunes 7:30 AM)
+        9. Ejecuta prueba de validacion (opcional)
 
         Si se elige autenticacion por certificado, el setup puede crear un certificado
         autofirmado, exportar el .cer publico para App Registration y dejar el thumbprint
@@ -586,7 +587,7 @@ Write-Host $Banner -ForegroundColor Cyan
 #  PASO 1: Estructura de directorios
 # ============================================================
 
-Write-Step "1/9" "Creando estructura de directorios..."
+Write-Step "1/10" "Creando estructura de directorios..."
 
 $Directories = @(
     $ConfigPath,
@@ -626,7 +627,7 @@ try {
 #  PASO 2: Credenciales Azure AD
 # ============================================================
 
-Write-Step "2/9" "Configuracion de Azure AD App Registration"
+Write-Step "2/10" "Configuracion de Azure AD App Registration"
 
 $TenantId = Normalize-InputValue (Read-Host "  Ingrese Tenant ID")
 $ClientId = Normalize-InputValue (Read-Host "  Ingrese Client ID (App Registration)")
@@ -843,7 +844,7 @@ Write-Host "    Auth Mode   : $AuthMode" -ForegroundColor White
 #  PASO 3: Guardar configuracion
 # ============================================================
 
-Write-Step "3/9" "Guardando configuracion..."
+Write-Step "3/10" "Guardando configuracion..."
 
 # Determinar AuthMode efectivo para cada script
 # Daily y Weekly soportan Secret, Interactive, DeviceCode y Certificate.
@@ -878,6 +879,8 @@ $Config = @{
     MailFrom        = $null
     MailTo          = $null
     RetentionDays   = 90
+    DailyWorkloads  = @{ IncludeMDO = $true; IncludeMDE = $true; IncludeMDI = $true; IncludeMDA = $true }
+    WeeklyWorkloads = @{ IncludeMDO = $true; IncludeMDE = $true; IncludeMDI = $true; IncludeMDA = $true }
 }
 
 $ConfigFile = "$ConfigPath\Config.json"
@@ -888,7 +891,7 @@ Write-Ok "Configuracion guardada en: $ConfigFile"
 #  PASO 4: Validar permisos contra la API
 # ============================================================
 
-Write-Step "4/9" "Validacion de permisos de App Registration"
+Write-Step "4/10" "Validacion de permisos de App Registration"
 
 if ($SkipValidation) {
     Write-Skip "Validacion omitida (parametro -SkipValidation)"
@@ -985,7 +988,7 @@ if ($PlainSecretForValidation) {
 #  PASO 5: Copiar scripts de reporte
 # ============================================================
 
-Write-Step "5/9" "Copiando scripts de reporte..."
+Write-Step "5/10" "Copiando scripts de reporte..."
 
 $SourceDir = Split-Path $MyInvocation.MyCommand.Path -Parent
 $RawRepoBaseUrl = Get-GitHubRawBaseUrl -SourceDir $SourceDir -OverrideUrl $RepositoryRawBaseUrl
@@ -1048,7 +1051,7 @@ foreach ($Script in $ScriptsToCopy) {
 #  PASO 6: Configuracion de notificaciones por correo
 # ============================================================
 
-Write-Step "6/9" "Configuracion de notificaciones por correo (opcional)"
+Write-Step "6/10" "Configuracion de notificaciones por correo (opcional)"
 
 if ($SkipEmail) {
     Write-Skip "Configuracion de correo omitida (parametro -SkipEmail)"
@@ -1077,10 +1080,90 @@ else {
 }
 
 # ============================================================
-#  PASO 7: Crear wrappers para Task Scheduler
+#  PASO 7: Preferencias de workloads (reporte diario)
 # ============================================================
 
-Write-Step "7/9" "Creando wrappers de ejecucion programada..."
+Write-Step "7/10" "Configurando workloads por defecto para el reporte diario"
+
+$DailyWorkloads = @{
+    IncludeMDO = $true
+    IncludeMDE = $true
+    IncludeMDI = $true
+    IncludeMDA = $true
+}
+
+$ConfigureDailyWorkloads = Read-Host "  Configurar workloads por defecto para New-DefenderXDRDailyReport.ps1? [S/n]"
+if ($ConfigureDailyWorkloads -in @('n','N')) {
+    Write-Skip "Workloads diarios en modo por defecto (todos habilitados)"
+}
+else {
+    $DailyWorkloads.IncludeMDO = ((Read-Host "  Incluir workload MDO (Defender for Office 365)? [S/n]") -notin @('n','N'))
+    $DailyWorkloads.IncludeMDE = ((Read-Host "  Incluir workload MDE (Defender for Endpoint)? [S/n]") -notin @('n','N'))
+    $DailyWorkloads.IncludeMDI = ((Read-Host "  Incluir workload MDI/Entra (Defender for Identity)? [S/n]") -notin @('n','N'))
+    $DailyWorkloads.IncludeMDA = ((Read-Host "  Incluir workload MDA (Defender for Cloud Apps)? [S/n]") -notin @('n','N'))
+
+    if (-not ($DailyWorkloads.IncludeMDO -or $DailyWorkloads.IncludeMDE -or $DailyWorkloads.IncludeMDI -or $DailyWorkloads.IncludeMDA)) {
+        Write-Skip "No se selecciono ningun workload; se aplicara la configuracion por defecto (todos habilitados)."
+        $DailyWorkloads.IncludeMDO = $true
+        $DailyWorkloads.IncludeMDE = $true
+        $DailyWorkloads.IncludeMDI = $true
+        $DailyWorkloads.IncludeMDA = $true
+    }
+}
+
+$Config.DailyWorkloads = $DailyWorkloads
+$Config | ConvertTo-Json -Depth 4 | Out-File $ConfigFile -Encoding UTF8 -Force
+Write-Ok "Preferencias de workloads diarios guardadas en config.json"
+
+$SelectedDailyWorkloads = @()
+if ($DailyWorkloads.IncludeMDO) { $SelectedDailyWorkloads += 'MDO' }
+if ($DailyWorkloads.IncludeMDE) { $SelectedDailyWorkloads += 'MDE' }
+if ($DailyWorkloads.IncludeMDI) { $SelectedDailyWorkloads += 'MDI' }
+if ($DailyWorkloads.IncludeMDA) { $SelectedDailyWorkloads += 'MDA' }
+Write-Info ("Workloads diarios activos: {0}" -f ($SelectedDailyWorkloads -join ', '))
+
+$WeeklyWorkloads = @{
+    IncludeMDO = $true
+    IncludeMDE = $true
+    IncludeMDI = $true
+    IncludeMDA = $true
+}
+
+$ConfigureWeeklyWorkloads = Read-Host "  Configurar workloads por defecto para New-DefenderXDRWeeklyReport.ps1? [S/n]"
+if ($ConfigureWeeklyWorkloads -in @('n','N')) {
+    Write-Skip "Workloads semanales en modo por defecto (todos habilitados)"
+}
+else {
+    $WeeklyWorkloads.IncludeMDO = ((Read-Host "  Incluir workload MDO (Defender for Office 365)? [S/n]") -notin @('n','N'))
+    $WeeklyWorkloads.IncludeMDE = ((Read-Host "  Incluir workload MDE (Defender for Endpoint)? [S/n]") -notin @('n','N'))
+    $WeeklyWorkloads.IncludeMDI = ((Read-Host "  Incluir workload MDI/Entra (Defender for Identity)? [S/n]") -notin @('n','N'))
+    $WeeklyWorkloads.IncludeMDA = ((Read-Host "  Incluir workload MDA (Defender for Cloud Apps)? [S/n]") -notin @('n','N'))
+
+    if (-not ($WeeklyWorkloads.IncludeMDO -or $WeeklyWorkloads.IncludeMDE -or $WeeklyWorkloads.IncludeMDI -or $WeeklyWorkloads.IncludeMDA)) {
+        Write-Skip "No se selecciono ningun workload; se aplicara la configuracion por defecto (todos habilitados)."
+        $WeeklyWorkloads.IncludeMDO = $true
+        $WeeklyWorkloads.IncludeMDE = $true
+        $WeeklyWorkloads.IncludeMDI = $true
+        $WeeklyWorkloads.IncludeMDA = $true
+    }
+}
+
+$Config.WeeklyWorkloads = $WeeklyWorkloads
+$Config | ConvertTo-Json -Depth 4 | Out-File $ConfigFile -Encoding UTF8 -Force
+Write-Ok "Preferencias de workloads semanales guardadas en config.json"
+
+$SelectedWeeklyWorkloads = @()
+if ($WeeklyWorkloads.IncludeMDO) { $SelectedWeeklyWorkloads += 'MDO' }
+if ($WeeklyWorkloads.IncludeMDE) { $SelectedWeeklyWorkloads += 'MDE' }
+if ($WeeklyWorkloads.IncludeMDI) { $SelectedWeeklyWorkloads += 'MDI' }
+if ($WeeklyWorkloads.IncludeMDA) { $SelectedWeeklyWorkloads += 'MDA' }
+Write-Info ("Workloads semanales activos: {0}" -f ($SelectedWeeklyWorkloads -join ', '))
+
+# ============================================================
+#  PASO 8: Crear wrappers para Task Scheduler
+# ============================================================
+
+Write-Step "8/10" "Creando wrappers de ejecucion programada..."
 
 # ---- WRAPPER: Daily Report ----
 $DailyWrapperContent = @"
@@ -1164,6 +1247,14 @@ if (`$Config.SendMail -eq `$true -and `$Config.SmtpServer) {
     `$Params['From']       = `$Config.MailFrom
     `$Params['To']         = `$Config.MailTo
     `$Params['Subject']    = "Reporte Diario de Seguridad - M365 Defender XDR - `$(Get-Date -Format 'yyyy-MM-dd')"
+}
+
+# Agregar filtros de workloads diarios configurados en setup
+if (`$Config.DailyWorkloads) {
+    if (`$Config.DailyWorkloads.IncludeMDO -eq `$true) { `$Params['IncludeMDO'] = `$true }
+    if (`$Config.DailyWorkloads.IncludeMDE -eq `$true) { `$Params['IncludeMDE'] = `$true }
+    if (`$Config.DailyWorkloads.IncludeMDI -eq `$true) { `$Params['IncludeMDI'] = `$true }
+    if (`$Config.DailyWorkloads.IncludeMDA -eq `$true) { `$Params['IncludeMDA'] = `$true }
 }
 
 # Ejecutar
@@ -1286,6 +1377,14 @@ if (`$Config.SendMail -eq `$true -and `$Config.SmtpServer) {
     `$Params['Subject']    = "Defender XDR - Reporte Semanal de Amenazas - Semana `$(Get-Date -Format 'yyyy-MM-dd')"
 }
 
+# Agregar filtros de workloads semanales configurados en setup
+if (`$Config.WeeklyWorkloads) {
+    if (`$Config.WeeklyWorkloads.IncludeMDO -eq `$true) { `$Params['IncludeMDO'] = `$true }
+    if (`$Config.WeeklyWorkloads.IncludeMDE -eq `$true) { `$Params['IncludeMDE'] = `$true }
+    if (`$Config.WeeklyWorkloads.IncludeMDI -eq `$true) { `$Params['IncludeMDI'] = `$true }
+    if (`$Config.WeeklyWorkloads.IncludeMDA -eq `$true) { `$Params['IncludeMDA'] = `$true }
+}
+
 # Ejecutar
 if (-not (Test-Path `$Config.WeeklyScript -PathType Leaf)) {
     Write-Error "El script principal no se encuentra o no es un archivo valido: `$(`$Config.WeeklyScript). Si usa OneDrive, verifique que este descargado localmente."
@@ -1324,10 +1423,10 @@ $WeeklyWrapperContent | Out-File $WeeklyWrapperPath -Encoding UTF8 -Force
 Write-Ok "Wrapper semanal: $WeeklyWrapperPath"
 
 # ============================================================
-#  PASO 8: Tareas programadas
+#  PASO 9: Tareas programadas
 # ============================================================
 
-Write-Step "8/9" "Tareas programadas (Task Scheduler)"
+Write-Step "9/10" "Tareas programadas (Task Scheduler)"
 
 if ($SkipScheduledTasks) {
     Write-Skip "Creacion de tareas omitida (parametro -SkipScheduledTasks)"
@@ -1407,10 +1506,10 @@ else {
 }
 
 # ============================================================
-#  PASO 9: Prueba de ejecucion (opcional)
+#  PASO 10: Prueba de ejecucion (opcional)
 # ============================================================
 
-Write-Step "9/9" "Prueba de ejecucion"
+Write-Step "10/10" "Prueba de ejecucion"
 
 if ($UseSecret -or $UseCertificate) {
     $RunTest = Read-Host "  Ejecutar prueba del reporte diario ahora? [s/N]"

@@ -67,6 +67,10 @@ param(
     [switch]$FailFast,
     [switch]$ExportCsv,
     [switch]$UseParallel,
+    [switch]$IncludeMDO,
+    [switch]$IncludeMDE,
+    [switch]$IncludeMDI,
+    [switch]$IncludeMDA,
     [string]$LogPath = 'C:\Reports\Logs\DefenderXDR.log',
     [switch]$TestMode
 )
@@ -85,6 +89,15 @@ $MIN_ALERTS_RISKY_HOST = 3
 # Seguridad: La caché de tokens usa Export-Clixml protegido por DPAPI (solo usuario actual)
 $TOKEN_CACHE_FILE = "$env:TEMP\DefenderXDR_TokenCache.xml"
 $KPI_CACHE_FILE = "$env:TEMP\DefenderXDR_KPICache.json"
+
+# Selección de workloads: si no se especifica ninguno, se incluyen todos.
+$RunMDO = $IncludeMDO.IsPresent
+$RunMDE = $IncludeMDE.IsPresent
+$RunMDI = $IncludeMDI.IsPresent
+$RunMDA = $IncludeMDA.IsPresent
+if (-not ($RunMDO -or $RunMDE -or $RunMDI -or $RunMDA)) {
+    $RunMDO = $RunMDE = $RunMDI = $RunMDA = $true
+}
 
 if ($ProxyUrl) {
     [System.Net.WebRequest]::DefaultWebProxy = New-Object System.Net.WebProxy($ProxyUrl)
@@ -355,6 +368,15 @@ EmailEvents
 | top 20 by Attacks desc
 "@
 
+    "MDO_Alerts" = @"
+AlertInfo
+| where Timestamp between (ago(TimeWindowDays*d) .. now())
+| where ServiceSource has_any ('Defender for Office 365', 'Office 365', 'Office')
+| project Title=tostring(column_ifexists('Title', '(Sin título)')), Severity=tostring(column_ifexists('Severity', 'Unknown'))
+| summarize Count=count() by Title, Severity
+| top 20 by Count desc
+"@
+
     # MDE
     "MDE_Severity" = @"
 AlertInfo
@@ -383,6 +405,15 @@ DeviceInfo
 | top 25 by LastSeen desc
 "@
 
+    "MDE_Alerts" = @"
+AlertInfo
+| where Timestamp between (ago(TimeWindowDays*d) .. now())
+| where ServiceSource has 'Endpoint'
+| project Title=tostring(column_ifexists('Title', '(Sin título)')), Severity=tostring(column_ifexists('Severity', 'Unknown'))
+| summarize Count=count() by Title, Severity
+| top 20 by Count desc
+"@
+
     # MDI
     "MDI_Spray" = @"
 IdentityLogonEvents
@@ -401,6 +432,15 @@ IdentityLogonEvents
 | top 25 by Countries desc
 "@
 
+    "MDI_Alerts" = @"
+AlertInfo
+| where Timestamp between (ago(TimeWindowDays*d) .. now())
+| where ServiceSource has_any ('Defender for Identity', 'Identity')
+| project Title=tostring(column_ifexists('Title', '(Sin título)')), Severity=tostring(column_ifexists('Severity', 'Unknown'))
+| summarize Count=count() by Title, Severity
+| top 20 by Count desc
+"@
+
     # MDA
     "MDA_OAuth" = @"
 CloudAppEvents
@@ -415,6 +455,15 @@ CloudAppEvents
 | where Timestamp between (ago(TimeWindowDays*d) .. now())
 | summarize Events=count(), Users=dcount(AccountId) by Application
 | top 20 by Events desc
+"@
+
+    "MDA_Alerts" = @"
+AlertInfo
+| where Timestamp between (ago(TimeWindowDays*d) .. now())
+| where ServiceSource has_any ('Defender for Cloud Apps', 'Cloud Apps', 'MCAS', 'Microsoft Cloud App Security')
+| project Title=tostring(column_ifexists('Title', '(Sin título)')), Severity=tostring(column_ifexists('Severity', 'Unknown'))
+| summarize Count=count() by Title, Severity
+| top 20 by Count desc
 "@
 }
 
@@ -433,7 +482,14 @@ try {
     if ($UseParallel -and $PSVersionTable.PSVersion.Major -ge 7) {
         Write-Log "Ejecutando consultas en paralelo..." -Level INFO
         
-        $Results = $Queries.GetEnumerator() | ForEach-Object -Parallel {
+        $Results = $Queries.GetEnumerator() |
+            Where-Object {
+                ($_.Key -notlike 'MDO_*' -or $RunMDO) -and
+                ($_.Key -notlike 'MDE_*' -or $RunMDE) -and
+                ($_.Key -notlike 'MDI_*' -or $RunMDI) -and
+                ($_.Key -notlike 'MDA_*' -or $RunMDA)
+            } |
+            ForEach-Object -Parallel {
             $Query = $_.Value
             $Name = $_.Key
             $Token = $using:Token
@@ -489,6 +545,10 @@ try {
     else {
         Write-Log "Ejecutando consultas secuencialmente..." -Level INFO
         foreach ($Key in $Queries.Keys) {
+            if ($Key -like 'MDO_*' -and -not $RunMDO) { continue }
+            if ($Key -like 'MDE_*' -and -not $RunMDE) { continue }
+            if ($Key -like 'MDI_*' -and -not $RunMDI) { continue }
+            if ($Key -like 'MDA_*' -and -not $RunMDA) { continue }
             $Result = Invoke-DefenderAhQuery -Token $Token -Query $Queries[$Key] -Name $Key
             $Data[$Key] = $Result.Results
         }
@@ -514,6 +574,8 @@ try {
     if (-not $KPI_MDO_Phish) { $KPI_MDO_Phish = 0 }
     if (-not $KPI_MDO_Malware) { $KPI_MDO_Malware = 0 }
     if (-not $KPI_MDE_Alerts) { $KPI_MDE_Alerts = 0 }
+    if (-not $KPI_MDE_RiskyHosts) { $KPI_MDE_RiskyHosts = 0 }
+    if (-not $KPI_MDI_Spray) { $KPI_MDI_Spray = 0 }
     if (-not $KPI_MDA_OAuth) { $KPI_MDA_OAuth = 0 }
     
     Write-Log "KPIs calculados: Phish=$KPI_MDO_Phish, Malware=$KPI_MDO_Malware, Alertas=$KPI_MDE_Alerts" -Level INFO
@@ -850,7 +912,7 @@ $HtmlContent = @"
     <div class="header">
         <div>
             <h1>Reporte Semanal de Operaciones de Seguridad</h1>
-            <div class="subtitle">Technology enables security, but discipline makes it effective</div>
+            <div class="subtitle">La tecnología habilita la seguridad, pero la disciplina la hace efectiva</div>
         </div>
         <div class="meta">
             <div class="status-badge" style="background-color: $StatusColor;">$GlobalStatus</div>
@@ -861,16 +923,6 @@ $HtmlContent = @"
     </div>
 
     <div class="container">
-        <div class="summary">
-            <h3>Resumen Ejecutivo</h3>
-            <ul>
-                <li><strong>$KPI_MDO_Phish</strong> correos de phishing y <strong>$KPI_MDO_Malware</strong> intentos de malware detectados esta semana.</li>
-                <li><strong>$KPI_MDE_Alerts</strong> alertas de endpoint registradas; <strong>$KPI_MDE_RiskyHosts</strong> hosts requieren atención inmediata.</li>
-                <li><strong>$KPI_MDI_Spray</strong> identidades mostraron señales de password spray o fuerza bruta.</li>
-                <li><strong>$KPI_MDA_OAuth</strong> nuevos consentimientos OAuth otorgados a aplicaciones.</li>
-            </ul>
-        </div>
-
         <div class="kpi-grid">
             <div class="kpi-card $(if($KPI_MDE_Alerts -gt 0){'danger'}else{'alert'})">
                 <div class="kpi-val">$KPI_MDE_Alerts</div>
@@ -895,6 +947,14 @@ $HtmlContent = @"
         </div>
 
         <h2>MDO: Correo y Colaboración</h2>
+
+        <h3>Alertas de MDO (Top 20)</h3>
+        <div class="table-container">
+            <table>
+                <thead><tr><th>Título</th><th>Severidad</th><th>Cantidad</th></tr></thead>
+                <tbody>$(New-HtmlTable $Data["MDO_Alerts"] @("Title","Severity","Count"))</tbody>
+            </table>
+        </div>
 
         <div class="ops-section">
             <div class="ops-group">
@@ -950,6 +1010,14 @@ $HtmlContent = @"
         </div>
 
         <h2>MDE: Seguridad de Endpoint</h2>
+
+        <h3>Alertas de MDE (Top 20)</h3>
+        <div class="table-container">
+            <table>
+                <thead><tr><th>Título</th><th>Severidad</th><th>Cantidad</th></tr></thead>
+                <tbody>$(New-HtmlTable $Data["MDE_Alerts"] @("Title","Severity","Count"))</tbody>
+            </table>
+        </div>
 
         <div class="ops-section">
             <div class="ops-group">
@@ -1014,6 +1082,14 @@ $HtmlContent = @"
         </div>
 
         <h2>MDI: Seguridad de Identidad</h2>
+
+        <h3>Alertas de MDI (Top 20)</h3>
+        <div class="table-container">
+            <table>
+                <thead><tr><th>Título</th><th>Severidad</th><th>Cantidad</th></tr></thead>
+                <tbody>$(New-HtmlTable $Data["MDI_Alerts"] @("Title","Severity","Count"))</tbody>
+            </table>
+        </div>
 
         <div class="ops-section">
             <div class="ops-group">
@@ -1105,6 +1181,15 @@ $HtmlContent = @"
         </div>
 
         <h2>MDA: Aplicaciones en la Nube y Shadow IT</h2>
+
+        <h3>Alertas de MDA (Top 20)</h3>
+        <div class="table-container">
+            <table>
+                <thead><tr><th>Título</th><th>Severidad</th><th>Cantidad</th></tr></thead>
+                <tbody>$(New-HtmlTable $Data["MDA_Alerts"] @("Title","Severity","Count"))</tbody>
+            </table>
+        </div>
+
         <div class="table-grid">
             <div class="table-container">
                 <h3 style="padding:0 15px;">Nuevos Consentimientos OAuth</h3>
