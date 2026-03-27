@@ -64,16 +64,6 @@
             margin-top: 22px;
             margin-bottom: 10px;
         }
-        .summary {
-            background-color: #e6f2ff;
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid #cce4ff;
-            margin-bottom: 25px;
-        }
-        .summary h3 { margin-top: 0; color: var(--secondary-color); }
-        .summary ul { margin: 0; padding-left: 20px; }
-        .summary li { margin-bottom: 8px; line-height: 1.6; }
         .kpi-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -134,43 +124,33 @@
         <h1>Reporte Semanal de Operaciones de Seguridad</h1>
         <div class="meta">
             <div class="status-badge" style="background-color: #107c10;">Saludable</div>
-            <div><strong>Periodo:</strong> Últimos 7 días</div>
-            <div><strong>Generado:</strong> 2026-03-09 09:17</div>
+            <div><strong>Periodo:</strong> Últimos 30 días</div>
+            <div><strong>Generado:</strong> 2026-03-23 11:42</div>
             <div style="font-size: 0.85em; margin-top: 4px;">Tenant ID: ********************************8c2b</div>
         </div>
     </div>
 
     <div class="container">
-        <div class="summary">
-            <h3>Resumen Ejecutivo</h3>
-            <ul>
-                <li><strong>1</strong> correos de phishing y <strong>0</strong> intentos de malware detectados esta semana.</li>
-                <li><strong>0</strong> alertas de endpoint registradas; <strong>0</strong> hosts requieren atención inmediata.</li>
-                <li><strong>0</strong> identidades mostraron señales de password spray o fuerza bruta.</li>
-                <li><strong>0</strong> nuevos consentimientos OAuth otorgados a aplicaciones.</li>
-            </ul>
-        </div>
-
         <div class="kpi-grid">
             <div class="kpi-card alert">
                 <div class="kpi-val">0</div>
-                <div class="kpi-label">Total de Alertas de Endpoint</div>
+                <div class="kpi-label">Alertas de Defender for Endpoint</div>
             </div>
             <div class="kpi-card danger">
                 <div class="kpi-val">1</div>
-                <div class="kpi-label">Intentos de Phishing</div>
+                <div class="kpi-label">Alertas de Defender for Office</div>
             </div>
             <div class="kpi-card alert">
                 <div class="kpi-val">0</div>
-                <div class="kpi-label">Hosts Críticos (≥3 Alertas)</div>
+                <div class="kpi-label">Alertas Defender for Identity</div>
+            </div>
+            <div class="kpi-card danger">
+                <div class="kpi-val">1</div>
+                <div class="kpi-label">Usuarios con riesgo</div>
             </div>
             <div class="kpi-card alert">
                 <div class="kpi-val">0</div>
-                <div class="kpi-label">Ataques de Spray de Identidad</div>
-            </div>
-            <div class="kpi-card alert">
-                <div class="kpi-val">0</div>
-                <div class="kpi-label">Nuevos Consentimientos OAuth</div>
+                <div class="kpi-label">Consentimientos Apps</div>
             </div>
         </div>
 
@@ -213,7 +193,7 @@
         <div class="table-container">
             <table>
                 <thead><tr><th>Nombre Dispositivo</th><th>SO</th><th>Estado Salud</th><th>Visto Por Última Vez</th></tr></thead>
-                <tbody><tr><td><a href='https://security.microsoft.com/machines/8c3b9d91724a359d5028d5c61f1a6938177be32e' target='_blank' title='Ver Dispositivo en Defender'>win10-adm</a></td><td>Windows10</td><td></td><td>2026-03-09 14:52</td></tr><tr><td><a href='https://security.microsoft.com/machines/a062332fc84cbd03744064d9aff6cf74f7fce5a7' target='_blank' title='Ver Dispositivo en Defender'>attackerubuntu</a></td><td>Linux</td><td></td><td>2026-03-09 14:39</td></tr><tr><td><a href='https://security.microsoft.com/machines/40f0d4cb1cbe64dcfcf22c4cc112997df330ab87' target='_blank' title='Ver Dispositivo en Defender'>attackerkali</a></td><td>Linux</td><td></td><td>2026-03-09 14:30</td></tr><tr><td><a href='https://security.microsoft.com/machines/53171c9f56e6677dbe9550650586a87be0338a15' target='_blank' title='Ver Dispositivo en Defender'>win10-ceo</a></td><td>Windows10</td><td></td><td>2026-03-09 14:22</td></tr><tr><td><a href='https://security.microsoft.com/machines/4bae693073d24cfc84670a1c57c30a0857cb01f7' target='_blank' title='Ver Dispositivo en Defender'>svr19-dc1</a></td><td>WindowsServer2019</td><td></td><td>2026-03-09 13:57</td></tr><tr><td><a href='https://security.microsoft.com/machines/22f7f084e1a8cc02ab8d996328594ec91eecd3a6' target='_blank' title='Ver Dispositivo en Defender'>attackerwin10</a></td><td>Windows10</td><td></td><td>2026-03-09 13:55</td></tr><tr><td><a href='https://security.microsoft.com/machines/85017d537b7328885006c730ad233cc04c52a12d' target='_blank' title='Ver Dispositivo en Defender'>elk</a></td><td>Linux</td><td></td><td>2026-03-09 13:46</td></tr><tr><td><a href='https://security.microsoft.com/machines/7f290579351f92e63b1cb2e21fdb7623af445af1' target='_blank' title='Ver Dispositivo en Defender'>w11</a></td><td>Windows11</td><td></td><td>2026-03-09 13:27</td></tr><tr><td><a href='https://security.microsoft.com/machines/722c28965678451e78dbe2d4ee928eb63340d3cf' target='_blank' title='Ver Dispositivo en Defender'>ubuntu-proxy</a></td><td>Linux</td><td></td><td>2026-03-09 13:16</td></tr></tbody>
+                <tbody><tr><td><a href='https://security.microsoft.com/machines/22f7f084e1a8cc02ab8d996328594ec91eecd3a6' target='_blank' title='Ver Dispositivo en Defender'>attackerwin10</a></td><td>Windows10</td><td></td><td>2026-03-23 17:25</td></tr><tr><td><a href='https://security.microsoft.com/machines/a062332fc84cbd03744064d9aff6cf74f7fce5a7' target='_blank' title='Ver Dispositivo en Defender'>attackerubuntu</a></td><td>Linux</td><td></td><td>2026-03-23 17:16</td></tr><tr><td><a href='https://security.microsoft.com/machines/40f0d4cb1cbe64dcfcf22c4cc112997df330ab87' target='_blank' title='Ver Dispositivo en Defender'>attackerkali</a></td><td>Linux</td><td></td><td>2026-03-23 16:59</td></tr><tr><td><a href='https://security.microsoft.com/machines/7f290579351f92e63b1cb2e21fdb7623af445af1' target='_blank' title='Ver Dispositivo en Defender'>w11</a></td><td>Windows11</td><td></td><td>2026-03-23 16:57</td></tr><tr><td><a href='https://security.microsoft.com/machines/85017d537b7328885006c730ad233cc04c52a12d' target='_blank' title='Ver Dispositivo en Defender'>elk</a></td><td>Linux</td><td></td><td>2026-03-23 16:55</td></tr><tr><td><a href='https://security.microsoft.com/machines/53171c9f56e6677dbe9550650586a87be0338a15' target='_blank' title='Ver Dispositivo en Defender'>win10-ceo</a></td><td>Windows10</td><td></td><td>2026-03-23 16:50</td></tr><tr><td><a href='https://security.microsoft.com/machines/4bae693073d24cfc84670a1c57c30a0857cb01f7' target='_blank' title='Ver Dispositivo en Defender'>svr19-dc1</a></td><td>WindowsServer2019</td><td></td><td>2026-03-23 16:47</td></tr><tr><td><a href='https://security.microsoft.com/machines/722c28965678451e78dbe2d4ee928eb63340d3cf' target='_blank' title='Ver Dispositivo en Defender'>ubuntu-proxy</a></td><td>Linux</td><td></td><td>2026-03-23 13:48</td></tr><tr><td><a href='https://security.microsoft.com/machines/3e5c6f1b92caf6dd3486cfa5dc660677f02d2a29' target='_blank' title='Ver Dispositivo en Defender'>lab25</a></td><td>WindowsServer2025</td><td>Active</td><td>2026-03-20 14:46</td></tr><tr><td><a href='https://security.microsoft.com/machines/78054a1565c61bc942d0df91b33c32008bece7c4' target='_blank' title='Ver Dispositivo en Defender'>ca.hellblazer.local</a></td><td>WindowsServer2019</td><td>Active</td><td>2026-03-20 14:24</td></tr><tr><td><a href='https://security.microsoft.com/machines/3e6a8d1dec4b105c25faf5408c4edd1501d51db1' target='_blank' title='Ver Dispositivo en Defender'>ravenscar.hellblazer.local</a></td><td>WindowsServer2022</td><td>Active</td><td>2026-03-20 13:55</td></tr><tr><td><a href='https://security.microsoft.com/machines/5be61a149ad56b1bdac274fa463e85bccf5267ee' target='_blank' title='Ver Dispositivo en Defender'>win2022dc2.hellblazer.local</a></td><td>WindowsServer2022</td><td>Active</td><td>2026-03-20 13:49</td></tr><tr><td><a href='https://security.microsoft.com/machines/1ef063adf9cc3f2f6f3ba4d812991f58bb9ae78d' target='_blank' title='Ver Dispositivo en Defender'>paw</a></td><td>Windows11</td><td>Active</td><td>2026-03-20 13:48</td></tr><tr><td><a href='https://security.microsoft.com/machines/fcc9152391706eeaf75b659f6ec8877c716d673e' target='_blank' title='Ver Dispositivo en Defender'></a></td><td>Linux</td><td></td><td>2026-03-20 11:45</td></tr><tr><td><a href='https://security.microsoft.com/machines/1c3e1cacba9595e7e510401916dd7c6f76466095' target='_blank' title='Ver Dispositivo en Defender'>sensor.private.pvt</a></td><td>WindowsServer2016</td><td></td><td>2026-03-20 09:30</td></tr><tr><td><a href='https://security.microsoft.com/machines/b9f6ce4949924403a4f542144b1ed0a7a056178b' target='_blank' title='Ver Dispositivo en Defender'>localhost</a></td><td>Linux</td><td></td><td>2026-03-19 04:38</td></tr><tr><td><a href='https://security.microsoft.com/machines/13701ba020ce0305a6e88698cb23b2416d21d95d' target='_blank' title='Ver Dispositivo en Defender'>ringdoorbell-d1</a></td><td></td><td></td><td>2026-03-19 04:38</td></tr><tr><td><a href='https://security.microsoft.com/machines/7bea85d62352164d69791d9aba29392ae5b7da0e' target='_blank' title='Ver Dispositivo en Defender'>cliente01.private.pvt</a></td><td>Windows11</td><td></td><td>2026-03-18 22:26</td></tr><tr><td><a href='https://security.microsoft.com/machines/4df40c04471e75cec1c8990762e9cfad3d33a6b1' target='_blank' title='Ver Dispositivo en Defender'>dcprivate</a></td><td>WindowsServer2019</td><td></td><td>2026-03-18 19:08</td></tr><tr><td><a href='https://security.microsoft.com/machines/8c3b9d91724a359d5028d5c61f1a6938177be32e' target='_blank' title='Ver Dispositivo en Defender'>win10-adm</a></td><td>Windows10</td><td></td><td>2026-03-15 01:36</td></tr><tr><td><a href='https://security.microsoft.com/machines/518857f68aa04e970514dbcbd2659aac7262650e' target='_blank' title='Ver Dispositivo en Defender'>svr16-adfs</a></td><td>WindowsServer2016</td><td></td><td>2026-03-01 09:48</td></tr><tr><td><a href='https://security.microsoft.com/machines/d06c8380a28052a2e4eeb4fb6c73ab02a1e26ea5' target='_blank' title='Ver Dispositivo en Defender'>svr22-sync</a></td><td>WindowsServer2022</td><td></td><td>2026-02-28 03:37</td></tr><tr><td><a href='https://security.microsoft.com/machines/141e299043d2ff989c06a92539e679a1acaf04c1' target='_blank' title='Ver Dispositivo en Defender'>w10clientdomain.hellblazer.local</a></td><td>Windows10</td><td>Active</td><td>2026-02-27 00:19</td></tr><tr><td><a href='https://security.microsoft.com/machines/fb1adb44191c74c70ba2212cefc09cee8122b6a9' target='_blank' title='Ver Dispositivo en Defender'>kali</a></td><td>Linux</td><td></td><td>2026-02-26 21:26</td></tr><tr><td><a href='https://security.microsoft.com/machines/18e38bbf5863dd8bcb3055768a89c5cf50478f0c' target='_blank' title='Ver Dispositivo en Defender'>desktop-45p1f7b</a></td><td>Windows10</td><td>Active</td><td>2026-02-26 19:48</td></tr></tbody>
             </table>
         </div>
 
@@ -223,14 +203,14 @@
                 <h3 style="padding:0 15px;">Password Spray / Fuerza Bruta</h3>
                 <table>
                     <thead><tr><th>Cuenta</th><th>Ubicación</th><th>Fallos</th><th>IPs</th></tr></thead>
-                    <tbody><tr><td colspan='4' style='text-align:center; color:#888; padding:15px;'>No hay datos disponibles para este periodo.</td></tr></tbody>
+                    <tbody><tr><td><a href='https://security.microsoft.com/users/sec/UserPage?user=admin@mngenvmcap965156.onmicrosoft.com' target='_blank' title='Ver Usuario en Defender'>admin@mngenvmcap965156.onmicrosoft.com</a></td><td>US</td><td>37</td><td>1</td></tr></tbody>
                 </table>
             </div>
             <div class="table-container">
                 <h3 style="padding:0 15px;">Ubicaciones Atípicas (Viajes)</h3>
                 <table>
                     <thead><tr><th>Cuenta</th><th>Países</th><th>Visto Por Última Vez</th></tr></thead>
-                    <tbody><tr><td colspan='3' style='text-align:center; color:#888; padding:15px;'>No hay datos disponibles para este periodo.</td></tr></tbody>
+                    <tbody><tr><td></td><td>3</td><td>2026-03-20 14:45</td></tr></tbody>
                 </table>
             </div>
         </div>
@@ -248,7 +228,7 @@
                 <h3 style="padding:0 15px;">Nuevas Apps Descubiertas (Shadow IT)</h3>
                 <table>
                     <thead><tr><th>Aplicación</th><th>Eventos</th><th>Usuarios</th></tr></thead>
-                    <tbody><tr><td>Microsoft Exchange Online</td><td>322</td><td>1</td></tr><tr><td>Microsoft 365</td><td>30</td><td>4</td></tr></tbody>
+                    <tbody><tr><td>Microsoft Exchange Online</td><td>1550</td><td>3</td></tr><tr><td>Microsoft 365</td><td>427</td><td>15</td></tr><tr><td>Microsoft Viva Engage</td><td>1</td><td>1</td></tr></tbody>
                 </table>
             </div>
         </div>
@@ -264,7 +244,7 @@
         </div>
 
         <div class="footer">
-            Fuente: Defender XDR - Advanced Hunting & Reporting (Ops Semanal) | Generado a las 09:17
+            Fuente: Defender XDR - Advanced Hunting & Reporting (Ops Semanal) | Generado a las 11:42
         </div>
     </div>
 </body>

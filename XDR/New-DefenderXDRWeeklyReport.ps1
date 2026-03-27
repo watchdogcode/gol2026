@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     New-DefenderXDRWeeklyReport.ps1
     Genera un Reporte Ejecutivo Semanal de Amenazas utilizando la API de Advanced Hunting de Microsoft Defender XDR.
@@ -13,26 +13,67 @@
 .PARAMETER OutputPath
     Ruta para guardar el reporte HTML.
 
-.PARAMETER AuthMode
-    Método de autenticación: 'Secret' (predeterminado), 'DeviceCode', 'Interactive', 'Certificate'.
-
 .PARAMETER TenantId
-    ID del Inquilino (Tenant ID) de Azure AD (Requerido).
+    Tenant ID de Entra ID. Toma por defecto $env:AZURE_TENANT_ID.
 
 .PARAMETER ClientId
-    ID del Cliente (Client ID) del registro de la aplicación (Requerido).
+    App/Client ID de la aplicación registrada. Toma por defecto $env:AZURE_CLIENT_ID.
 
 .PARAMETER ClientSecret
-    Secreto del Cliente (Requerido si AuthMode es 'Secret').
+    Secreto de la aplicación para AuthMode Secret. Toma por defecto $env:AZURE_CLIENT_SECRET.
 
-.PARAMETER CertThumbprint
-    Huella digital del certificado (Requerido si AuthMode es 'Certificate').
+.PARAMETER AuthMode
+    Método de autenticación: 'Secret', 'Certificate', 'Interactive', 'DeviceCode'.
+    Para 'Secret', configure $ClientId, $TenantId y $ClientSecret.
+    Para 'Certificate', configure $ClientId, $TenantId y el certificado por thumbprint o ruta PFX.
 
-.PARAMETER SendMail
-    Interruptor para enviar el reporte por correo electrónico.
+.PARAMETER CertificateThumbprint
+    Thumbprint del certificado en CurrentUser/My o LocalMachine/My.
+
+.PARAMETER CertificatePath
+    Ruta a archivo PFX/P12 para autenticación por certificado.
+
+.PARAMETER CertificatePassword
+    Password SecureString para abrir CertificatePath (opcional si el PFX no tiene password).
+
+.PARAMETER TimeoutSec
+    Timeout por consulta a la API (segundos). Por defecto: 120.
+
+.PARAMETER FailFast
+    Si es $true, detiene ejecución ante el primer error de consulta.
+
+.PARAMETER IncludeMDO
+    Incluir secciones de Microsoft Defender for Office 365. Si no se especifica ningún producto, se incluyen todos.
+
+.PARAMETER IncludeMDE
+    Incluir secciones de Microsoft Defender for Endpoint. Si no se especifica ningún producto, se incluyen todos.
+
+.PARAMETER IncludeMDI
+    Incluir secciones de Microsoft Defender for Identity y Entra ID. Si no se especifica ningún producto, se incluyen todos.
+
+.PARAMETER IncludeMDA
+    Incluir secciones de Microsoft Defender for Cloud Apps. Si no se especifica ningún producto, se incluyen todos.
 
 .EXAMPLE
-    .\New-DefenderXDRWeeklyReport.ps1 -TenantId "xxx" -ClientId "yyy" -AuthMode DeviceCode
+    .\New-DefenderXDRWeeklyReport.ps1
+    Ejecuta el reporte con AuthMode Secret (default) y todos los productos habilitados.
+
+.EXAMPLE
+    .\New-DefenderXDRWeeklyReport.ps1 -AuthMode Certificate -TenantId "<tenant>" -ClientId "<appId>" -CertificateThumbprint "<thumbprint>"
+    Ejecuta el reporte usando autenticación por certificado desde el store de certificados.
+
+.EXAMPLE
+    $pwd = Read-Host "Password del PFX" -AsSecureString
+    .\New-DefenderXDRWeeklyReport.ps1 -AuthMode Certificate -TenantId "<tenant>" -ClientId "<appId>" -CertificatePath "C:\certs\app.pfx" -CertificatePassword $pwd
+    Ejecuta el reporte usando un certificado PFX.
+
+.EXAMPLE
+    .\New-DefenderXDRWeeklyReport.ps1 -IncludeMDO -IncludeMDE
+    Ejecuta el reporte solo con las secciones de MDO y MDE.
+
+.EXAMPLE
+    .\New-DefenderXDRWeeklyReport.ps1 -IncludeMDA
+    Ejecuta el reporte solo con la sección de MDA (Cloud Apps).
 
 .NOTES
     Requiere el permiso 'AdvancedHunting.Read.All'.
@@ -40,22 +81,20 @@
 
 param(
     [ValidateSet(7, 14, 30)]
-    [int]$TimeWindowDays = 7,
+    [int]$TimeWindowDays = 30,
 
     [string]$OutputPath = "$PSScriptRoot\Weekly_SecOps_Report_$(Get-Date -Format 'yyyyMMdd').html",
 
-    [Alias('Auth')]
+    [string]$TenantId = $env:AZURE_TENANT_ID,
+    [string]$ClientId = $env:AZURE_CLIENT_ID,
+    [string]$ClientSecret = $env:AZURE_CLIENT_SECRET,
+    [Alias('CertThumbprint')]
+    [string]$CertificateThumbprint = $env:AZURE_CLIENT_CERT_THUMBPRINT,
+    [string]$CertificatePath = $env:AZURE_CLIENT_CERT_PATH,
+    [System.Security.SecureString]$CertificatePassword,
+
     [ValidateSet('DeviceCode', 'Interactive', 'Secret', 'Certificate')]
     [string]$AuthMode = 'Secret',
-
-    [Parameter(Mandatory = $true)]
-    [string]$TenantId,
-
-    [Parameter(Mandatory = $true)]
-    [string]$ClientId,
-
-    [string]$ClientSecret,
-    [string]$CertThumbprint,
 
     [bool]$SendMail = $false,
     [string]$SmtpServer,
@@ -64,17 +103,38 @@ param(
 
     [string]$ProxyUrl,
     [int]$TimeoutSec = 120,
-    [switch]$FailFast,
+    [bool]$FailFast = $false,
     [switch]$ExportCsv,
     [switch]$UseParallel,
     [string]$LogPath = 'C:\Reports\Logs\DefenderXDR.log',
-    [switch]$TestMode
+    [switch]$TestMode,
+    [switch]$IncludeMDO,
+    [switch]$IncludeMDE,
+    [switch]$IncludeMDI,
+    [switch]$IncludeMDA
 )
+
+$TenantId = if ($null -ne $TenantId) { $TenantId.Trim() } else { $TenantId }
+$ClientId = if ($null -ne $ClientId) { $ClientId.Trim() } else { $ClientId }
+$ClientSecret = if ($null -ne $ClientSecret) { $ClientSecret.Trim() } else { $ClientSecret }
+$CertificateThumbprint = if ($null -ne $CertificateThumbprint) { ($CertificateThumbprint -replace '\s','').ToUpperInvariant() } else { $CertificateThumbprint }
+$CertificatePath = if ($null -ne $CertificatePath) { $CertificatePath.Trim() } else { $CertificatePath }
+$AuthMode = if ($null -ne $AuthMode) { $AuthMode.Trim() } else { $AuthMode }
+
+# --- SELECCIÓN DE PRODUCTOS (si no se especifica ninguno, se incluyen todos) ---
+$RunMDO = $IncludeMDO.IsPresent
+$RunMDE = $IncludeMDE.IsPresent
+$RunMDI = $IncludeMDI.IsPresent
+$RunMDA = $IncludeMDA.IsPresent
+if (-not ($RunMDO -or $RunMDE -or $RunMDI -or $RunMDA)) {
+    $RunMDO = $RunMDE = $RunMDI = $RunMDA = $true
+}
 
 # --- CONFIGURACIÓN ---
 $ErrorActionPreference = "Continue"
 $ApiBaseUrl = "https://api.security.microsoft.com/api"
-$Scope = "https://api.security.microsoft.com/.default"
+$ResourceUrl = "https://api.security.microsoft.com"
+$Scope = "$ResourceUrl/.default"
 $Authority = "https://login.microsoftonline.com/$TenantId"
 
 # Constantes
@@ -101,7 +161,8 @@ function Mask-String {
 $MaskedTenantId  = Mask-String $TenantId
 $MaskedClientId  = Mask-String $ClientId
 $MaskedSecret    = if ($ClientSecret) { '********' } else { '(not set)' }
-$MaskedThumbprint = if ($CertThumbprint) { Mask-String $CertThumbprint } else { '(not set)' }
+$MaskedThumbprint = if ($CertificateThumbprint) { Mask-String $CertificateThumbprint 6 } else { '(no configurado)' }
+$MaskedCertPath  = if ($CertificatePath) { $CertificatePath } else { '(no configurado)' }
 
 # --- FUNCIÓN DE LOGGING ---
 function Write-Log {
@@ -142,123 +203,301 @@ Write-Log "  Tenant ID   : $MaskedTenantId" -Level INFO
 Write-Log "  Client ID   : $MaskedClientId" -Level INFO
 Write-Log "  Secreto     : $MaskedSecret" -Level INFO
 Write-Log "  Huella Cert : $MaskedThumbprint" -Level INFO
+Write-Log "  Ruta Cert   : $MaskedCertPath" -Level INFO
 Write-Log "  Modo Auth   : $AuthMode" -Level INFO
 Write-Log "========================" -Level INFO
 
-# --- AUTENTICACIÓN ---
-function New-AuthToken {
-    Write-Log "Autenticando vía $AuthMode..." -Level INFO
-    
-    # Verificar caché de token
-    if ((Test-Path $TOKEN_CACHE_FILE)) {
-        try {
-            $CachedToken = Import-Clixml -Path $TOKEN_CACHE_FILE -ErrorAction Stop
-            if ($CachedToken.Expiry -gt (Get-Date).AddMinutes(5)) {
-                Write-Log "Usando token en caché (válido hasta $($CachedToken.Expiry))" -Level DEBUG
-                return $CachedToken.Token
-            }
-        } catch {
-            Write-Log "Caché de token inválido, re-autenticando" -Level WARN
+# --- AUTENTICACIÓN (Homogéneo con Reporte Diario) ---
+function ConvertTo-Base64Url {
+    param([byte[]]$Bytes)
+
+    $B64 = [Convert]::ToBase64String($Bytes)
+    $B64 = $B64.TrimEnd('=')
+    $B64 = $B64.Replace('+', '-').Replace('/', '_')
+    return $B64
+}
+
+function Get-ExceptionResponseBody {
+    param([Parameter(Mandatory)]$ErrorRecord)
+
+    $ErrorDetailsMessage = $ErrorRecord.ErrorDetails.Message
+    if ($ErrorDetailsMessage) {
+        return [string]$ErrorDetailsMessage
+    }
+
+    $Response = $ErrorRecord.Exception.Response
+    if (-not $Response) {
+        return $null
+    }
+
+    try {
+        if ($Response.Content) {
+            return $Response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
         }
     }
+    catch {}
+
+    try {
+        $Stream = $Response.GetResponseStream()
+        if ($Stream) {
+            $Reader = New-Object System.IO.StreamReader($Stream)
+            try {
+                return $Reader.ReadToEnd()
+            }
+            finally {
+                $Reader.Dispose()
+                $Stream.Dispose()
+            }
+        }
+    }
+    catch {}
+
+    return $null
+}
+
+function Get-CertificateForAuth {
+    if ($CertificatePath) {
+        if (-not (Test-Path $CertificatePath)) {
+            throw "No se encontró el certificado en ruta: $CertificatePath"
+        }
+
+        if ($CertificatePassword) {
+            return [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
+                $CertificatePath,
+                $CertificatePassword,
+                [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable
+            )
+        }
+
+        return [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
+            $CertificatePath,
+            $null,
+            [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable
+        )
+    }
+
+    if (-not $CertificateThumbprint) {
+        throw "Para AuthMode 'Certificate', especifique -CertificateThumbprint o -CertificatePath."
+    }
+
+    $NormalizedThumb = ($CertificateThumbprint -replace '\s','').ToUpperInvariant()
+    foreach ($StoreLocation in @('CurrentUser', 'LocalMachine')) {
+        $Store = [System.Security.Cryptography.X509Certificates.X509Store]::new('My', $StoreLocation)
+        try {
+            $Store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadOnly)
+            $Found = $Store.Certificates | Where-Object { $_.Thumbprint -eq $NormalizedThumb } | Select-Object -First 1
+            if ($Found) {
+                return $Found
+            }
+        }
+        finally {
+            $Store.Close()
+        }
+    }
+
+    throw "No se encontró un certificado con thumbprint '$CertificateThumbprint' en CurrentUser/My o LocalMachine/My."
+}
+
+function New-ClientAssertionJwt {
+    param(
+        [Parameter(Mandatory)][System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+        [Parameter(Mandatory)][string]$ClientId,
+        [Parameter(Mandatory)][string]$TenantId
+    )
+
+    if (-not $Certificate.HasPrivateKey) {
+        throw "El certificado no contiene clave privada."
+    }
+
+    $Rsa = $null
+    try {
+        $Rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($Certificate)
+    }
+    catch {
+        $Rsa = $null
+    }
+
+    if (-not $Rsa -and $Certificate.PrivateKey -is [System.Security.Cryptography.RSA]) {
+        $Rsa = [System.Security.Cryptography.RSA]$Certificate.PrivateKey
+    }
+
+    if (-not $Rsa) {
+        throw "No se pudo obtener la clave privada RSA del certificado. Verifique que tenga clave privada exportable y algoritmo RSA."
+    }
+
+    $Now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    $Audience = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
+
+    $Header = @{
+        alg = 'RS256'
+        typ = 'JWT'
+        x5t = (ConvertTo-Base64Url -Bytes $Certificate.GetCertHash())
+    }
+
+    $Payload = @{
+        aud = $Audience
+        iss = $ClientId
+        sub = $ClientId
+        jti = ([Guid]::NewGuid().ToString())
+        nbf = $Now - 300
+        exp = $Now + 600
+    }
+
+    $HeaderJson = ($Header | ConvertTo-Json -Compress)
+    $PayloadJson = ($Payload | ConvertTo-Json -Compress)
+
+    $EncodedHeader = ConvertTo-Base64Url -Bytes ([Text.Encoding]::UTF8.GetBytes($HeaderJson))
+    $EncodedPayload = ConvertTo-Base64Url -Bytes ([Text.Encoding]::UTF8.GetBytes($PayloadJson))
+    $UnsignedToken = "$EncodedHeader.$EncodedPayload"
+
+    $SignatureBytes = $Rsa.SignData(
+        [Text.Encoding]::UTF8.GetBytes($UnsignedToken),
+        [System.Security.Cryptography.HashAlgorithmName]::SHA256,
+        [System.Security.Cryptography.RSASignaturePadding]::Pkcs1
+    )
+    $EncodedSignature = ConvertTo-Base64Url -Bytes $SignatureBytes
+
+    return "$UnsignedToken.$EncodedSignature"
+}
+
+function Get-M365Token {
+    Write-Log "Obteniendo Token de Acceso vía $AuthMode..."
     
     try {
-        $Token = $null
-        
-        if ($AuthMode -eq 'Secret') {
-            if (-not $ClientSecret) { throw "ClientSecret es requerido para autenticación por Secreto." }
-            
+        if ($AuthMode -eq "Secret") {
+            if (-not ($TenantId -and $ClientId -and $ClientSecret)) {
+                throw "Para autenticación 'Secret', se requieren TenantId, ClientId y ClientSecret."
+            }
             $Body = @{
                 grant_type    = "client_credentials"
                 client_id     = $ClientId
                 client_secret = $ClientSecret
-                scope         = $Scope
+                scope         = "$ResourceUrl/.default"
             }
-            $Response = Invoke-RestMethod -Method Post -Uri "$Authority/oauth2/v2.0/token" -Body $Body -ErrorAction Stop
-            $Token = $Response.access_token
-            $ExpiresIn = $Response.expires_in
-            
-            # Seguridad: Limpiar secreto en texto plano de la memoria inmediatamente
-            $PlainSecret = $null
-            [System.GC]::Collect()
+            $TokenReq = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token" -Body $Body -ErrorAction Stop
+            return $TokenReq.access_token
         }
-        elseif ($AuthMode -eq 'Certificate') {
-            # Implementación básica asumiendo que el certificado está en CurrentUser\My
-            if (-not $CertThumbprint) { throw "CertThumbprint es requerido para autenticación por Certificado." }
-            $Cert = Get-Item "Cert:\CurrentUser\My\$CertThumbprint"
-            
-            # Crear Aserción de Cliente JWT (Simplificado para PS sin módulos externos)
-            # NOTA: Para producción sin módulos, se prefiere Secreto.
-            # Recurrir a MSAL.PS o Az si está disponible para Cert, de lo contrario lanzar error.
-            if (Get-Module -ListAvailable -Name "MSAL.PS") {
-                Import-Module MSAL.PS
-                $Token = Get-MsalToken -ClientId $ClientId -TenantId $TenantId -ClientCertificate $Cert -Scopes $Scope
-                return $Token.AccessToken
+        elseif ($AuthMode -eq "Certificate") {
+            if (-not ($TenantId -and $ClientId)) {
+                throw "Para autenticación 'Certificate', se requieren TenantId y ClientId."
             }
-            throw "La autenticación por certificado requiere el módulo MSAL.PS o construcción manual de JWT. Por favor use Secret o DeviceCode."
+
+            $Cert = Get-CertificateForAuth
+            Write-Log "Usando certificado '$($Cert.Subject)' (thumbprint: $($Cert.Thumbprint)) para autenticación por certificado."
+
+            $ClientAssertion = New-ClientAssertionJwt -Certificate $Cert -ClientId $ClientId -TenantId $TenantId
+            $Body = @{
+                grant_type            = 'client_credentials'
+                client_id             = $ClientId
+                scope                 = "$ResourceUrl/.default"
+                client_assertion_type = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
+                client_assertion      = $ClientAssertion
+            }
+
+            $TokenReq = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token" -Body $Body -ErrorAction Stop
+            return $TokenReq.access_token
         }
-        elseif ($AuthMode -eq 'DeviceCode') {
-            $CodeReq = Invoke-RestMethod -Method Post -Uri "$Authority/oauth2/v2.0/devicecode" -Body @{
-                client_id = $ClientId
-                scope     = $Scope
-            }
-            
-            Write-Log "Para iniciar sesión, abra $($CodeReq.verification_uri) e ingrese el código: $($CodeReq.user_code)" -Level WARN
-            
-            $Expires = (Get-Date).AddSeconds($CodeReq.expires_in)
-            $MaxAttempts = [math]::Ceiling($CodeReq.expires_in / 5)
-            $Attempt = 0
-            
-            while ((Get-Date) -lt $Expires -and $Attempt -lt $MaxAttempts) {
-                $Attempt++
-                try {
-                    $TokenReq = Invoke-RestMethod -Method Post -Uri "$Authority/oauth2/v2.0/token" -Body @{
-                        grant_type = "urn:ietf:params:oauth:grant-type:device_code"
-                        client_id  = $ClientId
-                        device_code = $CodeReq.device_code
-                    } -ErrorAction Stop
-                    $Token = $TokenReq.access_token
-                    $ExpiresIn = $TokenReq.expires_in
-                    break
-                }
-                catch {
-                    $Err = $_.Exception.Response.GetResponseStream()
-                    $Reader = New-Object System.IO.StreamReader($Err)
-                    $ErrBody = $Reader.ReadToEnd() | ConvertFrom-Json
-                    if ($ErrBody.error -eq "authorization_pending") {
-                        Start-Sleep -Seconds 5
+        elseif ($AuthMode -in @("Interactive", "DeviceCode")) {
+            if (Get-Module -ListAvailable -Name "Az.Accounts") {
+                Write-Log "Usando Az.Accounts para autenticación $AuthMode..."
+
+                $AzContext = Get-AzContext -ErrorAction SilentlyContinue
+                if (-not $AzContext) {
+                    Write-Log "No hay sesión activa de Azure. Iniciando conexión ($AuthMode)..."
+                    if ($AuthMode -eq "DeviceCode") {
+                        Connect-AzAccount -UseDeviceAuthentication -ErrorAction Stop | Out-Null
                     } else {
-                        throw $_
+                        Connect-AzAccount -ErrorAction Stop | Out-Null
                     }
                 }
+
+                $TokenData = Get-AzAccessToken -ResourceUrl $ResourceUrl -ErrorAction Stop
+
+                if ($TokenData.Token -is [System.Security.SecureString]) {
+                    return $TokenData.Token | ConvertFrom-SecureString -AsPlainText
+                }
+                return $TokenData.Token
             }
-            if (-not $Token) { throw "El flujo de código de dispositivo expiró después de $Attempt intentos." }
-        }
-        elseif ($AuthMode -eq 'Interactive') {
-            # Requiere módulo Az o Mg
-            if (Get-Module -ListAvailable -Name "Az.Accounts") {
-                Connect-AzAccount -Tenant $TenantId -ErrorAction Stop | Out-Null
-                $Token = (Get-AzAccessToken -ResourceUrl "https://api.security.microsoft.com").Token
-                $ExpiresIn = 3600 # Expiración predeterminada de token Az
-            } else {
-                throw "La autenticación interactiva requiere el módulo 'Az.Accounts'."
+            else {
+                Write-Log "Módulo 'Az.Accounts' no encontrado. Usando flujo Device Code vía REST..." -Level WARN
+
+                if (-not $ClientId -or -not $TenantId) {
+                    throw "Se requieren ClientId y TenantId para autenticación sin Az.Accounts. Instale el módulo: Install-Module Az.Accounts -Scope CurrentUser"
+                }
+
+                $DeviceCodeBody = @{
+                    client_id = $ClientId
+                    scope     = "$ResourceUrl/.default offline_access"
+                }
+                $DeviceCodeReq = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/devicecode" -Body $DeviceCodeBody -ErrorAction Stop
+
+                Write-Log "=== AUTENTICACION REQUERIDA ===" -Level WARN
+                Write-Log $DeviceCodeReq.message -Level WARN
+
+                $Interval = [int]$DeviceCodeReq.interval
+                $ExpiresIn = [int]$DeviceCodeReq.expires_in
+                $Elapsed = 0
+
+                while ($Elapsed -lt $ExpiresIn) {
+                    Start-Sleep -Seconds $Interval
+                    $Elapsed += $Interval
+
+                    try {
+                        $PollBody = @{
+                            grant_type  = "urn:ietf:params:oauth:grant-type:device_code"
+                            client_id   = $ClientId
+                            device_code = $DeviceCodeReq.device_code
+                        }
+                        $TokenReq = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token" -Body $PollBody -ErrorAction Stop
+
+                        Write-Log "Token obtenido exitosamente vía Device Code."
+                        return $TokenReq.access_token
+                    }
+                    catch {
+                        $ErrBody = $null
+                        $ErrDetailsMessage = $_.ErrorDetails.Message
+                        if ($ErrDetailsMessage) {
+                            try { $ErrBody = $ErrDetailsMessage | ConvertFrom-Json } catch {}
+                        }
+                        if ($ErrBody.error -eq "authorization_pending") { continue }
+                        elseif ($ErrBody.error -eq "expired_token") {
+                            throw "El código de dispositivo ha expirado. Ejecute el script nuevamente."
+                        }
+                        else { throw $_ }
+                    }
+                }
+
+                throw "Tiempo de espera agotado para la autenticación Device Code."
             }
         }
-        
-        # Caché del token
-        if ($Token) {
-            $CacheObj = @{
-                Token = $Token
-                Expiry = (Get-Date).AddSeconds($ExpiresIn - 300) # 5 min buffer
-            }
-            Export-Clixml -Path $TOKEN_CACHE_FILE -InputObject $CacheObj -Force -ErrorAction SilentlyContinue
-            Write-Log "Token almacenado en caché exitosamente" -Level DEBUG
-        }
-        
-        return $Token
     }
     catch {
-        Write-Log "Autenticación fallida: $($_.Exception.Message)" -Level ERROR
+        $RawMessage = $_.Exception.Message
+        $ErrorJson = $null
+        $ResponseBody = Get-ExceptionResponseBody -ErrorRecord $_
+        if ($ResponseBody) {
+            try { $ErrorJson = $ResponseBody | ConvertFrom-Json } catch {}
+        }
+
+        if ($ErrorJson -and $ErrorJson.error_codes -contains 700027) {
+            Write-Log "Error de Autenticación (AADSTS700027): certificado no registrado en la aplicación." -Level ERROR
+            Write-Log "AppId objetivo: $ClientId" -Level ERROR
+            Write-Log "Acción requerida: cargue el certificado público (.cer) del mismo certificado usado para firmar en Entra ID > App registrations > Certificates and secrets." -Level ERROR
+            Write-Log "Verifique que TenantId/AppId coincidan con el registro donde cargó el certificado y espere la propagación de claves (1-5 min)." -Level ERROR
+
+            if ($ErrorJson.error_description -match "Thumbprint of key used by client:\s*'([^']+)'") {
+                Write-Log "Thumbprint enviado por el cliente: $($Matches[1])" -Level ERROR
+            }
+
+            Write-Log $ErrorJson.error_description -Level ERROR
+        }
+        elseif ($ResponseBody) {
+            Write-Log "Autenticación fallida: $RawMessage" -Level ERROR
+            Write-Log "Detalle devuelto por Entra ID: $ResponseBody" -Level ERROR
+        }
+        else {
+            Write-Log "Autenticación fallida: $RawMessage" -Level ERROR
+        }
         throw
     }
 }
@@ -424,7 +663,7 @@ Write-Log "Ventana de Tiempo: Últimos $TimeWindowDays días" -Level INFO
 
 try {
     # 1. Autenticar
-    $Token = New-AuthToken
+    $Token = Get-M365Token
     if (-not $Token) { throw "Autenticación fallida - no se recibió token" }
 
     # 2. Ejecutar Consultas (Paralelo si es PS 7+ y la bandera está habilitada)
@@ -644,16 +883,6 @@ $HtmlContent = @"
             margin-top: 22px;
             margin-bottom: 10px;
         }
-        .summary {
-            background-color: #e6f2ff;
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid #cce4ff;
-            margin-bottom: 25px;
-        }
-        .summary h3 { margin-top: 0; color: var(--secondary-color); }
-        .summary ul { margin: 0; padding-left: 20px; }
-        .summary li { margin-bottom: 8px; line-height: 1.6; }
         .kpi-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -721,36 +950,26 @@ $HtmlContent = @"
     </div>
 
     <div class="container">
-        <div class="summary">
-            <h3>Resumen Ejecutivo</h3>
-            <ul>
-                <li><strong>$KPI_MDO_Phish</strong> correos de phishing y <strong>$KPI_MDO_Malware</strong> intentos de malware detectados esta semana.</li>
-                <li><strong>$KPI_MDE_Alerts</strong> alertas de endpoint registradas; <strong>$KPI_MDE_RiskyHosts</strong> hosts requieren atención inmediata.</li>
-                <li><strong>$KPI_MDI_Spray</strong> identidades mostraron señales de password spray o fuerza bruta.</li>
-                <li><strong>$KPI_MDA_OAuth</strong> nuevos consentimientos OAuth otorgados a aplicaciones.</li>
-            </ul>
-        </div>
-
         <div class="kpi-grid">
             <div class="kpi-card $(if($KPI_MDE_Alerts -gt 0){'danger'}else{'alert'})">
                 <div class="kpi-val">$KPI_MDE_Alerts</div>
-                <div class="kpi-label">Total de Alertas de Endpoint</div>
+                <div class="kpi-label">Alertas de Defender for Endpoint</div>
             </div>
             <div class="kpi-card $(if($KPI_MDO_Phish -gt 0){'danger'}else{'alert'})">
                 <div class="kpi-val">$KPI_MDO_Phish</div>
-                <div class="kpi-label">Intentos de Phishing</div>
+                <div class="kpi-label">Alertas de Defender for Office</div>
             </div>
             <div class="kpi-card $(if($KPI_MDE_RiskyHosts -gt 0){'danger'}else{'alert'})">
                 <div class="kpi-val">$KPI_MDE_RiskyHosts</div>
-                <div class="kpi-label">Hosts Críticos (≥3 Alertas)</div>
+                <div class="kpi-label">Alertas Defender for Identity</div>
             </div>
             <div class="kpi-card $(if($KPI_MDI_Spray -gt 0){'danger'}else{'alert'})">
                 <div class="kpi-val">$KPI_MDI_Spray</div>
-                <div class="kpi-label">Ataques de Spray de Identidad</div>
+                <div class="kpi-label">Usuarios con riesgo</div>
             </div>
             <div class="kpi-card $(if($KPI_MDA_OAuth -gt 0){'danger'}else{'alert'})">
                 <div class="kpi-val">$KPI_MDA_OAuth</div>
-                <div class="kpi-label">Nuevos Consentimientos OAuth</div>
+                <div class="kpi-label">Consentimientos Apps</div>
             </div>
         </div>
 
@@ -939,3 +1158,5 @@ finally {
     // MDA: OAuth
     CloudAppEvents | where Timestamp > ago(7d) | where ActionType in ('Consent to application', 'Grant consent')
 #>
+
+
