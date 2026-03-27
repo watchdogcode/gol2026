@@ -51,8 +51,7 @@ Este documento recopila una serie de consultas KQL (Kusto Query Language) diseñ
 - [Validación de Correos Entregados con Amenazas](#-validación-de-correos-entregados-con-amenazas)
   - [29. Correos entregados con algún tipo de amenaza (Query base)](#29-correos-entregados-con-algún-tipo-de-amenaza-query-base)
   - [30. Confirmar si fue Safe Attachments o Safe Links](#30-confirmar-si-fue-safe-attachments-o-safe-links)
-  - [31. Enlaces maliciosos entregados](#31-enlaces-maliciosos-entregados)
-
+  
 ---
 
 ## 📋 Requisitos y Notas
