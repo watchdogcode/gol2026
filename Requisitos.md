@@ -47,7 +47,7 @@ Todos los scripts de reportería XDR/MDE se autentican contra la API de Microsof
 ### 3.2 Asignar permisos de API
 
 1. En el App Registration, ir a **API permissions** > **+ Add a permission**.
-2. Seleccionar **APIs my organization uses** y buscar `Microsoft Threat Protection`.
+2. Seleccionar **APIs my organization uses** y buscar **`Microsoft Threat Protection`.**
 3. Seleccionar **Application permissions**.
 4. Marcar el permiso **`AdvancedHunting.Read.All`**.
 5. Hacer clic en **Add permissions**.
