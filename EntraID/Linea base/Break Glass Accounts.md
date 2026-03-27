@@ -51,7 +51,7 @@ Una **cuenta de emergencia** es una cuenta administrativa utilizada únicamente 
 
 ## Pasos
 1. Ir a: <https://security.microsoft.com/v2/advanced-hunting>
-2. En **Query**, agregar el siguiente query:
+2. En en panel agregar el siguiente query:
 
 ```kusto
 EntraIdSignInEvents
