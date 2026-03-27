@@ -78,14 +78,6 @@ EntraIdSignInEvents
 10. Clic en **Submit**.
 
 ---
-## Sugerencias de mejora
-- Considera agregar el **rationale** de por qué estas cuentas deben ser monitoreadas.
-- Podrías incluir capturas de pantalla para mayor claridad.
-- Reemplaza los dominios contoso.com por los de tu organización.
-- Indica buenas prácticas sobre Break Glass Accounts (MFA, almacenamiento seguro, uso exclusivo de emergencia).
-
-
----
 ## 5. Scripts, queries y automatización
 ### A. Crear cuenta cloud-only (PowerShell)
 ```powershell
