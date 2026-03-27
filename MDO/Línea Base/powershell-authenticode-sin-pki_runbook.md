@@ -1,4 +1,4 @@
-# Firma de Scripts PowerShell (AuthentiCode) – **SIN PKI corporativa** (Runbook)
+# Firma de Scripts PowerShell (AuthentiCode) – **SIN PKI corporativa**
 
 > **Objetivo:** firmar scripts PowerShell con un **certificado autofirmado** y hacer que el sistema **solo ejecute scripts firmados** (ExecutionPolicy **AllSigned**), incluyendo una prueba de integridad.
 
