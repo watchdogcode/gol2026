@@ -159,6 +159,100 @@ Write-Log "  Modo Auth   : $AuthMode" -Level INFO
 Write-Log "========================" -Level INFO
 
 # --- AUTENTICACIÓN ---
+function ConvertTo-Base64Url {
+    param([byte[]]$Bytes)
+
+    $B64 = [Convert]::ToBase64String($Bytes)
+    $B64 = $B64.TrimEnd('=')
+    $B64 = $B64.Replace('+', '-').Replace('/', '_')
+    return $B64
+}
+
+function Get-CertificateForAuth {
+    if (-not $CertThumbprint) {
+        throw "CertThumbprint es requerido para autenticación por Certificado."
+    }
+
+    $NormalizedThumb = ($CertThumbprint -replace '\s','').ToUpperInvariant()
+    foreach ($StoreLocation in @('CurrentUser', 'LocalMachine')) {
+        $Store = [System.Security.Cryptography.X509Certificates.X509Store]::new('My', $StoreLocation)
+        try {
+            $Store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadOnly)
+            $Found = $Store.Certificates | Where-Object { $_.Thumbprint -eq $NormalizedThumb } | Select-Object -First 1
+            if ($Found) {
+                return $Found
+            }
+        }
+        finally {
+            $Store.Close()
+        }
+    }
+
+    throw "No se encontró un certificado con thumbprint '$CertThumbprint' en CurrentUser/My o LocalMachine/My."
+}
+
+function New-ClientAssertionJwt {
+    param(
+        [Parameter(Mandatory)][System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+        [Parameter(Mandatory)][string]$ClientId,
+        [Parameter(Mandatory)][string]$TenantId
+    )
+
+    if (-not $Certificate.HasPrivateKey) {
+        throw "El certificado no contiene clave privada."
+    }
+
+    $Rsa = $null
+    try {
+        $Rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($Certificate)
+    }
+    catch {
+        $Rsa = $null
+    }
+
+    if (-not $Rsa -and $Certificate.PrivateKey -is [System.Security.Cryptography.RSA]) {
+        $Rsa = [System.Security.Cryptography.RSA]$Certificate.PrivateKey
+    }
+
+    if (-not $Rsa) {
+        throw "No se pudo obtener la clave privada RSA del certificado. Verifique que tenga clave privada exportable y algoritmo RSA."
+    }
+
+    $Now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    $Audience = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
+
+    $Header = @{
+        alg = 'RS256'
+        typ = 'JWT'
+        x5t = (ConvertTo-Base64Url -Bytes $Certificate.GetCertHash())
+    }
+
+    $Payload = @{
+        aud = $Audience
+        iss = $ClientId
+        sub = $ClientId
+        jti = ([Guid]::NewGuid().ToString())
+        nbf = $Now - 300
+        exp = $Now + 600
+    }
+
+    $HeaderJson = ($Header | ConvertTo-Json -Compress)
+    $PayloadJson = ($Payload | ConvertTo-Json -Compress)
+
+    $EncodedHeader = ConvertTo-Base64Url -Bytes ([Text.Encoding]::UTF8.GetBytes($HeaderJson))
+    $EncodedPayload = ConvertTo-Base64Url -Bytes ([Text.Encoding]::UTF8.GetBytes($PayloadJson))
+    $UnsignedToken = "$EncodedHeader.$EncodedPayload"
+
+    $SignatureBytes = $Rsa.SignData(
+        [Text.Encoding]::UTF8.GetBytes($UnsignedToken),
+        [System.Security.Cryptography.HashAlgorithmName]::SHA256,
+        [System.Security.Cryptography.RSASignaturePadding]::Pkcs1
+    )
+    $EncodedSignature = ConvertTo-Base64Url -Bytes $SignatureBytes
+
+    return "$UnsignedToken.$EncodedSignature"
+}
+
 function New-AuthToken {
     Write-Log "Autenticando vía $AuthMode..." -Level INFO
     
@@ -196,19 +290,22 @@ function New-AuthToken {
             [System.GC]::Collect()
         }
         elseif ($AuthMode -eq 'Certificate') {
-            # Implementación básica asumiendo que el certificado está en CurrentUser\My
-            if (-not $CertThumbprint) { throw "CertThumbprint es requerido para autenticación por Certificado." }
-            $Cert = Get-Item "Cert:\CurrentUser\My\$CertThumbprint"
-            
-            # Crear Aserción de Cliente JWT (Simplificado para PS sin módulos externos)
-            # NOTA: Para producción sin módulos, se prefiere Secreto.
-            # Recurrir a MSAL.PS o Az si está disponible para Cert, de lo contrario lanzar error.
-            if (Get-Module -ListAvailable -Name "MSAL.PS") {
-                Import-Module MSAL.PS
-                $Token = Get-MsalToken -ClientId $ClientId -TenantId $TenantId -ClientCertificate $Cert -Scopes $Scope
-                return $Token.AccessToken
+            $Cert = Get-CertificateForAuth
+            Write-Log "Usando certificado '$($Cert.Subject)' (thumbprint: $($Cert.Thumbprint)) para autenticación por certificado." -Level INFO
+
+            $ClientAssertion = New-ClientAssertionJwt -Certificate $Cert -ClientId $ClientId -TenantId $TenantId
+
+            $Body = @{
+                grant_type            = 'client_credentials'
+                client_id             = $ClientId
+                scope                 = $Scope
+                client_assertion_type = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
+                client_assertion      = $ClientAssertion
             }
-            throw "La autenticación por certificado requiere el módulo MSAL.PS o construcción manual de JWT. Por favor use Secret o DeviceCode."
+
+            $Response = Invoke-RestMethod -Method Post -Uri "$Authority/oauth2/v2.0/token" -Body $Body -ErrorAction Stop
+            $Token = $Response.access_token
+            $ExpiresIn = $Response.expires_in
         }
         elseif ($AuthMode -eq 'DeviceCode') {
             $CodeReq = Invoke-RestMethod -Method Post -Uri "$Authority/oauth2/v2.0/devicecode" -Body @{
