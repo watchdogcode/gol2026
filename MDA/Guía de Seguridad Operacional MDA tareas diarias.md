@@ -19,7 +19,7 @@ Establecer rutinas operativas claras para analistas SOC que permitan:
 
 ## Review Alerts and Incidents
 
-### Objetivo SOC
+### Objetivo
 Detectar y priorizar amenazas activas relacionadas con Cloud Apps.
 
 ### Procedimiento
@@ -50,7 +50,7 @@ Detectar y priorizar amenazas activas relacionadas con Cloud Apps.
 
 ## Triage desde Microsoft Defender XDR
 
-### Objetivo SOC
+### Objetivo
 Correlación XDR para entender impacto transversal.
 
 ### Procedimiento
@@ -69,7 +69,7 @@ Correlación XDR para entender impacto transversal.
 
 ## Review Threat Detection Data
 
-### Objetivo SOC
+### Objetivo
 Analizar detecciones de MDCA (anomalías, malware, OAuth).
 
 ### Procedimiento
@@ -91,7 +91,7 @@ Analizar detecciones de MDCA (anomalías, malware, OAuth).
 
 ## Application Governance – OAuth Risk
 
-### Objetivo SOC
+### Objetivo
 Controlar riesgo de aplicaciones OAuth.
 
 ### Procedimiento
@@ -109,7 +109,7 @@ Controlar riesgo de aplicaciones OAuth.
 
 ## App Governance – Overview
 
-### Objetivo SOC
+### Objetivo
 Visibilidad global del abuso OAuth.
 
 ### Revisar dashboards
@@ -125,7 +125,7 @@ Visibilidad global del abuso OAuth.
 
 ## Review OAuth App Data
 
-### Objetivo SOC
+### Objetivo
 Detectar consent phishing y persistencia OAuth.
 
 ### Revisar
@@ -141,7 +141,7 @@ Detectar consent phishing y persistencia OAuth.
 
 ## App Governance Policies
 
-### Objetivo SOC
+### Objetivo
 Automatizar detección y respuesta OAuth.
 
 ### Procedimiento
@@ -158,7 +158,7 @@ Automatizar detección y respuesta OAuth.
 
 ## Conditional Access App Control
 
-### Objetivo SOC
+### Objetivo
 Validar control de sesión en tiempo real.
 
 ### Revisar
@@ -172,7 +172,7 @@ Validar control de sesión en tiempo real.
 
 ## Shadow IT – Cloud Discovery
 
-### Objetivo SOC
+### Objetivo
 Identificar aplicaciones no sancionadas.
 
 ### Procedimiento
@@ -189,7 +189,7 @@ Identificar aplicaciones no sancionadas.
 
 ## Cloud Discovery Dashboard
 
-### Objetivo SOC
+### Objetivo
 Identificar tendencias de uso y riesgo SaaS.
 
 ### Revisar
