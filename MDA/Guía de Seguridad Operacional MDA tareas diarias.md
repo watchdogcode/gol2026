@@ -36,9 +36,9 @@ Detectar y priorizar amenazas activas relacionadas con Cloud Apps.
    - Alertas correlacionadas
 
 ### Clasificación
-- ✅ True Positive
-- ❌ False Positive
-- ℹ️ Informational
+- True Positive
+- False Positive
+- Informational
 
 ### Acciones
 - Asignar propietario
@@ -182,8 +182,8 @@ Identificar aplicaciones no sancionadas.
   - Risk score
 
 ### Clasificación
-- ✅ Sanctioned
-- ❌ Unsanctioned
+- Sanctioned
+- Unsanctioned
 
 ---
 
@@ -202,15 +202,15 @@ Identificar tendencias de uso y riesgo SaaS.
 
 ---
 
-## ✅ Checklist Diario SOC
-- ✅ Incidentes revisados
-- ✅ Alertas OAuth validadas
-- ✅ Apps riesgosas mitigadas
-- ✅ Evidencia documentada
+## Checklist Diario SOC
+- Incidentes revisados
+- Alertas OAuth validadas
+- Apps riesgosas mitigadas
+- Evidencia documentada
 
 ---
 
-## 📋 Auditoría y Trazabilidad
+## Auditoría y Trazabilidad
 - Todos los incidentes deben:
   - Tener owner asignado
   - Evidencia adjunta
