@@ -16,7 +16,7 @@ Establecer rutinas operativas claras para analistas SOC que permitan:
 - Asegurar **trazabilidad y auditoría**
 
 ---
-#Índice
+## Índice
 - [Review Alerts and Incidents](#review-alerts-and-incidents)
 - [Triage desde Microsoft Defender XDR](#triage-desde-microsoft-defender-xdr)
 - [Review Threat Detection Data](#review-threat-detection-data)

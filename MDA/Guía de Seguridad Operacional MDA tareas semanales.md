@@ -14,7 +14,7 @@ Esta guía establece los procedimientos diarios para analizar tendencias, identi
 > - **L3:** Ajustes de arquitectura, gobierno y runbooks
 
 ---
-# Índice
+## Índice
 - [Review SaaS Security Posture Management (SSPM)](#review-saas-security-posture-management-sspm)
 - [Health Check – App Connectors, Log Collectors y SIEM](#health-check--app-connectors-log-collectors-y-siem)
 - [Review Governance Log](#review-governance-log)
