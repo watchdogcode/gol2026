@@ -6,6 +6,14 @@ Esta guía establece los procedimientos diarios para analizar tendencias, identi
 
 ---
 
+## Índice
+
+- [Review policy assessments](#review-policy-assessments)
+- [Review activity logs](#review-activity-logs)
+
+
+---
+
 ## Review policy assessments
 **Objetivo:** Eficacia de políticas.
 

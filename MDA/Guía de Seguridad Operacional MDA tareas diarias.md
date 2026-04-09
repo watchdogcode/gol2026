@@ -16,6 +16,19 @@ Establecer rutinas operativas claras para analistas SOC que permitan:
 - Asegurar **trazabilidad y auditoría**
 
 ---
+#Índice
+- [Review Alerts and Incidents](#review-alerts-and-incidents)
+- [Triage desde Microsoft Defender XDR](#triage-desde-microsoft-defender-xdr)
+- [Review Threat Detection Data](#review-threat-detection-data)
+- [Application Governance – OAuth Risk](#application-governance--oauth-risk)
+- [App Governance – Overview](#app-governance--overview)
+- [Review OAuth App Data](#review-oauth-app-data)
+- [App Governance Policies](#app-governance-policies)
+- [Conditional Access App Control](#conditional-access-app-control)
+- [Shadow IT – Cloud Discovery](#shadow-it--cloud-discovery)
+- [Cloud Discovery Dashboard](#cloud-discovery-dashboard)
+
+---
 
 ## Review Alerts and Incidents
 
