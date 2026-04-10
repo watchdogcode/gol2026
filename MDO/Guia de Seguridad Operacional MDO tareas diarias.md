@@ -113,7 +113,7 @@ EmailEvents
 
 > Clave entender porque se estan entregando correos con algún tipo de amenaza
 
-## 5. Correos entregados con algún tipo de amenaza
+## 5. Clic de usuario a correos entregados con algún tipo de amenaza
 Pegar la siguiente consulta en el panel **Query**:
 
 ```kql
@@ -165,6 +165,19 @@ EmailEvents
 - Navegar a la pestaña **Results** para visualizar los eventos encontrados.
 
 > Clave para identificar usuarios posiblemente comprometidos
+
+## 7. El usuario abrio algún adjunto a correos entregados con algún tipo de amenaza (MDE Desplegado)
+> **Requisito indispensable**
+> Este query **SOLO funciona** si tu tenant tiene:
+>
+> **Microsoft Defender for Endpoint (MDE)** habilitado
+> Dispositivos **onboarded**
+> Acceso a tablas **Device*** en Advanced Hunting
+>
+> Si DeviceFileEvents **no existe, NO es posible** detectar apertura de adjuntos (esto es una limitación real de Defender).
+
+
+Pegar la siguiente consulta en el panel **Query**:
 
 ---
 
