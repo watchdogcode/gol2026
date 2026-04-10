@@ -80,9 +80,9 @@ Pegar la siguiente consulta en el panel **Query**:
 EmailEvents
 | where Timestamp >= ago(7d)
 | where DeliveryAction == "Delivered"
-| where ThreatTypes has_any ("Malware", "Phish", "spam")
+| where ThreatTypes has_any ("Malware", "Phish", "Spam")
 | project
-    Timestamp,
+    EventTimestamp = Timestamp,
     NetworkMessageId,
     SenderFromAddress,
     RecipientEmailAddress,
@@ -94,7 +94,15 @@ EmailEvents
     DeliveryLocation,
     EmailClusterId,
     ReportId
-| order by Timestamp desc
+| join kind=leftouter (
+    EmailPostDeliveryEvents
+    | where Timestamp >= ago(7d)
+    | project
+        NetworkMessageId,
+        PostDeliveryTimestamp = Timestamp,
+        ActionType,
+        ActionResult
+) on NetworkMessageId
 ```
 
 ## 3. Ejecutar la consulta
