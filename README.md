@@ -228,8 +228,9 @@ gol2026/
 │   ├── Guías operativas (diaria, semanal, mensual)
 │   └── Paquete KQL Advanced Hunting
 │
-├── MDA/                               ← Microsoft Defender for Cloud Apps (en desarrollo)
-│
+├── MDA/                               ← Microsoft Defender for Cloud Apps
+│   ├── Guías operativas (diaria, semanal, mensual)
+│   └── Paquete KQL Advanced Hunting
 ├── XDR/                               ← Reportes Cross-Domain
 │   ├── Instrucciones de ejecución (.md)
 │   ├── Scripts de reportería (daily, weekly, setup)
