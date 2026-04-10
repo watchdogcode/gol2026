@@ -103,6 +103,56 @@ EmailEvents
 ## 4. Revisar los resultados
 - Navegar a la pestaña **Results** para visualizar los eventos encontrados.
 
+## 5. Correos entregados con algún tipo de amenaza
+Pegar la siguiente consulta en el panel **Query**:
+
+```kql
+EmailEvents
+| where Timestamp >= ago(7d)
+| where DeliveryAction == "Delivered"
+| where ThreatTypes has_any ("Malware", "Phish", "Spam")
+| project
+    EmailTimestamp = Timestamp,
+    NetworkMessageId,
+    SenderFromAddress,
+    RecipientEmailAddress,
+    Subject,
+    ThreatTypes,
+    EmailClusterId
+| join kind=inner (
+    EmailUrlInfo
+    | where Timestamp >= ago(7d)
+    | project
+        NetworkMessageId,
+        Url,
+        UrlDomain
+) on NetworkMessageId
+| join kind=inner (
+    UrlClickEvents
+    | where Timestamp >= ago(7d)
+    | project
+        NetworkMessageId,
+        Url,
+        ClickTimestamp = Timestamp,
+        ActionType,
+        AccountUpn
+) on NetworkMessageId, Url
+| project
+    EmailTimestamp,
+    ClickTimestamp,
+    AccountUpn,
+    RecipientEmailAddress,
+    SenderFromAddress,
+    Subject,
+    ThreatTypes,
+    Url,
+    UrlDomain,
+    ActionType,
+    EmailClusterId
+| order by ClickTimestamp desc
+```
+## 6. Revisar los resultados
+- Navegar a la pestaña **Results** para visualizar los eventos encontrados.
 
 ---
 
