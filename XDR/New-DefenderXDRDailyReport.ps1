@@ -727,8 +727,8 @@ AlertInfo
 | extend IncidentRef = tostring(column_ifexists("IncidentId", ""))
 | extend IncidentRef = iif(isempty(IncidentRef), tostring(AlertId), IncidentRef)
 | extend IncidentStatus = trim(@" ", tostring(column_ifexists("Status", "")))
-| extend IncidentStatusNorm = tolower(IncidentStatus)
 | summarize arg_max(Timestamp, Title, Severity, IncidentStatus) by IncidentRef
+| extend IncidentStatusNorm = tolower(IncidentStatus)
 | where isempty(IncidentStatusNorm) or not(IncidentStatusNorm has "closed")
 | where isempty(IncidentStatusNorm) or not(IncidentStatusNorm has "resolved")
 | project Timestamp, IncidentId=IncidentRef, Title, Severity, Status=IncidentStatus
@@ -1952,10 +1952,10 @@ $OperativeTasks = @{
         @{ Task="Revisar alertas de Entra Connect Health"; Portal="https://entra.microsoft.com/#view/Microsoft_AAD_Connect_Health/ConnectHealthMenuBlade/~/overview"; Guide="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisar-alertas-de-microsoft-entra-connect-health-entornos-h%C3%ADbridos" }
     );
     "MDA" = @(
-        @{ Task="Revisar alertas de aplicaciones riesgosas"; Portal="https://security.microsoft.com/alerts"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md" },
-        @{ Task="Monitorear nuevos consentimientos OAuth"; Portal="https://security.microsoft.com/cloud-app-security/oauth-apps"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md" },
-        @{ Task="Revisar Shadow IT y aplicaciones no autorizadas"; Portal="https://security.microsoft.com/cloud-app-security/discovered-apps"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md" },
-        @{ Task="Investigar actividades anómalas en la nube"; Portal="https://security.microsoft.com/v2/advanced-hunting"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md" }
+        @{ Task="Revisar alertas de aplicaciones riesgosas"; Portal="https://security.microsoft.com/alerts"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#review-alerts-and-incidents" },
+        @{ Task="Monitorear nuevos consentimientos OAuth"; Portal="https://security.microsoft.com/cloud-app-security/oauth-apps"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#application-governance--oauth-risk" },
+        @{ Task="Revisar Shadow IT y aplicaciones no autorizadas"; Portal="https://security.microsoft.com/cloud-app-security/discovered-apps"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#review-oauth-app-data" },
+        @{ Task="Investigar actividades anómalas en la nube"; Portal="https://security.microsoft.com/v2/advanced-hunting"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#cloud-discovery-dashboard" }
     );
 }
 
@@ -2151,7 +2151,7 @@ $HtmlEntraSection = if ($RunMDI) {
 
 $HtmlMDASection = if ($RunMDA) { 
     $MdaAlerts = Get-WorkloadAlerts -WorkloadType "MDA" -AllAlerts $Data["AlertsByWorkload"]
-    Build-WorkloadSection -WorkloadName "MDA: Microsoft Defender for Cloud Apps" -WorkloadEmoji "&#x2601;" -HeaderColor "#8764b8" -OperativeTasks $OperativeTasks.MDA -ActiveAlerts $MdaAlerts -SelectedKql $SelectedMdaKql -KqlCatalogUrl "https://learn.microsoft.com/defender-xdr/advanced-hunting-cloudappevents-table"
+    Build-WorkloadSection -WorkloadName "MDA: Microsoft Defender for Cloud Apps" -WorkloadEmoji "&#x2601;" -HeaderColor "#8764b8" -OperativeTasks $OperativeTasks.MDA -ActiveAlerts $MdaAlerts -SelectedKql $SelectedMdaKql -KqlCatalogUrl "https://github.com/watchdogcode/gol2026/blob/main/MDA/Paquete%20MDA%20KQL%20Advance%20Hunting.md"
 } else { "" }
 
 $HtmlKpiMDO = ""

@@ -945,6 +945,7 @@ $HtmlContent = @"
         .ops-group-header.mde   { background: linear-gradient(135deg, #d83b01, #a52a00); }
         .ops-group-header.mdi   { background: linear-gradient(135deg, #e97a00, #c25e00); }
         .ops-group-header.entra { background: linear-gradient(135deg, #107c10, #0b5e0b); }
+        .ops-group-header.mda   { background: linear-gradient(135deg, #008575, #00695c); }
         .ops-group-header .icon { font-size: 1.2em; }
         .ops-badge {
             display: inline-block;
@@ -1023,11 +1024,11 @@ $HtmlContent = @"
         <div class="kpi-grid">
             <div class="kpi-card $(if($KPI_MDE_Alerts -gt 0){'danger'}else{'alert'})">
                 <div class="kpi-val">$KPI_MDE_Alerts</div>
-                <div class="kpi-label">Total de Alertas de Endpoint</div>
+                <div class="kpi-label">Alertas Defender for Endpoint</div>
             </div>
             <div class="kpi-card $(if($KPI_MDO_Phish -gt 0){'danger'}else{'alert'})">
                 <div class="kpi-val">$KPI_MDO_Phish</div>
-                <div class="kpi-label">Intentos de Phishing</div>
+                <div class="kpi-label">Alertas Defender for Office</div>
             </div>
             <div class="kpi-card $(if($KPI_MDE_RiskyHosts -gt 0){'danger'}else{'alert'})">
                 <div class="kpi-val">$KPI_MDE_RiskyHosts</div>
@@ -1035,7 +1036,7 @@ $HtmlContent = @"
             </div>
             <div class="kpi-card $(if($KPI_MDI_Spray -gt 0){'danger'}else{'alert'})">
                 <div class="kpi-val">$KPI_MDI_Spray</div>
-                <div class="kpi-label">Ataques de Spray de Identidad</div>
+                <div class="kpi-label">Alertas Defender for Identity</div>
             </div>
             <div class="kpi-card $(if($KPI_MDA_OAuth -gt 0){'danger'}else{'alert'})">
                 <div class="kpi-val">$KPI_MDA_OAuth</div>
@@ -1285,6 +1286,24 @@ $HtmlContent = @"
                 <thead><tr><th>Título</th><th>Severidad</th><th>Cantidad</th></tr></thead>
                 <tbody>$(New-HtmlTable $Data["MDA_Alerts"] @("Title","Severity","Count"))</tbody>
             </table>
+        </div>
+
+        <div class="ops-section">
+            <div class="ops-group">
+                <div class="ops-group-header mda">
+                    <span class="icon">&#x2601;</span> Tareas Operativas Semanales - Microsoft Defender for Cloud Apps
+                    <span class="ops-badge weekly">4 Semanales</span>
+                </div>
+                <table class="ops-table">
+                    <thead><tr><th style="width:50%">Tarea</th><th style="width:25%">Portal</th><th style="width:25%">Guía</th></tr></thead>
+                    <tbody>
+                        <tr><td class="ops-task-name">Review SaaS Security Posture Management (SSPM)</td><td><a class="ops-btn portal" href="https://portal.cloudappsecurity.com/#/recommendations" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20semanales.md#review-saas-security-posture-management-sspm" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Health Check - App Connectors, Log Collectors y SIEM</td><td><a class="ops-btn portal" href="https://portal.cloudappsecurity.com/#/settings" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20semanales.md#health-check--app-connectors-log-collectors-y-siem" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Review Governance Log</td><td><a class="ops-btn portal" href="https://portal.cloudappsecurity.com/#/governancelog" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20semanales.md#review-governance-log" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                        <tr><td class="ops-task-name">Track New Changes - Defender XDR y MDCA</td><td><a class="ops-btn portal" href="https://learn.microsoft.com/en-us/defender-cloud-apps/release-notes" target="_blank">&#x1f517; Abrir Portal</a></td><td><a class="ops-btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20semanales.md#track-new-changes--defender-xdr--mdca" target="_blank">&#x1f4d6; Ver Guía</a></td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <div class="table-grid">
