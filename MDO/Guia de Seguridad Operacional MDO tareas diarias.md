@@ -69,9 +69,8 @@ Revisar columnas clave:
 
 ## 1. Acceso al portal
 - Ir a: https://security.microsoft.com/v2/advanced-hunting
-- Iniciar sesión con un usuario que tenga alguno de los siguientes roles:
-  - **Global Administrator**
-  - **Privileged Role Administrator**
+- Iniciar sesión con un usuario que al menos tengo permiso de  **Security Reader**
+
 
 ## 2. Ejecutar consulta KQL
 Pegar la siguiente consulta en el panel **Query**:
