@@ -31,7 +31,7 @@
     Requiere conexión previa a Exchange Online:
         Connect-ExchangeOnline
 
-    Autor  : Ernesto Cobos Roqueñí
+    Autor  : Ernesto Cobos Roqueñí, Arturo Mandujano
     Fecha  : 13/Marzo/2026
     Versión: 1.0
 #>

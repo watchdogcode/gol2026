@@ -78,6 +78,7 @@
 .NOTES
     Endpoint de API: https://api.security.microsoft.com
     Permiso requerido: AdvancedHunting.Read.All
+    Author  : Ernesto Cobos Roqueñí, Arturo Mandujano
 #>
 
 param(

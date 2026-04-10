@@ -1,5 +1,7 @@
 # Guía de Uso — New-DefenderXDRWeeklyReport.ps1
 
+**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+
 Esta guía está alineada con el estado actual del script `XDR/New-DefenderXDRWeeklyReport.ps1`.
 
 ---

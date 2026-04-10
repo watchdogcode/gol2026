@@ -1,5 +1,7 @@
 # Guía Operacional de Seguridad  Microsoft 365 Defender XDR
 
+**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+
 > Marco de operaciones de seguridad (SecOps) para Microsoft Defender XDR con guías operativas, scripts de automatización, líneas base de configuración y paquetes de consultas KQL.
 
 ---

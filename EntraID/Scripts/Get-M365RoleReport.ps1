@@ -36,6 +36,7 @@
 		Path and filename of the report.  Default is M365RoleReport.html in the current directory.
 	.NOTES
         Modified from original script by Ernesto Cobos Roqueñí (erenstocrmsft)
+        Author  : Ernesto Cobos Roqueñí, Arturo Mandujano
         Version 1.1
         March 13, 2026
 

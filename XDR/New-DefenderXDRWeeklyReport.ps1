@@ -36,6 +36,7 @@
 
 .NOTES
     Requiere el permiso 'AdvancedHunting.Read.All'.
+    Author  : Ernesto Cobos Roqueñí, Arturo Mandujano
 #>
 
 param(

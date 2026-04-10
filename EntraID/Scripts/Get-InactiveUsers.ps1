@@ -49,6 +49,7 @@
         
 	.NOTES
         Version 1.0
+        Author  : Ernesto Cobos Roqueñí, Arturo Mandujano
         March 4, 2026
 
     .ORIGINAL_SOURCE

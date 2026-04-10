@@ -38,7 +38,7 @@
         ExchangeOnlineManagement
         DomainHealthChecker (opcional, para SPF/DKIM/DMARC)
 
-    Autor  : Ernesto Cobos Roqueñí
+    Autor  : Ernesto Cobos Roqueñí, Arturo Mandujano
     Fecha  : 04/marzo/2026
     Versión: 1.0
 

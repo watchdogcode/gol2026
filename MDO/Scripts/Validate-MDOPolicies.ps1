@@ -32,7 +32,7 @@
         Connect-ExchangeOnline
         Connect-IPPSSession
 
-    Autor : Ernesto Cobos Roqueñí
+    Autor : Ernesto Cobos Roqueñí, Arturo Mandujano
     Fecha : 3/Marzo/2026
     Versión: 2.6
 #>
