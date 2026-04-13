@@ -623,9 +623,9 @@ Query imprescindible para identificar todos los correos que llegaron al buzón c
 EmailEvents
 | where Timestamp >= ago(7d)
 | where DeliveryAction == "Delivered"
-| where ThreatTypes has_any ("Malware", "Phish", "spam")
+| where ThreatTypes has_any ("Malware", "Phish", "Spam")
 | project
-    Timestamp,
+    EventTimestamp = Timestamp,
     NetworkMessageId,
     SenderFromAddress,
     RecipientEmailAddress,
@@ -636,8 +636,16 @@ EmailEvents
     ConfidenceLevel,
     DeliveryLocation,
     EmailClusterId,
-    ReportId,
-| order by Timestamp desc
+    ReportId
+| join kind=leftouter (
+    EmailPostDeliveryEvents
+    | where Timestamp >= ago(7d)
+    | project
+        NetworkMessageId,
+        PostDeliveryTimestamp = Timestamp,
+        ActionType,
+        ActionResult
+) on NetworkMessageId
 ```
 
 **Validar por tipo de amenaza específicamente:**
