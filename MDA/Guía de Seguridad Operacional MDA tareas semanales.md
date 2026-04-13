@@ -5,6 +5,7 @@
 Esta guía establece los procedimientos diarios para analizar tendencias, identificar usuarios de alto riesgo y gestionar campañas de amenazas en Microsoft Defender for Cloud Apps
 
 **Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+
 ---
 
 > **Objetivo general:** Asegurar postura continua de seguridad, salud operativa de integraciones y alineación con cambios de producto.
