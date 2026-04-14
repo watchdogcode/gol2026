@@ -2,12 +2,23 @@
 
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 
-## Priority Account Protection es un mecanismo de clasificación de identidades de alto valor (High Value Targets – HVT) dentro de Microsoft 365 Defender.
+**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+
+---
+
+## 1. Priority Account Protection 
+
+Es un mecanismo de clasificación de identidades de alto valor (High Value Targets – HVT) dentro de Microsoft 365 Defender.
+
 No es solo una “etiqueta visual” al marcar un usuario como Priority account, el motor de detección modifica el modelo de riesgo, aumenta la sensibilidad de detecciones y eleva automáticamente la severidad de alertas e incidentes relacionados con correo, identidad y colaboración.
 
 El objetivo es reducir el dwell time y el impacto de ataques dirigidos (phishing, BEC, account takeover) contra usuarios críticos para el negocio.
 
-**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+Todas las organizaciones tienen cuentas de alto valor, como ejecutivos y la alta dirección que, debido a su acceso a información sensible o de alta prioridad, tienen una mayor tasa de ataque. Algunas de estas cuentas pueden ser muy visibles (por ejemplo, listadas en un sitio web público) y, por lo tanto, ser más fáciles de investigar y atacar para un atacante mediante técnicas cada vez más sofisticadas. 
+
+Aplicar una etiqueta de "Cuenta prioritaria" en estas cuentas permitirá a Defender para Office 365 escanear los correos electrónicos enviados a estas cuentas con heurísticas adicionales que están específicamente diseñadas para ejecutivos de la empresa con el fin de detectar estas amenazas, al mismo tiempo que se minimizan los falsos positivos.
+
+Aplicar una etiqueta de usuario como "Cuenta prioritaria" también permite a los equipos de seguridad priorizar su enfoque al tratar con investigaciones y alertas.
 
 ---
 
@@ -238,11 +249,12 @@ SigninLogs
 
 ## 6. Referencias oficiales
 
+- https://techcommunity.microsoft.com/blog/microsoftdefenderforoffice365blog/introducing-differentiated-protection-for-priority-accounts-in-microsoft-defende/3283838
 - https://learn.microsoft.com/microsoft-365/security/defender/priority-account-protection
 - https://learn.microsoft.com/microsoft-365/security/office-365-security/anti-phishing-policies
 - https://learn.microsoft.com/microsoft-365/security/defender/incidents-overview
 - https://learn.microsoft.com/security/zero-trust/
-
+- https://learn.microsoft.com/en-us/defender-office-365/priority-accounts-turn-on-priority-account-protection?view=o365-worldwide
 
 ---
 
