@@ -101,8 +101,8 @@ $DHC = Invoke-SpfDkimDmarc -Name $domain
 $DHCName = $DHC.Name
 $DHCSpfRecord = $DHC.SpfRecord
 $DHCSpfAdvisory = $DHC.SpfAdvisory
-$DHCSPFRecordLength = $DHC.SpfRecordLength
-$DHCSPFRecordDnsLookupCount = $DHC.SpfRecordDnsLookupCount
+$DHCSPFRecordLength = $DHC.SPFRecordLength
+$DHCSPFRecordDnsLookupCount = $DHC.SPFRecordDnsLookupCount
 $DHCDmarcRecord = $DHC.DmarcRecord
 $DHCDmarcAdvisory = $DHC.DmarcAdvisory
 $DHCDkimRecord = $DHC.DkimRecord
@@ -421,7 +421,7 @@ $html = @"
                 <strong>Lookups:</strong> <span class="badge $(if($spfLookupsNum -gt 10){'bg-danger text-white'}elseif($spfLookupsNum -ge 8){'bg-warning text-dark'}else{'bg-success text-white'})">$DHCSPFRecordDnsLookupCount</span> |
                 <strong>TTL:</strong> <span class="$(Get-TtlClass $SPFTTL)">$SPFTTL</span>
             </div>
-            $(if ($spfLookupsNum -gt 10) { "<div class='alert alert-warning mt-2'>High DNS lookup count may cause Temperror if DNS queries fail or timeout. <a href='https://www.rfc-editor.org/rfc/rfc7208#section-2.6.6' target='_blank'>RFC 7208 Section 2.6.6</a></div>" } else { "" })
+            $(if ($spfLookupsNum -gt 10) { "<div class='alert alert-warning mt-2'>High DNS lookup count may cause Permerror if DNS queries fail or timeout. <a href='https://www.rfc-editor.org/rfc/rfc7208#section-2.6.7' target='_blank'>RFC 7208 Section 2.6.7</a></div>" } else { "" })
             $spfIncludesTable
 
             <!-- 3. DKIM DETAILS -->
