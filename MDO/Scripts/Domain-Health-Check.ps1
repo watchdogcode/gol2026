@@ -24,7 +24,7 @@
 
     .\Domain-Health-Check.ps1
     Prompts for a domain and generates a health check HTML report.
- 
+
 #>
 # 1. Script Requirements
 #Requires -RunAsAdministrator
@@ -444,6 +444,7 @@ $html = @"
             <div class="mt-2">
                 <span class="badge-advisory $dmarcAdvSt text-white">$dmarcAdv</span>
             </div>
+            $(if ($DHCDmarcRecord -and $DHCDmarcRecord -notmatch 'rua=' -and $DHCDmarcRecord -notmatch 'ruf=') { "<div class='alert alert-warning text-dark mt-2'>Your organization has a DMARC record, but there is no report address configured</div>" } else { "" })
 
             <!-- 5. MTA-STS -->
             <div class="section-divider">&#127760; 5. MTA-STS Policy for $DHCName</div>
