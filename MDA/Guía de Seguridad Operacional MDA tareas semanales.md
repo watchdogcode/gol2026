@@ -30,12 +30,13 @@ Esta guía establece los procedimientos diarios para analizar tendencias, identi
 Mantener una postura segura de aplicaciones SaaS monitoreadas por MDCA.
 
 ### Procedimiento
-1. Ir a **Cloud Apps > SaaS security posture**
-2. Revisar recomendaciones activas
-3. Validar impacto en:
+1. Accede a https://security.microsoft.com/cloudapps
+2. Ir a **Cloud Apps > SaaS security posture**
+3. Revisar recomendaciones activas
+4. Validar impacto en:
    - Secure Score
    - Controles afectados
-4. Identificar brechas de configuración recurrentes
+5. Identificar brechas de configuración recurrentes
 
 ### Acciones
 - Priorizar recomendaciones **High / Medium impact**
@@ -55,11 +56,12 @@ Mantener una postura segura de aplicaciones SaaS monitoreadas por MDCA.
 Asegurar ingestión continua y confiable de datos hacia MDCA y SIEM.
 
 ### Procedimiento
-1. Ir a **Settings > Cloud Apps > App connectors**
-2. Validar:
+1. Accede a https://security.microsoft.com/cloudapps/settings?tabid=appConnectors
+2. Ir a **Settings > Cloud Apps > App connectors**
+3. Validar:
    - Estado: `Connected`
    - Última sincronización
-3. Revisar **Log collectors**:
+4. Revisar **Log collectors**:
    - Activos
    - Sin errores
 4. Confirmar integración con **Microsoft Sentinel**
@@ -76,8 +78,9 @@ Asegurar ingestión continua y confiable de datos hacia MDCA y SIEM.
 Auditoría de acciones administrativas y de gobierno.
 
 ### Procedimiento
-1. Ir a **Cloud Apps > Governance log**
-2. Revisar eventos:
+1. Accede a  https://security.microsoft.com/cloudapps/governance-log
+2. Ir a **Cloud Apps > Governance log**
+3. Revisar eventos:
    - Policy changes
    - App actions
    - Admin actions
@@ -90,30 +93,6 @@ Auditoría de acciones administrativas y de gobierno.
 - Documentar cambios relevantes
 - Asociar ticket / change request si aplica
 
----
-
-## Track New Changes – Defender XDR & MDCA
-
-### Objetivo SOC
-Mantener la operación alineada a cambios del producto.
-
-### Procedimiento
-1. Revisar **Microsoft Learn – What’s new**
-2. Identificar:
-   - Nuevas detecciones
-   - Cambios de UI / flujos
-   - Funcionalidades en GA / Preview
-
-### Análisis
-- Evaluar impacto operacional
-- Identificar ajustes necesarios en:
-  - Runbooks
-  - Playbooks
-  - Capacitación SOC
-
-### Acción
-- Actualizar documentación si aplica
-- Comunicar cambios al equipo SOC
 
 ---
 
@@ -121,7 +100,6 @@ Mantener la operación alineada a cambios del producto.
 - SSPM revisado
 - Conectores y SIEM saludables
 - Governance log auditado
-- Cambios de producto evaluados
 
 ---
 

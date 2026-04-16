@@ -20,6 +20,9 @@ Esta guía establece los procedimientos diarios para analizar tendencias, identi
 **Objetivo:** Eficacia de políticas.
 
 ### Paso a paso
+
+Acceder a https://security.microsoft.com/cloudapps/policies/management
+
 - **Ruta:** `Cloud Apps > Policies`
 - **Evaluar:**
   - **Alert volume** (tendencias vs. meses anteriores)
@@ -39,6 +42,9 @@ Esta guía establece los procedimientos diarios para analizar tendencias, identi
 **Objetivo:** Investigación y cumplimiento.
 
 ### Paso a paso
+
+Acceder a https://security.microsoft.com/cloudapps/activity-log
+
 - **Ruta:** `Cloud Apps > Activity log`
 - **Aplicar filtros por:**
   - **App** (enfocar en aplicaciones de alto riesgo)
