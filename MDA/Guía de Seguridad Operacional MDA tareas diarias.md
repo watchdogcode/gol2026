@@ -37,7 +37,7 @@ Establecer rutinas operativas claras para analistas SOC que permitan:
 Detectar y priorizar amenazas activas relacionadas con Cloud Apps.
 
 ### Procedimiento
-1. Acceder a **https://security.microsoft.com/alerts**
+1. Acceder a https://security.microsoft.com/alerts
 2. Navegar a **Incidents & Alerts > Incidents**
 3. Aplicar filtros:
    - Status: `New`, `In progress`
@@ -64,7 +64,7 @@ Detectar y priorizar amenazas activas relacionadas con Cloud Apps.
 
 ## Triage desde Microsoft Defender XDR
 
-Acceder a **https://security.microsoft.com/incidents**
+Acceder a https://security.microsoft.com/incidents
 
 ### Objetivo
 Correlación XDR para entender impacto transversal.
@@ -85,7 +85,7 @@ Correlación XDR para entender impacto transversal.
 
 ## Review Threat Detection Data
 
-Acceder a **https://security.microsoft.com/threatanalytics3**
+Acceder a https://security.microsoft.com/threatanalytics3
 
 ### Objetivo
 Analizar detecciones de MDCA (anomalías, malware, OAuth).
@@ -109,7 +109,7 @@ Analizar detecciones de MDCA (anomalías, malware, OAuth).
 
 ## Application Governance – OAuth Risk
 
-Acceder a **https://security.microsoft.com/cloudapps/governance-log**
+Acceder a https://security.microsoft.com/cloudapps/governance-log
 
 ### Objetivo
 Controlar riesgo de aplicaciones OAuth.
@@ -129,7 +129,7 @@ Controlar riesgo de aplicaciones OAuth.
 
 ## App Governance – Overview
 
-Acceder a **https://security.microsoft.com/cloudapps/governance-log**
+Acceder a https://security.microsoft.com/cloudapps/governance-log
 
 ### Objetivo
 Visibilidad global del abuso OAuth.
@@ -147,7 +147,7 @@ Visibilidad global del abuso OAuth.
 
 ## Review OAuth App Data
 
-Acceder a **https://security.microsoft.com/cloudapps/oauth-apps**
+Acceder a https://security.microsoft.com/cloudapps/oauth-apps
 
 ### Objetivo
 Detectar consent phishing y persistencia OAuth.
@@ -165,7 +165,7 @@ Detectar consent phishing y persistencia OAuth.
 
 ## App Governance Policies
 
-Acceder a **https://security.microsoft.com/cloudapps/policies/management**
+Acceder a https://security.microsoft.com/cloudapps/policies/management
 
 ### Objetivo
 Automatizar detección y respuesta OAuth.
@@ -184,7 +184,7 @@ Automatizar detección y respuesta OAuth.
 
 ## Conditional Access App Control
 
-Acceder a **https://security.microsoft.com/cloudapps/policies/management?tab=conditionalAccessPolicies**
+Acceder a https://security.microsoft.com/cloudapps/policies/management?tab=conditionalAccessPolicies
 
 ### Objetivo
 Validar control de sesión en tiempo real.
@@ -200,7 +200,7 @@ Validar control de sesión en tiempo real.
 
 ## Shadow IT – Cloud Discovery
 
-Acceder a **https://security.microsoft.com/cloudapps/discovery**
+Acceder a https://security.microsoft.com/cloudapps/discovery
 
 ### Objetivo
 Identificar aplicaciones no sancionadas.
@@ -219,7 +219,7 @@ Identificar aplicaciones no sancionadas.
 
 ## Cloud Discovery Dashboard
 
-Acceder a **https://security.microsoft.com/cloudapps/discovery**
+Acceder a https://security.microsoft.com/cloudapps/discovery
 
 ### Objetivo
 Identificar tendencias de uso y riesgo SaaS.
