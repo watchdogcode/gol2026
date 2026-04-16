@@ -82,11 +82,10 @@ Muy efectivo para detectar intentos de suplantación de identidad corporativa ("
 
 ```kql
 
-let orgDomains = dynamic(["contoso.com","contoso.mx"]); // <-- Cambia por tus dominios
 EmailEvents
 | where Timestamp >= ago(7d)
-| where SenderFromDomain in (orgDomains)
-| where SenderMailFromDomain !in (orgDomains)
+| where SenderFromDomain in ("contoso.com","contoso.mx")
+| where SenderMailFromDomain !in ("contoso.com","contoso.mx")
 | project Timestamp, NetworkMessageId, SenderFromAddress, SenderFromDomain, SenderMailFromAddress, SenderMailFromDomain, RecipientEmailAddress, Subject, DeliveryAction, ThreatTypes
 | order by Timestamp desc
 ```
@@ -125,8 +124,7 @@ EmailEvents
 Detecta dominios "parecidos" a un dominio VIP o partner usando distancia de edición (ej. `contoso.com` -> `cont0so.com`).
 
 ```kql
-
-let protectedDomains = dynamic(["contoso.com","fabrikam.com"]); 
+let protectedDomains = dynamic(["contoso.com","fabrikam.com"]);
 EmailEvents
 | where Timestamp >= ago(7d)
 | where isnotempty(SenderFromDomain)
@@ -134,30 +132,30 @@ EmailEvents
 | mv-expand ProtectedDomain = protectedDomains
 | extend ProtectedDomain = tostring(ProtectedDomain)
 //
-// Raíces del dominio (validado que existan antes de usarse)
+// Root aproximado: penúltimo label (mejor que [0] si hay subdominios)
 //
-| extend SenderRoot = tostring(split(SenderFromDomain, ".")[0])
-| extend ProtectedRoot = tostring(split(ProtectedDomain, ".")[0])
+| extend SenderParts = split(SenderFromDomain, ".")
+| extend ProtectedParts = split(ProtectedDomain, ".")
+| extend SenderRoot = tostring(SenderParts[array_length(SenderParts)-2])
+| extend ProtectedRoot = tostring(ProtectedParts[array_length(ProtectedParts)-2])
+| where isnotempty(SenderRoot) and isnotempty(ProtectedRoot)
 //
-// Heurísticas de similitud permisivas (WIDE)
+// Normalización básica
 //
 | extend LenDiff = abs(strlen(SenderRoot) - strlen(ProtectedRoot))
-| extend NormalizedSenderRoot = replace(@"0","o", SenderRoot)
+| extend NormalizedSenderRoot = SenderRoot
+| extend NormalizedSenderRoot = replace(@"0","o", NormalizedSenderRoot)
 | extend NormalizedSenderRoot = replace(@"1","l", NormalizedSenderRoot)
 | extend NormalizedSenderRoot = replace(@"3","e", NormalizedSenderRoot)
+| extend NormalizedSenderRoot = replace(@"5","s", NormalizedSenderRoot)
 //
-// Lógica wide (muy permisiva)
+// Score
 //
-| where 
-    LenDiff <= 3
-    or SenderRoot contains ProtectedRoot
-    or ProtectedRoot contains SenderRoot
-    or NormalizedSenderRoot contains ProtectedRoot
-    or ProtectedRoot contains NormalizedSenderRoot
-//
-// Aquí estaba el error → ProtectedDomain dynamic
-// YA corregido: tostring(ProtectedDomain)
-//
+| extend Score = 0
+| extend Score = Score + iif(LenDiff <= 1, 2, iif(LenDiff <= 2, 1, 0))
+| extend Score = Score + iif(strlen(ProtectedRoot) >= 6 and (SenderRoot contains ProtectedRoot or ProtectedRoot contains SenderRoot), 1, 0)
+| extend Score = Score + iif(strlen(ProtectedRoot) >= 6 and (NormalizedSenderRoot contains ProtectedRoot or ProtectedRoot contains NormalizedSenderRoot), 1, 0)
+| where Score >= 2
 | summarize
     Msgs        = count(),
     Recipients  = dcount(RecipientEmailAddress),
@@ -166,12 +164,13 @@ EmailEvents
     ExampleFrom = any(SenderFromAddress)
   by 
     SenderFromDomain, 
-    ProtectedDomain = tostring(ProtectedDomain),
+    ProtectedDomain,
     SenderRoot, 
     ProtectedRoot, 
     LenDiff, 
-    NormalizedSenderRoot
-| order by Msgs desc
+    NormalizedSenderRoot,
+    Score
+| order by Score desc, Msgs desc
 ```
 
 ### 6. Impersonation: Homoglyph / Punycode
