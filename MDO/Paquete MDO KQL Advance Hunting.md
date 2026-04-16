@@ -265,7 +265,7 @@ Detecta correos donde la dirección de respuesta (`Reply-To`) es diferente al do
 ```kql
 
 EmailEvents
-| where Timestamp > ago(Lookback)
+| where Timestamp > ago(7d)
 | where DeliveryLocation in ("Inbox","Folder")
 | extend ReplyToDomain = tostring(parse_json(AdditionalFields).ReplyToDomain)
 | extend FromDomain = tostring(split(SenderFromAddress,"@")[1])
