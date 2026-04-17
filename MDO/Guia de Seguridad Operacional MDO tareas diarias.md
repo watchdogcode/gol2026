@@ -4,6 +4,8 @@
 
 Esta guía establece los procedimientos diarios para analizar tendencias, identificar usuarios de alto riesgo y gestionar campañas de amenazas en Microsoft Defender for Office 365 (MDO).
 
+**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+
 ---
 ## Índice
 - [Monitoreo de Alertas](#monitoreo-de-alertas)
@@ -67,9 +69,8 @@ Revisar columnas clave:
 
 ## 1. Acceso al portal
 - Ir a: https://security.microsoft.com/v2/advanced-hunting
-- Iniciar sesión con un usuario que tenga alguno de los siguientes roles:
-  - **Global Administrator**
-  - **Privileged Role Administrator**
+- Iniciar sesión con un usuario que al menos tengo permiso de  **Security Reader**
+
 
 ## 2. Ejecutar consulta KQL
 Pegar la siguiente consulta en el panel **Query**:
@@ -78,9 +79,9 @@ Pegar la siguiente consulta en el panel **Query**:
 EmailEvents
 | where Timestamp >= ago(7d)
 | where DeliveryAction == "Delivered"
-| where ThreatTypes has_any ("Malware", "Phish", "spam")
+| where ThreatTypes has_any ("Malware", "Phish", "Spam")
 | project
-    Timestamp,
+    EventTimestamp = Timestamp,
     NetworkMessageId,
     SenderFromAddress,
     RecipientEmailAddress,
@@ -92,7 +93,15 @@ EmailEvents
     DeliveryLocation,
     EmailClusterId,
     ReportId
-| order by Timestamp desc
+| join kind=leftouter (
+    EmailPostDeliveryEvents
+    | where Timestamp >= ago(7d)
+    | project
+        NetworkMessageId,
+        PostDeliveryTimestamp = Timestamp,
+        ActionType,
+        ActionResult
+) on NetworkMessageId
 ```
 
 ## 3. Ejecutar la consulta
@@ -101,6 +110,128 @@ EmailEvents
 ## 4. Revisar los resultados
 - Navegar a la pestaña **Results** para visualizar los eventos encontrados.
 
+> Clave entender porque se estan entregando correos con algún tipo de amenaza
+
+## 5. Clic de usuario a correos entregados con algún tipo de amenaza
+Pegar la siguiente consulta en el panel **Query**:
+
+```kql
+EmailEvents
+| where Timestamp >= ago(7d)
+| where DeliveryAction == "Delivered"
+| where ThreatTypes has_any ("Malware", "Phish", "Spam")
+| project
+    EmailTimestamp = Timestamp,
+    NetworkMessageId,
+    SenderFromAddress,
+    RecipientEmailAddress,
+    Subject,
+    ThreatTypes,
+    EmailClusterId
+| join kind=inner (
+    EmailUrlInfo
+    | where Timestamp >= ago(7d)
+    | project
+        NetworkMessageId,
+        Url,
+        UrlDomain
+) on NetworkMessageId
+| join kind=inner (
+    UrlClickEvents
+    | where Timestamp >= ago(7d)
+    | project
+        NetworkMessageId,
+        Url,
+        ClickTimestamp = Timestamp,
+        ActionType,
+        AccountUpn
+) on NetworkMessageId, Url
+| project
+    EmailTimestamp,
+    ClickTimestamp,
+    AccountUpn,
+    RecipientEmailAddress,
+    SenderFromAddress,
+    Subject,
+    ThreatTypes,
+    Url,
+    UrlDomain,
+    ActionType,
+    EmailClusterId
+| order by ClickTimestamp desc
+```
+## 6. Revisar los resultados
+- Navegar a la pestaña **Results** para visualizar los eventos encontrados.
+- Columna: ActionType == "ClickAllowed"
+
+> Clave para identificar usuarios posiblemente comprometidos
+
+## 7. El usuario abrio algún adjunto a correos entregados con algún tipo de amenaza (MDE Desplegado)
+> **Requisito indispensable**
+>
+> Este query **SOLO funciona** si tu tenant tiene:
+>
+> - **Microsoft Defender for Endpoint (MDE)** habilitado
+>
+> - Dispositivos **onboarded**
+>
+> - Acceso a tablas **Device*** en Advanced Hunting
+>
+> Si DeviceFileEvents **no existe, NO es posible** detectar apertura de adjuntos (esto es una limitación real de Defender).
+
+
+Pegar la siguiente consulta en el panel **Query**:
+
+```kql
+EmailEvents
+| where Timestamp >= ago(7d)
+| where DeliveryAction == "Delivered"
+| where ThreatTypes has_any ("Malware", "Phish", "Spam")
+| project
+    EmailTimestamp = Timestamp,
+    NetworkMessageId,
+    SenderFromAddress,
+    RecipientEmailAddress,
+    Subject,
+    ThreatTypes,
+    EmailClusterId
+| join kind=inner (
+    EmailAttachmentInfo
+    | where Timestamp >= ago(7d)
+    | project
+        NetworkMessageId,
+        FileName,
+        SHA256
+) on NetworkMessageId
+| join kind=inner (
+    DeviceFileEvents
+    | where Timestamp >= ago(7d)
+    | where ActionType == "FileOpened"
+    | project
+        SHA256,
+        FileOpenTimestamp = Timestamp,
+        AccountUpn,
+        DeviceName
+) on SHA256
+| project
+    EmailTimestamp,
+    FileOpenTimestamp,
+    AccountUpn,
+    DeviceName,
+    RecipientEmailAddress,
+    SenderFromAddress,
+    Subject,
+    ThreatTypes,
+    FileName,
+    EmailClusterId
+| order by FileOpenTimestamp desc
+```
+
+## 8. Revisar los resultados
+- Navegar a la pestaña **Results** para visualizar los eventos encontrados.
+- Columna: FileOpenTimestamp Confirmación de impacto
+
+> Clave para identificar usuarios posiblemente comprometidos
 
 ---
 

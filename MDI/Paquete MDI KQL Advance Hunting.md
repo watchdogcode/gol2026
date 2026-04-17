@@ -2,6 +2,8 @@
 
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 
+**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+
 ## Recomendaciones rápidas (antes de ejecutar)
 
 - Ajusta `TimeRange` y/o filtros (`AccountName`, `DeviceName`, `DomainName`) para reducir ruido.

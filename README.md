@@ -1,5 +1,7 @@
 # Guía Operacional de Seguridad  Microsoft 365 Defender XDR
 
+**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+
 > Marco de operaciones de seguridad (SecOps) para Microsoft Defender XDR con guías operativas, scripts de automatización, líneas base de configuración y paquetes de consultas KQL.
 
 ---
@@ -228,7 +230,9 @@ gol2026/
 │   ├── Guías operativas (diaria, semanal, mensual)
 │   └── Paquete KQL Advanced Hunting
 │
-├── MDA/                               ← Microsoft Defender for Cloud Apps (en desarrollo)
+├── MDA/                               ← Microsoft Defender for Cloud Apps
+│   ├── Guías operativas (diaria, semanal, mensual)
+│   └── Paquete KQL Advanced Hunting
 │
 ├── XDR/                               ← Reportes Cross-Domain
 │   ├── Instrucciones de ejecución (.md)
@@ -244,7 +248,7 @@ gol2026/
 
 | Tecnología | Uso |
 |---|---|
-| **PowerShell 5.1+ / 7+** | Scripts de automatización, validación y reportería |
+| **PowerShell 7+** | Scripts de automatización, validación y reportería |
 | **KQL (Kusto Query Language)** | Consultas de Advanced Hunting en Microsoft 365 Defender |
 | **Microsoft Graph API** | Consultas de identidad, roles y métodos de autenticación |
 | **Microsoft 365 Defender API** | Advanced Hunting, reportes de vulnerabilidades |

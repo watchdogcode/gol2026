@@ -31,7 +31,7 @@
     Requiere el módulo Microsoft.Graph con los scopes adecuados:
         Connect-MgGraph -Scopes "Policy.Read.All","Directory.Read.All"
 
-    Autor  : Ernesto Cobos Roueñí
+    Autor  : Ernesto Cobos Roqueñí, Arturo Mandujano
     Fecha  : 2026-03-04
     Versión: 1.2
 #>

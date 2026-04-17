@@ -3,6 +3,8 @@
 
 Esta guía establece los procedimientos Mensual/Ad-Hoc para analizar tendencias de amenazas, ejecutar hunting proactivo, gestionar vulnerabilidades y revisar la postura de seguridad de endpoints en Microsoft Defender for Endpoint (MDE).
 
+**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+
 ## Alcance
 Esta guía describe actividades **operativas mensuales y ad‑hoc** para Microsoft Defender for Endpoint (MDE), enfocadas en:
 

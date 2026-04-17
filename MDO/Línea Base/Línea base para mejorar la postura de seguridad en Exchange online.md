@@ -8,6 +8,8 @@
 **Nivel:** Técnico / Operativo (Enterprise)  
 **Marco:** Zero Trust – Mail Flow Security
 
+**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+
 ---
 
 ## Índice

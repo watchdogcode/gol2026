@@ -56,6 +56,7 @@
     Permiso requerido en App Registration: AdvancedHunting.Read.All (Application).
     Si se genera un certificado autofirmado, cargue el archivo .cer exportado en
     Entra ID > App registrations > Certificates & secrets antes de validar o programar.
+    Autor  : Ernesto Cobos Roqueñí, Arturo Mandujano
 #>
 
 param(

@@ -22,7 +22,7 @@
 
 .NOTES
     Requires: ExchangeOnlineManagement module and an active session (Connect-ExchangeOnline).
-    Author  : Ernesto Cobos Roqueñí
+    Author  : Ernesto Cobos Roqueñí, Arturo Mandujano
     Date    : 24/February/2026
     Version : 1.1
 

@@ -4,6 +4,8 @@
 
 La guía diaria de MDI asegura que las amenazas a identidades se detecten y contengan antes de que impacten la operación del negocio.
 
+**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+
 ---
 ## Índice
 - [Revisar ITDR Dashboard (Identities > Dashboard)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-itdr-dashboard-identities--dashboard)

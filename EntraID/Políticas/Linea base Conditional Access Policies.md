@@ -4,6 +4,8 @@
 - Tener al menos una cuenta **break-glass** excluida de Conditional Access.
 - Siempre iniciar políticas en **Report-only**.
 
+**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+
 ---
 
 ## Require multifactor authentication for all users

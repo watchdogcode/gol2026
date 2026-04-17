@@ -12,7 +12,6 @@ Este documento recopila una serie de consultas KQL (Kusto Query Language) diseñ
 
 **Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
 
-
 ---
 ## Índice
 - [1) Detección – Usuarios (EntraIdSignInEvents)](#1-detección--usuarios-entraidsigninevents)

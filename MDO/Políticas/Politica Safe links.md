@@ -2,6 +2,8 @@
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 Esta configuración fortalece la protección contra URLs maliciosas utilizadas en ataques BEC, especialmente en escenarios de impersonación, secuestro de hilos y fraude de proveedores.
 
+**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+
 ---
 
 ## 1. Ir al portal de Microsoft 365 Defender

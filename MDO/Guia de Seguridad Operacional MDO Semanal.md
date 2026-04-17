@@ -4,6 +4,8 @@
 
 Esta guía establece los procedimientos semanales para analizar tendencias, identificar usuarios de alto riesgo y gestionar campañas de amenazas en Microsoft Defender for Office 365 (MDO).
 
+**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+
 ---
 
 ## Índice

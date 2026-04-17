@@ -4,6 +4,8 @@
 
 La guía semanal de MDI permite identificar y ajustar proactivamente riesgos emergentes de identidad antes de que se conviertan en incidentes críticos para el negocio.
 
+**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+
 ---
 ## Índice
 - [Revisar recomendaciones de Secure Score (por producto)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20semanal%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-recomendaciones-de-secure-score-por-producto)

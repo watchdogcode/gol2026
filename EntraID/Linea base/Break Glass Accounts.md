@@ -1,6 +1,8 @@
 # Cuenta de emergencia (Break Glass / Emergency Access Account) 🛡️
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 
+**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+
 ---
 ## 1. Explicación
 Una **cuenta de emergencia** es una cuenta administrativa utilizada únicamente cuando los administradores habituales no pueden autenticarse debido a fallos en **MFA**, **federación**, **red**, **sincronización**, **incidentes de seguridad** u otras dependencias críticas. Su propósito fundamental es garantizar que siempre exista al menos un **Global Administrator** con acceso al entorno Microsoft 365.

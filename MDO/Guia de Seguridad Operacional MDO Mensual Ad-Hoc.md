@@ -4,6 +4,8 @@
 
 Esta guía establece los procedimientos mensual/Ad-Hoc para analizar tendencias, identificar usuarios de alto riesgo y gestionar campañas de amenazas en Microsoft Defender for Office 365 (MDO).
 
+**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+
 ---
 ## Índice
 - [Acceso a las Herramientas de Hunting](#acceso-a-las-herramientas-de-hunting)

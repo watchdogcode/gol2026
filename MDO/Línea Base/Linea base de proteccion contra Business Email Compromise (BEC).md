@@ -4,6 +4,8 @@
 
 Business Email Compromise (BEC) es un ataque de fraude altamente dirigido basado en ingeniería social, suplantación y compromiso de identidad. Su objetivo es manipular decisiones financieras u operativas mediante correos que parecen auténticos, frecuentemente enviados desde cuentas legítimas comprometidas.
 
+**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+
 ---
 
 ### Los ataques BEC modernos combinan:

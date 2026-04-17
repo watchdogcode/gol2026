@@ -4,6 +4,8 @@
 
 La operación efectiva de Microsoft Entra ID requiere monitoreo continuo, control de cambios y revisión periódica de privilegios para reducir riesgos de identidad y garantizar continuidad del negocio.
 
+**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+
 ---
 ## Índice
 - [Revisión de roles privilegiados](#revisión-de-roles-privilegiados)
