@@ -415,7 +415,7 @@ $html = @"
             <div class="section-divider">&#128737;&#65039; 2. SPF Record for $DHCName</div>
             <span class="badge-advisory $spfSt text-white">$spfAdv</span>
             <strong>Current SPF Record:</strong><code class="record-box">$DHCSpfRecord</code>
-            $(if ($spfErrorNote) { "<div class='alert alert-danger mt-2'>$spfErrorNote <a href='https://www.rfc-editor.org/rfc/rfc7208#section-2.6.7' target='_blank'>RFC 7208 Section 2.6.7</a></div>" } else { "" })
+            $(if ($false) { "<div class='alert alert-danger mt-2'>$spfErrorNote <a href='https://www.rfc-editor.org/rfc/rfc7208#section-2.6.7' target='_blank'>RFC 7208 Section 2.6.7</a></div>" } else { "" })
             <div class="mt-2">
                 <strong>Length:</strong> <span class="badge $(if($spfLengthNum -gt 255){'bg-danger'}else{'bg-success'})">$DHCSPFRecordLength / 255</span> |
                 <strong>Lookups:</strong> <span class="badge $(if($spfLookupsNum -gt 10){'bg-danger text-white'}elseif($spfLookupsNum -ge 8){'bg-warning text-dark'}else{'bg-success text-white'})">$DHCSPFRecordDnsLookupCount</span> |
