@@ -19,7 +19,7 @@
 .NOTES
     Author  : Ernesto Cobos Roqueñí, Arturo Mandujano
     Date    : 20/April/2026
-    Version: 2.7
+    Version: 2.8
     Requires: Administrator privileges
 
     .\Domain-Health-Check.ps1
