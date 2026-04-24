@@ -16,7 +16,7 @@ Este repositorio contiene el marco completo de operaciones de seguridad para org
 - **Paquetes de consultas KQL** para Advanced Hunting orientados a detección, triaje e investigación.
 - **Reportes HTML automatizados** (diarios y semanales) que transforman telemetría técnica en información accionable para el CISO y el equipo de SecOps.
 
-![Report](XDR/Report.png)
+![Report](XDR/Imagen.png)
 
 ### Valor de Negocio
 
