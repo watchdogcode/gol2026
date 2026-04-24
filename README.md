@@ -18,7 +18,6 @@ Este repositorio contiene el marco completo de operaciones de seguridad para org
 
 ![Report](XDR/Report.png)
 
-
 ### Valor de Negocio
 
 | Audiencia | Beneficio |
@@ -414,6 +413,6 @@ Register-ScheduledTask -TaskName "DefenderXDR-WeeklyReport" `
 Este reporte es una herramienta de visualización. Los datos mostrados dependen de la correcta configuración de las licencias y conectores de Microsoft Defender XDR en tu entorno.
 
 **Creado por:** Ernesto Cobos Roqueñi y Jose Arturo Mandujano  
-**Versión:** 2.0  
-**Última actualización:** Marzo 2026
+**Versión:** 2.1
+**Última actualización:** Abril 2026
 
