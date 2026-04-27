@@ -186,7 +186,7 @@ Pegar la siguiente consulta en el panel **Query**:
 EmailEvents
 | where Timestamp >= ago(7d)
 | where DeliveryAction == "Delivered"
-| where ThreatTypes has_any ("Malware", "Phish", "Spam")
+| where ThreatTypes has_any ("Malware", "Phish")
 | project
     EmailTimestamp = Timestamp,
     NetworkMessageId,
@@ -198,10 +198,7 @@ EmailEvents
 | join kind=inner (
     EmailAttachmentInfo
     | where Timestamp >= ago(7d)
-    | project
-        NetworkMessageId,
-        FileName,
-        SHA256
+    | project NetworkMessageId, FileName, SHA256
 ) on NetworkMessageId
 | join kind=inner (
     DeviceFileEvents
@@ -210,7 +207,7 @@ EmailEvents
     | project
         SHA256,
         FileOpenTimestamp = Timestamp,
-        AccountUpn,
+        AccountUpn = InitiatingProcessAccountUpn,
         DeviceName
 ) on SHA256
 | project

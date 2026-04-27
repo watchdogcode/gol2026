@@ -51,6 +51,8 @@ Este documento recopila una serie de consultas KQL (Kusto Query Language) diseñ
 - [Validación de Correos Entregados con Amenazas](#-validación-de-correos-entregados-con-amenazas)
   - [29. Correos entregados con algún tipo de amenaza (Query base)](#29-correos-entregados-con-algún-tipo-de-amenaza-query-base)
   - [30. Confirmar si fue Safe Attachments o Safe Links](#30-confirmar-si-fue-safe-attachments-o-safe-links)
+  - [31. Seguimiento de Apertura de Adjuntos Maliciosos Entregados](#31-seguimiento-de-apertura-de-adjuntos-maliciosos-entregados)
+  - [32. Seguimiento de Clics en URLs de Correos Entregados con Amenazas](#32-seguimiento-de-clics-en-urls-de-correos-entregados-con-amenazas)
   
 ---
 
@@ -714,6 +716,100 @@ EmailEvents
       UrlDomain,
       SafeLinksAction
 | order by EmailTimestamp desc
+```
+
+### 31. Seguimiento de Apertura de Adjuntos Maliciosos Entregados
+Correlaciona correos entregados con amenazas (Malware/Phish) que contienen adjuntos, y verifica si dichos adjuntos fueron abiertos en dispositivos, utilizando DeviceFileEvents para rastrear la actividad post-entrega.
+
+```kql
+EmailEvents
+| where Timestamp >= ago(7d)
+| where DeliveryAction == "Delivered"
+| where ThreatTypes has_any ("Malware", "Phish")
+| project
+    EmailTimestamp = Timestamp,
+    NetworkMessageId,
+    SenderFromAddress,
+    RecipientEmailAddress,
+    Subject,
+    ThreatTypes,
+    EmailClusterId
+| join kind=inner (
+    EmailAttachmentInfo
+    | where Timestamp >= ago(7d)
+    | project NetworkMessageId, FileName, SHA256
+) on NetworkMessageId
+| join kind=inner (
+    DeviceFileEvents
+    | where Timestamp >= ago(7d)
+    | where ActionType == "FileOpened"
+    | project
+        SHA256,
+        FileOpenTimestamp = Timestamp,
+        AccountUpn = InitiatingProcessAccountUpn,
+        DeviceName
+) on SHA256
+| project
+    EmailTimestamp,
+    FileOpenTimestamp,
+    AccountUpn,
+    DeviceName,
+    RecipientEmailAddress,
+    SenderFromAddress,
+    Subject,
+    ThreatTypes,
+    FileName,
+    EmailClusterId
+| order by FileOpenTimestamp desc
+```
+
+### 32. Seguimiento de Clics en URLs de Correos Entregados con Amenazas
+Correlaciona correos entregados con amenazas (Malware/Phish/Spam) con los URLs incluidos y los clics asociados, para identificar usuarios expuestos y el resultado de la acción.
+
+```kql
+EmailEvents
+| where Timestamp >= ago(7d)
+| where DeliveryAction == "Delivered"
+| where ThreatTypes has_any ("Malware", "Phish", "Spam")
+| project
+    EmailTimestamp = Timestamp,
+    NetworkMessageId,
+    SenderFromAddress,
+    RecipientEmailAddress,
+    Subject,
+    ThreatTypes,
+    EmailClusterId
+| join kind=inner (
+    EmailUrlInfo
+    | where Timestamp >= ago(7d)
+    | project
+        NetworkMessageId,
+        Url,
+        UrlDomain
+) on NetworkMessageId
+| join kind=inner (
+    UrlClickEvents
+    | where Timestamp >= ago(7d)
+    | project
+        NetworkMessageId,
+        Url,
+        ClickTimestamp = Timestamp,
+        ActionType,
+        AccountUpn
+) on NetworkMessageId, Url
+| project
+    EmailTimestamp,
+    ClickTimestamp,
+    AccountUpn,
+    RecipientEmailAddress,
+    SenderFromAddress,
+    Subject,
+    ThreatTypes,
+    Url,
+    UrlDomain,
+    ActionType,
+    EmailClusterId
+| order by ClickTimestamp desc
 ```
 
 
