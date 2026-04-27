@@ -17,6 +17,7 @@ Este repositorio contiene el marco completo de operaciones de seguridad para org
 - **Reportes HTML automatizados** (diarios y semanales) que transforman telemetría técnica en información accionable para el CISO y el equipo de SecOps.
 
 ![Report](XDR/Imagen.png)
+![Report](XDR/Imagen2.png)
 
 ### Valor de Negocio
 
