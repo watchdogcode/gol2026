@@ -20,7 +20,7 @@ La mitigación requiere **disciplina + tecnología + procesos**.
 
 ---
 
-# Modelo de Protección Multicapa (Zero Trust + NIST + Microsoft Defender 2026)
+# Modelo de Protección Multicapa (Zero Trust + NIST + Microsoft Defender)
 
 1. Autenticación del correo (SPF, DKIM, DMARC)
 2. Anti‑phishing avanzado (DfO)
