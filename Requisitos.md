@@ -105,8 +105,12 @@ Una vez completados los pasos anteriores, debe tener los siguientes tres valores
 ```PowerShell
 Get-Command pwsh
 ```
-6. Salida esperada **C:\Program Files\PowerShell\7\pwsh.exe**
-
+6. Salida esperada 
+```PowerShell
+Source
+------
+C:\Program Files\PowerShell\7\pwsh.exe
+```
 
 ### 4.2 Módulos por script
 
