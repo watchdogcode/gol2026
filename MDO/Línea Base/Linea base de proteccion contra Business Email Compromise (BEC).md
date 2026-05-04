@@ -23,11 +23,11 @@ La mitigación requiere **disciplina + tecnología + procesos**.
 # Modelo de Protección Multicapa (Zero Trust + NIST + Microsoft Defender)
 
 1. Autenticación del correo (SPF, DKIM, DMARC)
-2. Anti‑phishing avanzado (DfO)
+2. Anti‑phishing avanzado (MDO)
 3. Safe Links / Safe Attachments / ZAP
 4. Protección de identidad (Zero Trust / Entra ID Protection)
 5. Controles de proceso de negocio
-6. Detección y respuesta SOC (DfO + XDR)
+6. Detección y respuesta SOC (MDO + XDR)
 7. Concientización continua
 
 ---
