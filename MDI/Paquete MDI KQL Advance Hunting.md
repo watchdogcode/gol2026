@@ -122,10 +122,12 @@ IdentityLogonEvents
 ### Campos en los que deberías enfocarte
 
 **FailedLogons**
+
    - Indicador principal de ataque
    - Valores altos = alta probabilidad de automatización
 
 **SrcIPs**
+
 ≥ 3 IPs → fuerte señal de:
 
    - Password spraying
@@ -133,10 +135,12 @@ IdentityLogonEvents
    - Proxy/TOR
 
 **LastSeen**
+
 Si es reciente → ataque activo
 Si no → evento histórico
 
 **AccountName / AccountDomain**
+
    - ¿Cuenta privilegiada?
    - ¿Cuenta de servicio?
    - ¿Usuario real?
