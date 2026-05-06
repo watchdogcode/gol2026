@@ -32,39 +32,119 @@ Este documento recopila una serie de consultas KQL (Kusto Query Language) diseñ
 ---
 
 ## 1. Alertas de Microsoft Defender for Identity (últimos X días)
+
+### Descripción del query
+
+Este query consulta la tabla **AlertInfo** en Microsoft 365 Defender Advanced Hunting para:
+
+   - Analizar **alertas generadas en los últimos X días**
+   - Filtrar **únicamente alertas cuya fuente de detección sea Microsoft Defender for Identity (MDI)**
+
 ```kql
-let TimeRange = 7d;
+let TimeRange = ago(1d);
 AlertInfo
-| where Timestamp >= ago(TimeRange)
-| where ServiceSource has_any ("MicrosoftDefenderForIdentity", "Defender for Identity", "MDI")
-| project Timestamp, AlertId, Title, Severity, Category, ServiceSource, DetectionSource, ProviderName
-| order by Timestamp desc
+| where Timestamp >= TimeRange
+| where DetectionSource has "Defender for Identity"
+| project
+    Timestamp,
+    AlertId,
+    Title,
+    Severity,
+    Category,
+    ServiceSource,
+    DetectionSource
+| sort by Timestamp desc
 ```
+
+### Campos en los que deberías enfocarte
+
+Dependiendo de tu objetivo (SOC, hunting, arquitectura), estos son los más importantes:
+**Severity**
+**Prioridad número uno**
+
+- Te indica el nivel de riesgo de la alerta (High, Medium, Low).
+- Útil para:
+
+   - Triage rápido
+   - Detección de picos de alertas críticas
+   - Priorización de investigación
 
 ---
 
 ## 2. Incidentes con evidencias de identidad (vista rápida)
+
+### Descripción del query
+nooooo
+
 ```kql
-let TimeRange = 7d;
-IncidentInfo
-| where Timestamp >= ago(TimeRange)
-| project Timestamp, IncidentId, Title, Severity, Status, Classification, Determination
-| order by Timestamp desc
+AlertInfo
+| where Timestamp >= ago(7d)
+| project
+    Timestamp,
+    AlertId,
+    Title,
+    Severity,
+    Category,
+    ServiceSource,
+    DetectionSource
+| sort by Timestamp desc
+``
 ```
 
 ---
 
 ## 3. Password spraying – múltiples fallos por cuenta
+
+### Descripción del query
+
+Detecta posibles ataques de fuerza bruta / password spraying contra identidades, buscando:
+
+   - Muchos intentos de login fallidos
+   - Desde múltiples direcciones IP
+   - Contra la misma cuenta
+   - En una ventana de 1 día
+
 ```kql
-let TimeRange = 1d;
 let FailureThreshold = 15;
 IdentityLogonEvents
-| where Timestamp >= ago(TimeRange)
-| where ActionType in ("LogonFailed", "InvalidPassword", "UserLoginFailed", "Failure")
-| summarize FailedLogons = count(), SrcIPs = dcount(IPAddress) by AccountUpn, AccountName, AccountDomain
+| where Timestamp >= ago(7d)
+| where ActionType in ("LogonFailed", "InvalidPassword")
+| summarize
+    FailedLogons = count(),
+    SrcIPs = dcount(IPAddress),
+    FirstSeen = min(Timestamp),
+    LastSeen = max(Timestamp)
+    by AccountName, AccountDomain
 | where FailedLogons >= FailureThreshold and SrcIPs >= 3
-| order by FailedLogons desc
+| sort by FailedLogons desc
 ```
+
+### Campos en los que deberías enfocarte
+
+**FailedLogons**
+
+   - Indicador principal de ataque
+   - Valores altos = alta probabilidad de automatización
+
+**SrcIPs**
+
+≥ 3 IPs → fuerte señal de:
+
+   - Password spraying
+   - Botnet
+   - Proxy/TOR
+
+**LastSeen**
+
+Si es reciente → ataque activo
+Si no → evento histórico
+
+**AccountName / AccountDomain**
+
+   - ¿Cuenta privilegiada?
+   - ¿Cuenta de servicio?
+   - ¿Usuario real?
+
 
 ---
 
