@@ -33,12 +33,9 @@ Este documento recopila una serie de consultas KQL (Kusto Query Language) diseñ
 
 ## 1. Alertas de Microsoft Defender for Identity (últimos X días)
 
-### Descripción del query
+### Este query sirve para:
 
-Este query consulta la tabla **AlertInfo** en Microsoft 365 Defender Advanced Hunting para:
-
-   - Analizar **alertas generadas en los últimos X días**
-   - Filtrar **únicamente alertas cuya fuente de detección sea Microsoft Defender for Identity (MDI)**
+Muestra alertas generadas por Defender for Identity (MDI) en las últimas 24 h para monitorear actividad de identidad sospechosa.
 
 ```kql
 let TimeRange = ago(1d);
@@ -58,16 +55,10 @@ AlertInfo
 
 ### Campos en los que deberías enfocarte
 
-Dependiendo de tu objetivo (SOC, hunting, arquitectura), estos son los más importantes:
-**Severity**
-**Prioridad número uno**
-
-- Te indica el nivel de riesgo de la alerta (High, Medium, Low).
-- Útil para:
-
-   - Triage rápido
-   - Detección de picos de alertas críticas
-   - Priorización de investigación
+   - Severity: prioriza High y Medium
+   - Title: qué técnica o comportamiento detectó MDI
+   - Category: tipo de ataque (credenciales, movimiento lateral, etc.)
+   - Timestamp: si es reciente (actividad activa)
 
 ---
 
@@ -105,14 +96,9 @@ IdentityDirectoryEvents
 
 ## 3. Password spraying – múltiples fallos por cuenta
 
-### Descripción del query
+### Este query sirve para:
 
-Detecta posibles ataques de fuerza bruta / password spraying contra identidades, buscando:
-
-   - Muchos intentos de login fallidos
-   - Desde múltiples direcciones IP
-   - Contra la misma cuenta
-   - En una ventana de 1 día
+Detecta posibles ataques de fuerza bruta o password spraying contra cuentas, buscando muchos fallos de autenticación desde varias IPs en 7 días.
 
 ```kql
 let FailureThreshold = 15;
@@ -131,29 +117,10 @@ IdentityLogonEvents
 
 ### Campos en los que deberías enfocarte
 
-**FailedLogons**
-
-   - Indicador principal de ataque
-   - Valores altos = alta probabilidad de automatización
-
-**SrcIPs**
-
-≥ 3 IPs → fuerte señal de:
-
-   - Password spraying
-   - Botnet
-   - Proxy/TOR
-
-**LastSeen**
-
-Si es reciente → ataque activo
-Si no → evento histórico
-
-**AccountName / AccountDomain**
-
-   - ¿Cuenta privilegiada?
-   - ¿Cuenta de servicio?
-   - ¿Usuario real?
+   - FailedLogons: volumen alto = ataque probable
+   - SrcIPs (≥3): múltiples orígenes = spraying
+   - LastSeen: si es reciente, el ataque sigue activo
+   - AccountName / Domain: si es cuenta sensible → prioridad alta
 
 
 ---
@@ -162,9 +129,7 @@ Si no → evento histórico
 
 ### Este query sirve para:
 
-   - Detectar actividad sospechosa contra cuentas con roles asignados
-   - Priorizar investigaciones de autenticación fallida
-   - Identificar posibles ataques dirigidos a cuentas sensibles
+Detecta fallos de autenticación en cuentas con roles asignados (privilegiadas) en las últimas 24 h para identificar ataques dirigidos.
 
 ```kql
 let PrivilegedAccounts = IdentityInfo
@@ -202,13 +167,7 @@ IdentityLogonEvents
 
 ### Este query sirve para:
 
-   - Detectar reconnaissance en AD
-   - Enfocado en LDAP / SAMR enumeration
-   - Muy útil como hunting proactivo
-   - Prioriza:
-         - QueryCount
-         - AccountUpn
-         - DeviceName
+Detecta enumeración de Active Directory (LDAP/SAMR) por alto volumen de consultas en una hora, típico de reconnaissance
 
 ```kql
 let TimeRange = 1d;
@@ -221,8 +180,10 @@ IdentityQueryEvents
 ```
 ### Campos en los que deberías enfocarte
 
-  - Correlacionar esto con logons exitosos posteriores
-  - Cruzarlo con alertas MDI
+  - QueryCount (>500): volumen anómalo = posible herramienta
+  - AccountUpn: quién ejecuta la enumeración (admin = crítico)
+  - DeviceName: desde dónde se ejecuta
+  - Ventana de 1h: actividad concentrada = más sospechoso
 
 ---
 
@@ -230,11 +191,7 @@ IdentityQueryEvents
 
 ### Este query sirve para:
 
-Este query sirve para identificar cuentas que realizan un volumen elevado de consultas de identidad (LDAP, SAMR u otras incluidas en IdentityQueryEvents) durante los últimos X días, con el objetivo de detectar:
-
-   - Reconnaissance en Active Directory
-   - Enumeración de objetos (usuarios, grupos, equipos)
-   - Uso de scripts o herramientas automatizadas (ej. BloodHound, PowerView, AdFind)
+Identifica cuentas que realizan muchas consultas de identidad (posible reconnaissance LDAP/SAMR) en los últimos 7 días.
 
 ```kql
 let TimeRange = 7d;
@@ -266,14 +223,7 @@ IdentityQueryEvents
 
 ### Este query sirve para:
 
-  - Detectar uso anómalo de credenciales
-  - Ideal para hunting de account compromise
-  - Enfócate en:
-
-       - Devices
-       - AccountUpn
-       - DeviceList
-       - Ventanas de 1 hora
+Detecta uso anómalo de una cuenta en muchos dispositivos en poco tiempo (1 h), señal típica de credenciales comprometidas o abuso de cuenta.
 
 ```kql
 let Lookback = 1d;
@@ -289,11 +239,10 @@ IdentityLogonEvents
 ```
 ### Campos en los que deberías enfocarte
 
-   - Devices
-   - AccountUpn / AccountName
-   - DeviceList
-   - bin(Timestamp, 1h)
-   - TotalLogons
+   - Devices (≥6): muchos equipos en 1 h = muy sospechoso
+   - AccountUpn: si es admin/sensible → prioridad alta
+   - DeviceList: dispositivos inesperados
+   - TotalLogons: volumen alto refuerza la señals
 
 ---
 
