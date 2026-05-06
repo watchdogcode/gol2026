@@ -149,19 +149,42 @@ Si no → evento histórico
 ---
 
 ## 4. Cuentas privilegiadas con múltiples fallos de autenticación
+
+### Este query sirve para:
+
+   - Detectar actividad sospechosa contra cuentas con roles asignados
+   - Priorizar investigaciones de autenticación fallida
+   - Identificar posibles ataques dirigidos a cuentas sensibles
+
 ```kql
-let TimeRange = 1d;
-let FailureThreshold = 8;
+let PrivilegedAccounts = IdentityInfo
+| where TimeGenerated > ago(14d)
+| where isnotempty(AssignedRoles)
+| summarize arg_max(TimeGenerated, *) by AccountUpn
+| project AccountUpn, AssignedRoles;
 IdentityLogonEvents
-| where Timestamp >= ago(TimeRange)
-| where ActionType has "Fail"
-| summarize Failures = count() by AccountUpn, AccountName
-| where Failures >= FailureThreshold
-| join kind=leftouter IdentityAccountInfo on AccountUpn
-| where IsPrivileged == true
-| project AccountUpn, AccountName, Failures, IsPrivileged
-| order by Failures desc
+| where Timestamp > ago(24h)
+| where ActionType == "LogonFailed"
+| where FailureReason !in ("UserNotFound", "UnknownUser")
+| join kind=inner PrivilegedAccounts on $left.AccountUpn == $right.AccountUpn
+| summarize 
+    FailureCount = count(), 
+    FailureReasons = make_set(FailureReason), 
+    UniqueIPs = dcount(IPAddress), 
+    IPList = make_set(IPAddress),
+    AppList = make_set(Application)
+    by TargetDeviceName, Roles = tostring(AssignedRoles) 
+| where FailureCount >= 5 
+| sort by FailureCount desc
 ```
+### Campos en los que deberías enfocarte
+
+   - FailureCount (volumen)
+   - UniqueIPs / IPList (distribución)
+   - Roles (impacto)
+   - FailureReasons (patrón)
+   - TargetDeviceName y AppList (vector)
+
 
 ---
 
