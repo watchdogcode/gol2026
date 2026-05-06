@@ -122,7 +122,6 @@ IdentityLogonEvents
 ### Campos en los que deberías enfocarte
 
 **FailedLogons**
-
    - Indicador principal de ataque
    - Valores altos = alta probabilidad de automatización
 
