@@ -734,7 +734,6 @@ AlertInfo
 | where isempty(IncidentStatusNorm) or not(IncidentStatusNorm has "resolved")
 | project Timestamp, IncidentId=IncidentRef, Title, Severity, Status=IncidentStatus
 | order by Timestamp desc
-| take 25
 "@
 
     "MDI_HighRiskUsers" = @"
@@ -743,7 +742,7 @@ EntraIdSignInEvents
 | where RiskLevelAggregated in (50, 100)
 | summarize Events=count() by 
 AccountUpn, RiskLevelAggregated
-| top 25 by Events desc
+| top 99 by Events desc
 "@
 
     "MDE_Health" = @"
@@ -751,7 +750,7 @@ DeviceInfo
 | summarize arg_max(Timestamp, *) by DeviceId
 | project Timestamp, DeviceName, OSPlatform, ExposureLevel, OnboardingStatus
 | where OnboardingStatus !in ("Onboarded","Unknown") or ExposureLevel in ("High","Medium")
-| top 50 by Timestamp desc
+| top 99 by Timestamp desc
 "@
 
     "MDI_BruteForce" = @"
@@ -775,14 +774,14 @@ CloudAppEvents
 | where Timestamp >= ago(24h)
 | where ActionType in ("Consent to application","Grant consent")
 | summarize Consents=count(), Users=dcount(AccountId) by Application, ApplicationId
-| top 20 by Consents desc
+| top 99 by Consents desc
 "@
 
     "MDA_ShadowIT" = @"
 CloudAppEvents
 | where Timestamp >= ago(24h)
 | summarize Events=count(), Users=dcount(AccountId) by Application
-| top 20 by Events desc
+| top 99 by Events desc
 "@
 
     "XDR_CustomDetections" = @"
@@ -2145,7 +2144,7 @@ $HtmlMDOSection = if ($RunMDO) {
 
 $HtmlMDESection = if ($RunMDE) { 
     $MdeAlerts = Get-WorkloadAlerts -WorkloadType "MDE" -AllAlerts $Data["AlertsByWorkload"]
-    Build-WorkloadSection -WorkloadName "MDE: Microsoft Defender for Endpoint" -WorkloadEmoji "&#x1f5a5;" -HeaderColor "#d83b01" -OperativeTasks $OperativeTasks.MDE -ActiveAlerts $MdeAlerts -SelectedKql $SelectedMdeKql -KqlCatalogUrl "https://github.com/watchdogcode/gol2026/blob/main/MDE/Paquete%20MDE%20KQL%20Advance%20Hunting.md#paquete-de-consultas-kql-advanced-hunting-%EF%B8%8F"
+    Build-WorkloadSection -WorkloadName "MDE: Microsoft Defender for Endpoint" -WorkloadEmoji "&#x1f5a5;" -HeaderColor "#d83b01" -OperativeTasks $OperativeTasks.MDE -ActiveAlerts $MdeAlerts -SelectedKql $SelectedMdeKql -KqlCatalogUrl "https://learn.microsoft.com/defender-xdr/advanced-hunting-query-samples"
 } else { "" }
 
 $HtmlMDISection = if ($RunMDI) { 
