@@ -1,7 +1,7 @@
 # Monitoreo de cambios de roles 🛡️
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
  
-**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+**Autores:** Ernesto Cobos Roqueñí & Arturo Mandujano
 
 ---
 
