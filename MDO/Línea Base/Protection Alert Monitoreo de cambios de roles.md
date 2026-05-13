@@ -7,13 +7,6 @@
 
 ## La asignación de roles sensibles debe ser monitoreada para detectar cambios no autorizados.  
 
-Los roles monitoreados deben incluir, al menos, los siguientes:
-
-- Administrador global  
-- Administradores de servicios (Exchange, SharePoint, Teams)  
-- Administrador de cumplimiento y Administrador de eDiscovery 
-- Administrador de Autenticación
-
 Los roles sensibles y/o privilegiados como Administrador global, administradores de servicios (Exchange, SharePoint, Teams) y Administrador de eDiscovery, etc. son objetivos de alto valor.
 
 En un ataque común, un atacante puede utilizar técnicas de movimiento lateral para desplazarse entre diferentes cuentas y elevar permisos.
@@ -55,6 +48,8 @@ Esto debe aplicarse cuando la solución de monitoreo detecte que alguien ha sido
 ---
 
 ## Implementación de alerta
+
+### Esta Alert Policy detecta cualquier intento de elevación de privilegios en Entra ID al agregar miembros a cualquier rol de directorio, sin limitarse a roles críticos.
 
 Puede crear la siguiente política de alerta directamente en PowerShell para generar una alerta cuando una cuenta sea agregada a cualquier rol de Microsoft Entra:
 
