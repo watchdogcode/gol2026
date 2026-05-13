@@ -1,8 +1,8 @@
 # Monitoreo de cambios de roles 🛡️
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
  
-**Autores:** Ernesto Cobos Roqueñí & Arturo Mandujano
-
+ **Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+ 
 ---
 
 ## La asignación de roles sensibles debe ser monitoreada para detectar cambios no autorizados.  
@@ -21,7 +21,11 @@ Asegúrese de que los roles sensibles sean monitoreados para recibir notificacio
 
 ---
 
-## Los siguientes roles deberían estar siendo monitoreados cuando alguien es asignado a ellos:
+## Roles no monitoreados actualmente
+
+Los siguientes roles no están siendo monitoreados cuando alguien es asignado a ellos:
+
+> **Nota:** <<Contexto del cliente: eliminar los roles que apliquen>>
 
 - Administrador global  
 - Administrador de Exchange  
@@ -49,12 +53,12 @@ Esto debe aplicarse cuando la solución de monitoreo detecte que alguien ha sido
 
 ### Respuesta ante incidentes
 
-**Defina las acciones que deben tomarse si la elevación de privilegios:**
+Defina las acciones que deben tomarse si la elevación de privilegios:
 
 - No corresponde con el proceso establecido  
 - Viola los lineamientos de su organización  
 
-**Considere analizar:**
+Considere analizar:
 
 - Por qué la elevación de privilegios fue posible  
 - Qué controles fallaron o no se siguieron  
@@ -63,7 +67,7 @@ Esto debe aplicarse cuando la solución de monitoreo detecte que alguien ha sido
 
 ## Implementación de alerta
 
-Puede crear la siguiente política de alerta directamente en PowerShell para generar una alerta cuando una cuenta sea agregada a cualquier rol de Microsoft Entra:
+Puede crear la siguiente política de alerta en el portal de Microsoft 365 Defender para generar una alerta cuando una cuenta sea agregada a cualquier rol de Microsoft Entra:
 
 ```powershell
 New-ProtectionAlert `
@@ -74,12 +78,9 @@ New-ProtectionAlert `
   -Operation "Add member to role." `
   -AggregationType None `
   -Severity High
-```
-**Nota.**
-Para crear la Política de Alerta es necesario tener instalado el Modulo ExchangeonlineManagement e iniciar sesion con Connect-IPPSSession
 
 
 #### Referencia
 > [New-ProtectionAlert](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/new-protectionalert?view=exchange-ps)
 
-Internal Tools 2026
+  > Internal Tools 2026
