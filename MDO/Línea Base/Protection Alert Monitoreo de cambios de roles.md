@@ -33,9 +33,7 @@ New-ProtectionAlert `
   -AggregationType None `
   -Severity High
 ```
-**Nota.**
-
-Para crear la Alerta de Protección es necesario el Modulo ExchangeonlineManagement e iniciar sesion con Connect-IPPSSession
+> **Nota:** Para crear la Alerta de Protección es necesario el Modulo ExchangeonlineManagement e iniciar sesion con Connect-IPPSSession
 
 
 ## Recomendaciones
