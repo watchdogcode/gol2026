@@ -1,4 +1,4 @@
-# Alerta de Protección Monitoreo de cambios de roles 🛡️
+# Alerta de Protección (Monitoreo de cambios de roles) 🛡️
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
  
 **Autores:** Ernesto Cobos Roqueñí & Arturo Mandujano
@@ -76,7 +76,8 @@ New-ProtectionAlert `
   -Severity High
 ```
 **Nota.**
-Para crear la Política de Alerta es necesario tener instalado el Modulo ExchangeonlineManagement e iniciar sesion con Connect-IPPSSession
+
+Para crear la Alerta de Protección es necesario el Modulo ExchangeonlineManagement e iniciar sesion con Connect-IPPSSession
 
 
 #### Referencia
