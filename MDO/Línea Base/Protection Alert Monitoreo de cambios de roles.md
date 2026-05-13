@@ -11,9 +11,10 @@ Los roles monitoreados deben incluir, al menos, los siguientes:
 
 - Administrador global  
 - Administradores de servicios (Exchange, SharePoint, Teams)  
-- Administrador de cumplimiento y Administrador de eDiscovery  
+- Administrador de cumplimiento y Administrador de eDiscovery 
+- Administrador de Autenticación
 
-Los roles sensibles como Administrador global, administradores de servicios (Exchange, SharePoint, Teams) y Administrador de eDiscovery son objetivos de alto valor.
+Los roles sensibles y/o privilegiados como Administrador global, administradores de servicios (Exchange, SharePoint, Teams) y Administrador de eDiscovery son objetivos de alto valor.
 
 En un ataque común, un atacante puede utilizar técnicas de movimiento lateral para desplazarse entre diferentes cuentas y elevar permisos.
 
@@ -21,20 +22,13 @@ Asegúrese de que los roles sensibles sean monitoreados para recibir notificacio
 
 ---
 
-## Los siguientes roles deberían estar siendo monitoreados cuando alguien es asignado a ellos:
-
-- Administrador global  
-- Administrador de Exchange  
-- Administrador de SharePoint  
-- Administrador de Teams  
-- Administrador de cumplimiento  
-- Administrador de eDiscovery  
+## Todos los roles sensibles deberían estar siendo monitoreados cuando alguien es asignado a ellos:
 
 ---
 
 ## Recomendaciones
 
-Implemente el monitoreo de la adición de cuentas a roles sensibles dentro de Microsoft Entra y eDiscovery.
+Implemente el monitoreo de la adición de cuentas a roles sensibles dentro de Microsoft Entra.
 
 ### Definición de proceso (RACI)
 
