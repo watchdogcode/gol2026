@@ -22,9 +22,8 @@ Asegúrese de que los roles sensibles sean monitoreados para recibir notificacio
 
 ---
 
-## Todos los roles sensibles deberían estar siendo monitoreados cuando alguien es asignado a ellos:
+## Todos los roles sensibles deberían estar siendo monitoreados cuando alguien es asignado a ellos
 
----
 
 ## Recomendaciones
 
@@ -77,4 +76,4 @@ Para crear la Alerta de Protección es necesario el Modulo ExchangeonlineManagem
 #### Referencia
 > [New-ProtectionAlert](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/new-protectionalert?view=exchange-ps)
 
-Internal Tools 2026
+Gol 2026 | Internal Tools 2026
