@@ -21,11 +21,7 @@ Asegúrese de que los roles sensibles sean monitoreados para recibir notificacio
 
 ---
 
-## Roles no monitoreados actualmente
-
-Los siguientes roles no están siendo monitoreados cuando alguien es asignado a ellos:
-
-> **Nota:** <<Contexto del cliente: eliminar los roles que apliquen>>
+## Los siguientes roles deberían estar siendo monitoreados cuando alguien es asignado a ellos:
 
 - Administrador global  
 - Administrador de Exchange  
@@ -67,7 +63,7 @@ Considere analizar:
 
 ## Implementación de alerta
 
-Puede crear la siguiente política de alerta en el portal de Microsoft 365 Defender para generar una alerta cuando una cuenta sea agregada a cualquier rol de Microsoft Entra:
+Puede crear la siguiente política de alerta directamente en PowerShell para generar una alerta cuando una cuenta sea agregada a cualquier rol de Microsoft Entra:
 
 ```powershell
 New-ProtectionAlert `
@@ -78,7 +74,7 @@ New-ProtectionAlert `
   -Operation "Add member to role." `
   -AggregationType None `
   -Severity High
-
+```
 
 #### Referencia
 > [New-ProtectionAlert](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/new-protectionalert?view=exchange-ps)
