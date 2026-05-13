@@ -17,6 +17,26 @@ Asegúrese de que los roles sensibles sean monitoreados para recibir notificacio
 
 ## Todos los roles sensibles deberían estar siendo monitoreados cuando alguien es asignado a ellos
 
+## Implementación de alerta
+
+### Esta Alert Policy detecta cualquier intento de elevación de privilegios en Entra ID al agregar miembros a cualquier rol de directorio, sin limitarse a roles críticos.
+
+Puede crear la siguiente política de alerta directamente en PowerShell para generar una alerta cuando una cuenta sea agregada a cualquier rol de Microsoft Entra:
+
+```powershell
+New-ProtectionAlert `
+  -Category AccessGovernance `
+  -Name "Escalación de privilegios - Microsoft Entra" `
+  -NotifyUser secops@contoso.com `
+  -ThreatType Activity `
+  -Operation "Add member to role." `
+  -AggregationType None `
+  -Severity High
+```
+**Nota.**
+
+Para crear la Alerta de Protección es necesario el Modulo ExchangeonlineManagement e iniciar sesion con Connect-IPPSSession
+
 
 ## Recomendaciones
 
@@ -46,27 +66,6 @@ Esto debe aplicarse cuando la solución de monitoreo detecte que alguien ha sido
 - Qué controles fallaron o no se siguieron  
 
 ---
-
-## Implementación de alerta
-
-### Esta Alert Policy detecta cualquier intento de elevación de privilegios en Entra ID al agregar miembros a cualquier rol de directorio, sin limitarse a roles críticos.
-
-Puede crear la siguiente política de alerta directamente en PowerShell para generar una alerta cuando una cuenta sea agregada a cualquier rol de Microsoft Entra:
-
-```powershell
-New-ProtectionAlert `
-  -Category AccessGovernance `
-  -Name "Escalación de privilegios - Microsoft Entra" `
-  -NotifyUser secops@contoso.com `
-  -ThreatType Activity `
-  -Operation "Add member to role." `
-  -AggregationType None `
-  -Severity High
-```
-**Nota.**
-
-Para crear la Alerta de Protección es necesario el Modulo ExchangeonlineManagement e iniciar sesion con Connect-IPPSSession
-
 
 #### Referencia
 > [New-ProtectionAlert](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/new-protectionalert?view=exchange-ps)
