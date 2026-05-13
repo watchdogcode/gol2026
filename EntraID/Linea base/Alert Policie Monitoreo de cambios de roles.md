@@ -75,6 +75,8 @@ New-ProtectionAlert `
   -AggregationType None `
   -Severity High
 ```
+Nota. Para crear política de Alerta es necesario tener instalado el Modulo ExchangeonlineManagement e iniciar sesion con Connect-IPPSSession
+
 
 #### Referencia
 > [New-ProtectionAlert](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/new-protectionalert?view=exchange-ps)
