@@ -49,12 +49,12 @@ Esto debe aplicarse cuando la solución de monitoreo detecte que alguien ha sido
 
 ### Respuesta ante incidentes
 
-Defina las acciones que deben tomarse si la elevación de privilegios:
+**Defina las acciones que deben tomarse si la elevación de privilegios:**
 
 - No corresponde con el proceso establecido  
 - Viola los lineamientos de su organización  
 
-Considere analizar:
+**Considere analizar:**
 
 - Por qué la elevación de privilegios fue posible  
 - Qué controles fallaron o no se siguieron  
