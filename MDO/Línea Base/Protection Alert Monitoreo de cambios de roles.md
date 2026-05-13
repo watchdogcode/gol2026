@@ -14,7 +14,7 @@ Los roles monitoreados deben incluir, al menos, los siguientes:
 - Administrador de cumplimiento y Administrador de eDiscovery 
 - Administrador de Autenticación
 
-Los roles sensibles y/o privilegiados como Administrador global, administradores de servicios (Exchange, SharePoint, Teams) y Administrador de eDiscovery son objetivos de alto valor.
+Los roles sensibles y/o privilegiados como Administrador global, administradores de servicios (Exchange, SharePoint, Teams) y Administrador de eDiscovery, etc. son objetivos de alto valor.
 
 En un ataque común, un atacante puede utilizar técnicas de movimiento lateral para desplazarse entre diferentes cuentas y elevar permisos.
 
