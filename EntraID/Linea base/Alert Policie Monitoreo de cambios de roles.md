@@ -76,7 +76,7 @@ New-ProtectionAlert `
   -Severity High
 ```
 **Nota.**
-Para crear política de Alerta es necesario tener instalado el Modulo ExchangeonlineManagement e iniciar sesion con Connect-IPPSSession
+Para crear la Política de Alerta es necesario tener instalado el Modulo ExchangeonlineManagement e iniciar sesion con Connect-IPPSSession
 
 
 #### Referencia
