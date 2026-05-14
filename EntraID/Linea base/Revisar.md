@@ -25,7 +25,7 @@
 
 Establezca un proceso que deje claro:
 
-- Con qué frecuencia desea revisar las asignaciones de roles, al menos una vez cada seis meses (pueden existir diferentes intervalos según el rol).
+- Con qué frecuencia revisar las asignaciones de roles, al menos una vez cada seis meses (pueden existir diferentes intervalos según el rol).
 
 - Cómo se llevará a cabo la revisión:
   - Manualmente
@@ -44,3 +44,10 @@ Existe un script de ejemplo disponible que enumera los usuarios asignados a role
 - Security & Compliance
 - Exchange Online
 
+---
+
+## Revisiones de acceso – Privilege Identity Management (PIM)
+
+Use PIM para programar revisiones de acceso únicas o recurrentes para revisar las asignaciones de roles de los administradores inactivos
+
+Se puede configurar a los miembros (ellos mismos) o a su gerente para aprobar/rechazar la renovación
