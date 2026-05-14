@@ -176,4 +176,5 @@ SigninLogs
 - https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/security-emergency-access
 
 ---
- Internal Tools 2026
+
+Gol 2026 | Internal Tools

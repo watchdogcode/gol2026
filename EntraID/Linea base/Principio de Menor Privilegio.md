@@ -161,3 +161,5 @@ Con este script se puede validar: [**Get-M365RoleReport**](../Scripts/Get-M365Ro
 | Validación semestral | Higiene de privilegios | Detectar cuentas huérfanas y privilege creep |
 
 ---
+
+Gol 2026 | Internal Tools
