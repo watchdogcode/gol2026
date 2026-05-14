@@ -45,3 +45,5 @@ Establezca un proceso que deje claro:
 Use PIM para programar revisiones de acceso únicas o recurrentes para revisar las asignaciones de roles de los administradores inactivos
 
 Se puede configurar a los miembros (ellos mismos) o a su gerente para aprobar/rechazar la renovación
+
+[Create an access review of Azure resource and Microsoft Entra roles in PIM](https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/pim-create-roles-and-resource-roles-review)
