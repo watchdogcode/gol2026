@@ -50,4 +50,4 @@ Se puede configurar a los miembros (ellos mismos) o a su gerente para aprobar/re
 
 ---
 
-Gol 2026 | Internal Tools 2026
+Gol 2026 | Internal Tools
