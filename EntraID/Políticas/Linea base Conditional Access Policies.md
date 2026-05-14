@@ -98,4 +98,6 @@ Bloquea los intentos de inicio de sesión que usan **protocolos de autenticació
 
 ---
 
+Gol 2026 | Internal Tools
+
 
