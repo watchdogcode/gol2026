@@ -567,4 +567,6 @@ CloudAppEvents
 - Graph API audit (`GraphApiAuditEvents`) citeturn7search166
 - Schema tables overview (para validar columnas en tu tenant) citeturn7search177
 
-  > Internal Tools 2026
+---
+
+Gol 2026 | Internal Tools

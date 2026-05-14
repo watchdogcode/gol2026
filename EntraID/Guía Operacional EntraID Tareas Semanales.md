@@ -75,3 +75,7 @@ Evitar **deuda técnica** en identidades y problemas persistentes de sincronizac
 - Inconsistencias de identidad.
 - Errores recurrentes de acceso.
 - Incremento de incidentes operativos.
+
+---
+
+Gol 2026 | Internal Tools

@@ -183,3 +183,7 @@ Marca como **prioridad alta:**
 - Fallas de autenticación híbrida.
 - Interrupciones en MFA o acceso a aplicaciones.
 - Riesgos operativos y de seguridad elevados.
+
+---
+
+Gol 2026 | Internal Tools
