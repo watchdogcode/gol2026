@@ -40,9 +40,6 @@ Establezca un proceso que deje claro:
 
 Existe un script de ejemplo disponible que enumera los usuarios asignados a roles en [Get-M365RoleReport.ps1](../Scripts/Get-M365RoleReport.ps1)
 
-- Microsoft Entra
-- Security & Compliance
-- Exchange Online
 
 ---
 
