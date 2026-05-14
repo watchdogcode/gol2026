@@ -36,10 +36,7 @@ Establezca un proceso que deje claro:
 
 - Quiénes deben ser informados cuando se ejecuten acciones.
 
-
-
 **Existe un script de ejemplo disponible** que enumera los usuarios asignados a roles en [Get-M365RoleReport.ps1](../Scripts/Get-M365RoleReport.ps1)
-
 
 ---
 
