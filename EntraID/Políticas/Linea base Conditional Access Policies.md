@@ -4,7 +4,7 @@
 - Tener al menos una cuenta **break-glass** excluida de Conditional Access.
 - Siempre iniciar políticas en **Report-only**.
 
-**Autores:** Ernesto Cobos Roqueñí, & Arturo Mandujano
+**Autores:** Ernesto Cobos Roqueñí & Arturo Mandujano
 
 ---
 
