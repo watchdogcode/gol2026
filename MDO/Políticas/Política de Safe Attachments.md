@@ -2,7 +2,7 @@
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 **Safe Attachments** forma parte de **Microsoft Defender for Office 365 Plan 1 o Plan 2** y proporciona protección avanzada contra malware mediante análisis en sandbox (“detonación”) antes de entregar los archivos a los usuarios.
 
-**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+**Autores:** [Ernesto Cobos Roqueñí](https://www.linkedin.com/in/ernesto-cobos/) & [Arturo Mandujano](https://www.linkedin.com/in/jose-arturo-mandujano-avila-621b00b9/)
 
 ---
 

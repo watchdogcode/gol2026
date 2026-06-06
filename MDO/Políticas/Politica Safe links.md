@@ -2,7 +2,7 @@
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 Esta configuración fortalece la protección contra URLs maliciosas utilizadas en ataques BEC, especialmente en escenarios de impersonación, secuestro de hilos y fraude de proveedores.
 
-**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+**Autores:** [Ernesto Cobos Roqueñí](https://www.linkedin.com/in/ernesto-cobos/) & [Arturo Mandujano](https://www.linkedin.com/in/jose-arturo-mandujano-avila-621b00b9/)
 
 ---
 
