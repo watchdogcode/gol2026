@@ -1,6 +1,6 @@
 # Guía Operacional de Seguridad  Microsoft 365 Defender XDR
 
-**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+**Autores:** Ernesto Cobos Roqueñí & Arturo Mandujano
 
 > Marco de operaciones de seguridad (SecOps) para Microsoft Defender XDR con guías operativas, scripts de automatización, líneas base de configuración y paquetes de consultas KQL.
 
@@ -15,6 +15,8 @@ Este repositorio contiene el marco completo de operaciones de seguridad para org
 - **Líneas base de seguridad** alineadas con las recomendaciones de Microsoft (Standard/Strict).
 - **Paquetes de consultas KQL** para Advanced Hunting orientados a detección, triaje e investigación.
 - **Reportes HTML automatizados** (diarios y semanales) que transforman telemetría técnica en información accionable para el CISO y el equipo de SecOps.
+
+También puedes encontrar más información en nuestro [canal de YouTube Zero Trust Academy](https://www.youtube.com/playlist?list=PLk1Nqr3GYcyQPLg77xneut3TaJ9ic0NdU)
 
 ![Report](XDR/Imagen.png)
 ![Report](XDR/Imagen2.png)
