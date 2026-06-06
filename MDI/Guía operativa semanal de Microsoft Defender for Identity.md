@@ -4,7 +4,7 @@
 
 La guía semanal de MDI permite identificar y ajustar proactivamente riesgos emergentes de identidad antes de que se conviertan en incidentes críticos para el negocio.
 
-**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+**Autores:** [Ernesto Cobos Roqueñí](https://www.linkedin.com/in/ernesto-cobos/) & [Arturo Mandujano](https://www.linkedin.com/in/jose-arturo-mandujano-avila-621b00b9/)
 
 ---
 ## Índice

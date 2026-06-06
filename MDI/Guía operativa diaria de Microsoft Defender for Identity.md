@@ -4,7 +4,7 @@
 
 La guía diaria de MDI asegura que las amenazas a identidades se detecten y contengan antes de que impacten la operación del negocio.
 
-**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+**Autores:** [Ernesto Cobos Roqueñí](https://www.linkedin.com/in/ernesto-cobos/) & [Arturo Mandujano](https://www.linkedin.com/in/jose-arturo-mandujano-avila-621b00b9/)
 
 ---
 ## Índice

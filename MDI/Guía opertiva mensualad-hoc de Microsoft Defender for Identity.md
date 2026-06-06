@@ -4,7 +4,7 @@
 
 La guía mensual y ad‑hoc de MDI permite evaluar la postura de seguridad de identidades, ajustar controles y responder a eventos extraordinarios que pueden impactar la continuidad del negocio.
 
-**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+**Autores:** [Ernesto Cobos Roqueñí](https://www.linkedin.com/in/ernesto-cobos/) & [Arturo Mandujano](https://www.linkedin.com/in/jose-arturo-mandujano-avila-621b00b9/)
 
 ---
 ## Índice
