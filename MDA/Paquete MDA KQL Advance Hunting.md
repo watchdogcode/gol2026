@@ -9,7 +9,7 @@
 
 Este documento recopila una serie de consultas KQL (Kusto Query Language) diseñadas para la detección, triaje e investigación de amenazas en Microsoft Defender XDR.
 
-**Autores:** Ernesto Cobos Roqueñí, Arturo Mandujano
+**Autores:** [Ernesto Cobos Roqueñí](https://www.linkedin.com/in/ernesto-cobos/) & [Arturo Mandujano](https://www.linkedin.com/in/jose-arturo-mandujano-avila-621b00b9/)
 
 ---
 
