@@ -16,7 +16,7 @@ Este repositorio contiene el marco completo de operaciones de seguridad para org
 - **Paquetes de consultas KQL** para Advanced Hunting orientados a detección, triaje e investigación.
 - **Reportes HTML automatizados** (diarios y semanales) que transforman telemetría técnica en información accionable para el CISO y el equipo de SecOps.
 
-También puedes encontrar más información en nuestro [canal de YouTube Zero Trust Academy](https://www.youtube.com/playlist?list=PLk1Nqr3GYcyQPLg77xneut3TaJ9ic0NdU)
+También puedes encontrar más información en nuestro [Canal de YouTube Zero Trust Academy](https://www.youtube.com/playlist?list=PLk1Nqr3GYcyQPLg77xneut3TaJ9ic0NdU)
 
 ![Report](XDR/Imagen.png)
 ![Report](XDR/Imagen2.png)
