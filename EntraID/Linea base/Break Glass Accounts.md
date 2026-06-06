@@ -1,7 +1,7 @@
 # Cuenta de emergencia (Break Glass / Emergency Access Account) 🛡️
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 
-**Autores:** Ernesto Cobos Roqueñí & Arturo Mandujano
+**Autores:** [Ernesto Cobos Roqueñí](https://www.linkedin.com/in/ernesto-cobos/) & [Arturo Mandujano](https://www.linkedin.com/in/jose-arturo-mandujano-avila-621b00b9/)
 
 ---
 ## 1. Explicación

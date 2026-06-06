@@ -3,7 +3,7 @@
 
 **Microsoft Entra ID / Microsoft 365**
 
-**Autores:** Ernesto Cobos Roqueñí & Arturo Mandujano
+**Autores:** [Ernesto Cobos Roqueñí](https://www.linkedin.com/in/ernesto-cobos/) & [Arturo Mandujano](https://www.linkedin.com/in/jose-arturo-mandujano-avila-621b00b9/)
 
 ---
 
