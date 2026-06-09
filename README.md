@@ -2,7 +2,7 @@
 
 **Autores:** [Ernesto Cobos Roqueñí](https://www.linkedin.com/in/ernesto-cobos/) & [Arturo Mandujano](https://www.linkedin.com/in/jose-arturo-mandujano-avila-621b00b9/) 
 
-Si tienes alguna duda o comentarios envianos un [correo](mailto:contactanos@zerotrustacademy.net)
+Si tienes alguna duda o comentarios envianos un correo a <contactanos@zerotrustacademy.net>
 
 > Marco de operaciones de seguridad (SecOps) para Microsoft Defender XDR con guías operativas, scripts de automatización, líneas base de configuración y paquetes de consultas KQL.
 
