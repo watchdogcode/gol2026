@@ -158,11 +158,12 @@ PIM incluye controles de gobierno:
  
 > Esto implementa directamente:
 >
-> Least Privilege
+> - Least Privilege
 >
-> Zero Trust
+> - Zero Trust
 >
-> Reducción del blast radius
+> - Reducción del blast radius
+
 ---
 
 ## 6. Requerir autenticación multifactor (MFA) para todas las cuentas privilegiadas
