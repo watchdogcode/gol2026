@@ -119,9 +119,9 @@ Activo → tiene acceso permanente (debe minimizarse)
 
 Existen dos opciones si el usuario es eligible:
 
-Autoaprovación 
+**Autoaprovación **
 
-Bajo aprovación
+**Requiere aprovación**
 
 Al solicitar activar el rol
 - Debe cumplir condiciones como:
