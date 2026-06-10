@@ -110,6 +110,7 @@ Es un servicio de Microsoft Entra ID que permite: Controlar, administrar y monit
 **Asignación de roles**
 
 Un usuario recibe un rol de dos formas:
+
 Eligible → no tiene acceso directo, solo puede activarlo cuando lo necesita
 Active → tiene acceso permanente (debe minimizarse)
 
