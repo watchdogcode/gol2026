@@ -154,8 +154,8 @@ PIM incluye controles de gobierno:
 - Alertas → cuando se elevan privilegios
 - Auditoría → historial completo de uso
 
-> **“Los privilegios no deben existir todo el tiempo, solo cuando se necesitan.”**
-> 
+**“Los privilegios no deben existir todo el tiempo, solo cuando se necesitan.”**
+ 
 > Esto implementa directamente:
 >
 > Least Privilege
