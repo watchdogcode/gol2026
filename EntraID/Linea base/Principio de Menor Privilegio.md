@@ -113,18 +113,22 @@ Un usuario recibe un rol de dos formas:
 
 Eligible → no tiene acceso directo, solo puede activarlo cuando lo necesita
 
-Active → tiene acceso permanente (debe minimizarse)
+Activo → tiene acceso permanente (debe minimizarse)
 
 **Activación (Just-In-Time)**
 
-Si el usuario es eligible:
+Existen dos opciones si el usuario es eligible:
 
-- Solicita activar el rol
+Autoaprovación 
+
+Bajo aprovación
+
+Al solicitar activar el rol
 - Debe cumplir condiciones como:
 
    - MFA
    - Justificación
-   - Aprobación (opcional)
+   - Aprobación (recomendado para personal externo)
 
 El acceso se activa solo por un tiempo limitado
 
