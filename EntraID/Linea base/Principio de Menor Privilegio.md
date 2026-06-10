@@ -12,9 +12,10 @@
 2. [Separar las cuentas de usuario y administrativas](#2-separar-las-cuentas-de-usuario-y-administrativas)
 3. [Usa cuentas nombradas, evitando cuentas compartidas](#3-usa-cuentas-nombradas-evitando-cuentas-compartidas)
 4. [Utilice cuentas solo en la nube para cualquier rol privilegiado](#4-utilice-cuentas-solo-en-la-nube-para-cualquier-rol-privilegiado)
-5. [Requerir autenticación multifactor (MFA) para todas las cuentas privilegiadas](#5-requerir-autenticación-multifactor-mfa-para-todas-las-cuentas-privilegiadas)
-6. [Validación semestral de cuentas privilegiadas](#6-validación-semestral-de-cuentas-privilegiadas)
-7. [Resumen Ejecutivo](#resumen-ejecutivo)
+5. [Utilizar Privileged Identity Management (PIM)](#5-utilizar-privileged-identity-management-pim)
+6. [Requerir autenticación multifactor (MFA) para todas las cuentas privilegiadas](#5-requerir-autenticación-multifactor-mfa-para-todas-las-cuentas-privilegiadas)
+7. [Validación semestral de cuentas privilegiadas](#6-validación-semestral-de-cuentas-privilegiadas)
+8. [Resumen Ejecutivo](#resumen-ejecutivo)
 
 ---
 
@@ -96,7 +97,65 @@ Las cuentas cloud‑only aíslan el plano de control del tenant.
 
 ---
 
-## 5. Requerir autenticación multifactor (MFA) para todas las cuentas privilegiadas
+## 5. Utilizar Privileged Identity Management (PIM)
+
+Es un servicio de Microsoft Entra ID que permite: Controlar, administrar y monitorear el acceso privilegiado a recursos críticos (Entra ID, Azure, Microsoft 365).
+
+### Su objetivo principal es:
+- Reducir el riesgo de accesos excesivos
+- Evitar privilegios permanentes innecesarios
+- Tener visibilidad total sobre quién usa privilegios
+
+### PIM cambia el modelo tradicional de acceso privilegiado por uno controlado y temporal:
+**Asignación de roles**
+
+Un usuario recibe un rol de dos formas:
+Eligible → no tiene acceso directo, solo puede activarlo cuando lo necesita
+Active → tiene acceso permanente (debe minimizarse)
+
+** Activación (Just-In-Time)**
+Si el usuario es eligible:
+
+- Solicita activar el rol
+- Debe cumplir condiciones como:
+
+   - MFA
+   - Justificación
+   - Aprobación (opcional)
+
+El acceso se activa solo por un tiempo limitado
+
+**Uso del privilegio**
+
+- El usuario ejecuta tareas administrativas
+- Todo queda:
+
+   - Registrado
+   - Monitoreado
+   - Auditado
+
+**Expiración automática**
+
+-El acceso se elimina al terminar el tiempo configurado
+- Evita privilegios persistentes
+
+**Gobierno continuo**
+
+PIM incluye controles de gobierno:
+
+- Access Reviews → validar que el acceso sigue siendo necesario
+- Alertas → cuando se elevan privilegios
+- Auditoría → historial completo de uso
+
+> **“Los privilegios no deben existir todo el tiempo, solo cuando se necesitan.”**
+> Esto implementa directamente:
+>
+> Least Privilege
+> Zero Trust
+> Reducción del blast radius
+---
+
+## 6. Requerir autenticación multifactor (MFA) para todas las cuentas privilegiadas
 
 **Todas las cuentas privilegiadas** deben tener **MFA habilitado obligatoriamente**, incluyendo:
 - Global Administrators
@@ -127,7 +186,7 @@ Siempre que sea posible, se debe utilizar **MFA resistente a phishing (Phishing�
 
 ---
 
-## 6. Validación semestral de cuentas privilegiadas
+## 7. Validación semestral de cuentas privilegiadas
 
 Todas las cuentas con roles administrativos deben ser revisadas **al menos cada seis (6) meses** para verificar que siguen siendo necesarias y apropiadas.
 
