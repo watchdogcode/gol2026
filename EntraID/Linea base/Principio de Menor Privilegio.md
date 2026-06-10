@@ -155,6 +155,7 @@ PIM incluye controles de gobierno:
 - Auditoría → historial completo de uso
 
 > **“Los privilegios no deben existir todo el tiempo, solo cuando se necesitan.”**
+> 
 > Esto implementa directamente:
 >
 > Least Privilege
