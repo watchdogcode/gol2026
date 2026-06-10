@@ -119,7 +119,7 @@ Activo → tiene acceso permanente (debe minimizarse)
 
 Existen dos opciones si el usuario es eligible:
 
-**Autoaprovación **
+**Autoaprovación**
 
 **Requiere aprovación**
 
@@ -143,7 +143,7 @@ El acceso se activa solo por un tiempo limitado
 
 **Expiración automática**
 
--El acceso se elimina al terminar el tiempo configurado
+- El acceso se elimina al terminar el tiempo configurado
 - Evita privilegios persistentes
 
 **Gobierno continuo**
@@ -158,7 +158,9 @@ PIM incluye controles de gobierno:
 > Esto implementa directamente:
 >
 > Least Privilege
+>
 > Zero Trust
+>
 > Reducción del blast radius
 ---
 
