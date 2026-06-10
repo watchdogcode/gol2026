@@ -113,7 +113,7 @@ Un usuario recibe un rol de dos formas:
 Eligible → no tiene acceso directo, solo puede activarlo cuando lo necesita
 Active → tiene acceso permanente (debe minimizarse)
 
-** Activación (Just-In-Time)**
+**Activación (Just-In-Time)**
 Si el usuario es eligible:
 
 - Solicita activar el rol
