@@ -13,8 +13,8 @@
 3. [Usa cuentas nombradas, evitando cuentas compartidas](#3-usa-cuentas-nombradas-evitando-cuentas-compartidas)
 4. [Utilice cuentas solo en la nube para cualquier rol privilegiado](#4-utilice-cuentas-solo-en-la-nube-para-cualquier-rol-privilegiado)
 5. [Utilizar Privileged Identity Management (PIM)](#5-utilizar-privileged-identity-management-pim)
-6. [Requerir autenticación multifactor (MFA) para todas las cuentas privilegiadas](#5-requerir-autenticación-multifactor-mfa-para-todas-las-cuentas-privilegiadas)
-7. [Validación semestral de cuentas privilegiadas](#6-validación-semestral-de-cuentas-privilegiadas)
+6. [Requerir autenticación multifactor (MFA) para todas las cuentas privilegiadas](#6-requerir-autenticación-multifactor-mfa-para-todas-las-cuentas-privilegiadas)
+7. [Validación semestral de cuentas privilegiadas](#7-validación-semestral-de-cuentas-privilegiadas)
 8. [Resumen Ejecutivo](#resumen-ejecutivo)
 
 ---
@@ -87,7 +87,7 @@ Las cuentas compartidas eliminan trazabilidad, impiden atribución de acciones y
 
 ## 4. Utilice cuentas solo en la nube para cualquier rol privilegiado
 
-Todas las cuentas con roles privilegiados (Global Admin, Privileged Role Admin, Security Admin, etc.) deben ser **cloud‑only**:
+Todas las cuentas con roles privilegiados (Global Admin, Privileged Role Admin, Security Admin, etc.) deben ser **cloud‑only**
 - No sincronizadas desde Active Directory on‑premises
 - No federadas con infraestructura local
 
