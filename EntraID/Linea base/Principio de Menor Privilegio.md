@@ -227,6 +227,7 @@ Con este script se puede validar: [**Get-M365RoleReport**](../Scripts/Get-M365Ro
 | Separación de cuentas | Contención | Protección ante phishing |
 | Cuentas nominales | Trazabilidad | Auditoría e investigación |
 | Cuentas cloud‑only | Aislamiento | Protección híbrida |
+| Utilizar Privileged Identity Management (PIM) | Just in Time | Reducción de la superefice |
 | MFA obligatorio (phishing‑resistant) | Prevención de ATO | Protección de identidades críticas |
 | Validación semestral | Higiene de privilegios | Detectar cuentas huérfanas y privilege creep |
 
