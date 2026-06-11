@@ -351,9 +351,10 @@ https://techcommunity.microsoft.com/blog/exchange/native-external-sender-callout
 - Usuarios entrenados
 - SOC rápido y disciplinado
 - Correlación XDR
+- Ayuda a los usuarios
 
 > **BEC falla cuando cada capa asume que la anterior puede ser comprometida.**
 
 
 ---
-
+> Internal Tools 2026
