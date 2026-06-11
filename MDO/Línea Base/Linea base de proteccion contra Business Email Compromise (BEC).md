@@ -320,6 +320,27 @@ Correlación automática de identidad + correo + endpoint.
 
 ---
 
+# 8 Etiquetado de remitentes externos
+
+Ayuda a los usuarios a identificar posibles intentos de phishing mediante el etiquetado de correos electrónicos provenientes de remitentes externos
+
+Es importante proporcionar mecanismos para ayudar a los usuarios a identificar posibles correos electrónicos de phishing. Una forma de hacerlo es ofreciendo a los usuarios una manera de diferenciar los correos electrónicos de remitentes externos a la organización.
+
+Normalmente, esto se logra mediante el uso de una regla de flujo de correo para modificar el asunto o agregar texto en la parte superior de un correo electrónico. Esto puede causar varios problemas, incluidos múltiples etiquetas en el asunto, hilos de conversación interrumpidos, falta de localización y dificultades en el manejo de correos electrónicos cifrados o firmados con S/MIME.
+
+En su lugar, Exchange Online puede etiquetar los correos electrónicos de remitentes externos para que el cliente de Outlook muestre la etiqueta "Externo" en la lista de mensajes y una advertencia en la barra de información al leer un mensaje.
+
+Administrado mediante PowerShell:
+
+```PowerShell
+Set-ExternalInOutlook –Enabled $true –AllowList fabrikam.com
+```
+Referencias:
+https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/set-externalinoutlook?view=exchange-ps
+https://techcommunity.microsoft.com/blog/exchange/native-external-sender-callouts-on-email-in-outlook/2250098 
+
+---
+
 # Resumen Ejecutivo
 
 **La mitigación efectiva de BEC requiere:**
