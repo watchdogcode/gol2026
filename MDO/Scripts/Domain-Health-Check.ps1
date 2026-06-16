@@ -471,9 +471,7 @@ $html = @"
                     <li><strong>SPF Record Syntax</strong> - <a href="http://www.open-spf.org/SPF_Record_Syntax/" target="_blank">open-spf.org</a></li>
                     <li><strong>Implement DKIM record</strong> - <a href="https://dkim.org/" target="_blank">dkim.org</a></li>
                     <li><strong>List of DKIM selectors</strong> - <a href="https://www.syskeo.com/en/resources/dkim" target="_blank">syskeo.com</a></li>
-
                     <li><strong>DKIM Record Checker</strong> - <a href="https://easydmarc.com/tools/dkim-lookup" target="_blank">easydmarc.com</a></li>
-
                     <li><strong>Upgrade DMARC policy from 'none' to 'reject'</strong> - <a href="https://www.rfc-editor.org/rfc/rfc7489.html" target="_blank">RFC 7489</a></li>
                     <li><strong>DMARC Record Syntax: Every Tag and Parameter Explained</strong> - <a href="https://dmarccreator.com/resources/dmarc-record-syntax-tags" target="_blank">dmarccreator.com</a></li>
                     <li><strong>SMTP MTA Strict Transport Security (MTA-STS)</strong> - <a href="https://www.rfc-editor.org/rfc/rfc8461" target="_blank">RFC 8461</a></li>
