@@ -154,7 +154,7 @@ El equipo o servidor donde se ejecuten los scripts debe tener acceso HTTPS (443)
 
 | Endpoint | Propósito |
 |---|---|
-| `entra.microsoft.com` | Registrp de aplicacción | 
+| `entra.microsoft.com` | Registro de aplicacción | 
 | `login.microsoftonline.com` | Autenticación OAuth 2.0 (todos los scripts XDR/MDE) |
 | `api.security.microsoft.com` | API de Advanced Hunting - Microsoft 365 Defender |
 | `outlook.office365.com` | Exchange Online PowerShell remoto (scripts MDO) |
