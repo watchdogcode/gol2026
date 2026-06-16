@@ -2,6 +2,10 @@
 
 Este documento describe los requisitos de licenciamiento, infraestructura, módulos de PowerShell y permisos necesarios para ejecutar los scripts de este repositorio.
 
+**Autores:** [Ernesto Cobos Roqueñí](https://www.linkedin.com/in/ernesto-cobos/) & [Arturo Mandujano](https://www.linkedin.com/in/jose-arturo-mandujano-avila-621b00b9/) 
+
+Si tienes alguna duda o comentarios envianos un correo a <contactanos@zerotrustacademy.net>
+
 ---
 
 ## 1. Licenciamiento Microsoft 365
