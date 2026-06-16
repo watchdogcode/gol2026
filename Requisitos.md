@@ -28,11 +28,28 @@ Se requieren licencias que incluyan los servicios de Microsoft Defender XDR
 
 ---
 
-## 3. App Registration en Microsoft Entra ID
+## 3. Conectividad de Red
+
+El equipo o servidor donde se ejecuten los scripts debe tener acceso HTTPS (443) a los siguientes endpoints:
+
+| Endpoint | Propósito |
+|---|---|
+| `entra.microsoft.com` | Registro de aplicacción | 
+| `login.microsoftonline.com` | Autenticación OAuth 2.0 (todos los scripts XDR/MDE) |
+| `api.security.microsoft.com` | API de Advanced Hunting - Microsoft 365 Defender |
+| `outlook.office365.com` | Exchange Online PowerShell remoto (scripts MDO) |
+| `*.protection.outlook.com` | Exchange Online Protection |
+| Servidores DNS públicos | Resolución DNS para `Domain-Health-Check.ps1` (SPF, DKIM, DMARC, MTA-STS) |
+
+> Si el entorno utiliza proxy, los scripts XDR Weekly y Vulnerability soportan el parámetro `-ProxyUrl`.
+
+---
+
+## 4. App Registration en Microsoft Entra ID
 
 Todos los scripts de reportería XDR/MDE se autentican contra la API de Microsoft 365 Defender y requieren un registro de aplicación.
 
-### 3.1 Crear el App Registration
+### 4.1 Crear el App Registration
 
 1. Iniciar sesión en el portal de Azure: [https://entra.microsoft.com/](https://entra.microsoft.com/).
 2. Navegar a **Microsoft Entra ID** > **App registrations** > **+ New registration**.
@@ -45,7 +62,7 @@ Todos los scripts de reportería XDR/MDE se autentican contra la API de Microsof
    - **Application (client) ID** → Este es el `ClientId`.
    - **Directory (tenant) ID** → Este es el `TenantId`.
 
-### 3.2 Asignar permisos de API
+### 4.2 Asignar permisos de API
 
 1. En el App Registration, ir a **API permissions** > **+ Add a permission**.
 2. Seleccionar **APIs my organization uses** y buscar **`Microsoft Threat Protection`.**
@@ -56,7 +73,7 @@ Todos los scripts de reportería XDR/MDE se autentican contra la API de Microsof
 
 > **Nota:** El botón de *Grant admin consent* requiere el rol de **Global Administrator** o **Privileged Role Administrator**.
 
-### 3.3 Crear un Client Secret (Opcional)
+### 4.3 Crear un Client Secret (Opcional)
 
 1. En el App Registration, ir a **Certificates & secrets** > **Client secrets** > **+ New client secret**.
 2. Configurar:
@@ -67,7 +84,7 @@ Todos los scripts de reportería XDR/MDE se autentican contra la API de Microsof
 
 > ⚠️ **Advertencia:** Trate el Client Secret como una contraseña. No lo almacene en texto plano en scripts ni repositorios. Los scripts de este repositorio soportan variables de entorno y credenciales cifradas con DPAPI (ver sección 7 y 8).
 
-### 3.4 Resumen de datos necesarios
+### 4.4 Resumen de datos necesarios
 
 Una vez completados los pasos anteriores, debe tener los siguientes tres valores:
 
@@ -77,7 +94,7 @@ Una vez completados los pasos anteriores, debe tener los siguientes tres valores
 | **Client ID** | App Registration > Overview > Application (client) ID | `846e446d-6748-4da8-924c-de9b9e3d60d4` |
 | **Client Secret** (Opcional) | App Registration > Certificates & secrets > Value | `2EV8Q~7vwnHG8f2pZTA3...` |
 
-### 3.5 Modos de autenticación soportados
+### 4.5 Modos de autenticación soportados
 
 | Modo | Módulos adicionales requeridos | Scripts compatibles |
 |---|---|---|
@@ -88,9 +105,9 @@ Una vez completados los pasos anteriores, debe tener los siguientes tres valores
 
 ---
 
-## 4. Módulos de PowerShell
+## 5. Módulos de PowerShell
 
-### 4.1 Instalar PowerShell 7 (Crítico instalarlo desde el archivo PowerShell-7.x.x-win-x64.msi o PowerShell-7.x.x-win-arm64.msi)
+### 5.1 Instalar PowerShell 7 (Crítico instalarlo desde el archivo PowerShell-7.x.x-win-x64.msi o PowerShell-7.x.x-win-arm64.msi)
 
 1. Ir a https://learn.microsoft.com/en-us/powershell/scripting/install/install-powershell-on-windows?view=powershell-7.6#install-the-msi-package
 
@@ -112,7 +129,7 @@ Source
 C:\Program Files\PowerShell\7\pwsh.exe
 ```
 
-### 4.2 Módulos por script
+### 5.2 Módulos por script
 
 | Script | Módulos requeridos | Obligatorio |
 |---|---|---|
@@ -129,7 +146,7 @@ C:\Program Files\PowerShell\7\pwsh.exe
 | `MDO/Scripts/Quarantine Attachments Can't be inspected.ps1` | `ExchangeOnlineManagement` | **Sí** |
 | `MDO/Scripts/Domain-Health-Check.ps1` | `DomainHealthChecker`, `MailAuthDnsTools`, `EmailAuthChecker` | **Sí** (se instalan automáticamente si faltan) |
 
-### 4.3 Instalación de módulos
+### 5.3 Instalación de módulos
 
 ```powershell
 # Módulos para scripts MDO (Exchange Online)
@@ -145,23 +162,6 @@ Install-Module -Name Az.Accounts                      -Scope CurrentUser -Force 
 Install-Module -Name Microsoft.Graph.Authentication    -Scope CurrentUser -Force   # Interactive (alternativa)
 Install-Module -Name MSAL.PS                           -Scope CurrentUser -Force   # Certificate
 ```
-
----
-
-## 5. Conectividad de Red
-
-El equipo o servidor donde se ejecuten los scripts debe tener acceso HTTPS (443) a los siguientes endpoints:
-
-| Endpoint | Propósito |
-|---|---|
-| `entra.microsoft.com` | Registro de aplicacción | 
-| `login.microsoftonline.com` | Autenticación OAuth 2.0 (todos los scripts XDR/MDE) |
-| `api.security.microsoft.com` | API de Advanced Hunting - Microsoft 365 Defender |
-| `outlook.office365.com` | Exchange Online PowerShell remoto (scripts MDO) |
-| `*.protection.outlook.com` | Exchange Online Protection |
-| Servidores DNS públicos | Resolución DNS para `Domain-Health-Check.ps1` (SPF, DKIM, DMARC, MTA-STS) |
-
-> Si el entorno utiliza proxy, los scripts XDR Weekly y Vulnerability soportan el parámetro `-ProxyUrl`.
 
 ---
 
