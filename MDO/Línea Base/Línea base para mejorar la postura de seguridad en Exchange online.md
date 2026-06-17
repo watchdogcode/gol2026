@@ -690,6 +690,7 @@ Esto es equivalente a la regla de 'flujo de correo' de Exchange configurada para
 Ejemplo de creacion de regla de flujo de correo
 
 Name: **Bloquear la exfiltración de correos de Power Platform**
+
 Apply this rule if... **The recipient es located...** y seleccioanr **Outside the organization**
 
 and
