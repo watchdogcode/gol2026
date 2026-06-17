@@ -18,7 +18,9 @@
 3. [RejectDirectSend en Exchange Online](#3-rejectdirectsend-en-exchange-online)
 4. [Estándares SPF, DKIM, DMARC y MTA-STS](#4-estándares-spf-dkim-dmarc-y-mta-sts)
 5. [Dominios estacionados (Parked Domains)](#5--dominios-estacionados-parked-domains)
-6. [Validación Línea base para mejorar la postura de seguridad en Exchange online](#validación-línea-base-para-mejorar-la-postura-de-seguridad-en-exchange-online)
+6. [Autenticación Legacy (Basic Autentication)](#6-autenticación-legacy-basic-autentication)
+7. [Bloquear auto-forward externo](#7-bloquear-auto-forward-externo)
+8. [Validación Línea base para mejorar la postura de seguridad en Exchange online](#validación-línea-base-para-mejorar-la-postura-de-seguridad-en-exchange-online)
 
 
 ---
@@ -565,7 +567,142 @@ En organizaciones grandes es común:
 #### Referencia
 > [Parked and Inactive Domain Setup for MX, SPF and DMARC](https://support.dmarcreport.com/support/solutions/articles/5000882467-parked-and-inactive-domain-setup-for-mx-spf-and-dmarc)
 
-# Validación Línea base para mejorar la postura de seguridad en Exchange online
+---
+
+# 6. Autenticación Legacy (Basic Autentication)
+
+## La autenticación legacy (también conocida como autenticación básica) no admite una autenticación fuerte ni restricciones basadas en dispositivos y es un vector de ataque común.
+
+Para una protección redundante, bloquea explícitamente la autenticación legacy usando todo lo siguiente:
+- Políticas de acceso condicional
+- Proveedor de federación (si aplica)
+- Políticas de autenticación de Exchange
+
+### Políticas de acceso condicional
+
+Una política que bloquea explícitamente el acceso para todos los usuarios que usan clientes de autenticación antiguos asegura que no haya excepciones no intencionales al usar el bloqueo implícito
+
+**Pasos**
+1. Create new policy from template
+2. Categoría: **Secure foundation**
+3. Template: **Block legacy authentication**
+4. Review + Create
+
+**Configuración**
+- Users: Include **All users**
+- Exclude: Break-glass (y cuentas legacy justificadas)
+- Conditions → Client apps: **Exchange ActiveSync** y **Other clients**
+- Grant: **Block access**
+- Enable policy: **Report-only** (Despues de un periodo de evaluación no mayor a 30 días cambiar a On)
+
+### Proveedor de federación (si aplica)
+
+Los endpoints usados para la autenticación legacy deberían desactivarse en el Proxy de Aplicación Web (o en el proxy soportado).
+
+Todavía se pueden usar internamente, pero no están disponibles externamente.
+
+> ¡Aunque los Endpoints deberían estar bloqueados, verifica que ningún tercero que dependa de Microsoft 365 los necesite antes de desactivarlos!
+
+Los Endpoint de AD FS se pueden desactivar en el proxy usando el siguiente cmdlet de PowerShell:
+```powershell
+Set-AdfsEndpoint -TargetAddressPath /adfs/services/trust/13/certificatemixed -Proxy $false
+```
+
+**Desactiva los endpoints de WS-Trust de Windows en el proxy desde el extranet.**
+
+Los endpoints de WS-Trust de Windows (/adfs/services/trust/2005/windowstransport y /adfs/services/trust/13/windowstransport) están pensados solo para ser accesibles desde la intranet y usan el enlace WIA sobre HTTPS. Exponerlos al extranet podría permitir que las solicitudes a estos endpoints eviten las protecciones de bloqueo. Por eso, estos endpoints deberían desactivarse en el proxy (es decir, desactivarse desde el extranet) para proteger el bloqueo de cuentas de AD usando los siguientes comandos de PowerShell. No se espera que esto afecte a los usuarios finales al desactivar estos endpoints en el proxy.
+```powershell
+Set-AdfsEndpoint -TargetAddressPath /adfs/services/trust/2005/windowstransport -Proxy $false
+
+Set-AdfsEndpoint -TargetAddressPath /adfs/services/trust/13/windowstransport -Proxy $false
+```
+
+### Exchange Online authentication policies
+
+La autenticación básica está bloqueada a nivel de servicio para todos los protocolos excepto SMTP, así que todavía se usa una política de autenticación de Exchange para bloquear ese protocolo.  
+
+Configura una política como predeterminada a nivel de la organización que bloquee SMTP; se puede aplicar una política separada que permita SMTP a individuos como una excepción.
+
+Con la autenticación básica bloqueada a nivel de servicio, el valor Verdadero/Falso de cualquier protocolo que no sea SMTP es irrelevante porque no tiene ningún impacto.  
+
+Una política se asigna explícitamente a uno o más usuarios (o implícitamente al configurarla como la política predeterminada usando Set-OrganizationConfig -DefaultAuthenticationPolicy) para bloquear (o permitir) la autenticación básica para SMTP.  
+
+En el centro de administración de M365, se puede gestionar la política predeterminada en Configuración / Configuración de la organización / Autenticación moderna.
+
+**Paso 1: Crea la política de autenticación**
+
+Para crear una política que bloquee la autenticación básica para todos los protocolos de cliente disponibles en Exchange Online (la configuración recomendada), usa la siguiente sintaxis:
+```powershell
+New-AuthenticationPolicy -Name "Block Basic Auth"
+```
+Para habilitar la autenticación básica para protocolos específicos en la política, utilice Set-AuthenticationPolicy
+ 
+---
+# 7. Bloquear auto-forward externo
+
+## Los usuarios pueden configurar el reenvío automático de sus correos electrónicos a un destinatario externo, pero también puede ser usado por un actor malicioso  para lograr persistencia.
+
+**Métodos automáticos de reenvío de correo electrónico**
+
+Los usuarios pueden configurar el reenvío automático de correos electrónicos mediante reglas de la bandeja de entrada, reenvío SMTP (en Outlook en la web) y Power Automate.
+
+Se pueden implementar múltiples controles para regular el reenvío automático de correos electrónicos a destinatarios externos. Aunque el reenvío mediante reglas de la bandeja de entrada y el reenvío SMTP está bloqueado de forma predeterminada, el reenvío mediante Power Automate no lo está. Por lo tanto, tanto en una configuración de forma predeterminada como en una no de forma predeterminada, la información puede enviarse automáticamente a ubicaciones menos seguras y sin control.
+
+También es común que se configure el reenvío automático en caso de un compromiso de la cuenta por parte de un actor malicioso, para mantener acceso indirecto a los nuevos correos enviados a la cuenta comprometida incluso después de que la cuenta misma haya sido remediada.
+
+Hay varias formas de controlar el reenvío automático de correos electrónicos:
+- Outbound spam filter policy
+- Remote domain
+- Mail flow rule
+- Exchange role assignment policy (para ocultar a los usuarios la capacidad de configurar el reenvío SMTP en Outlook en la Web)
+
+## Política de filtro de correo no deseado saliente (Outbound spam filter policy)
+
+Para bloquear correos electrónicos reenviados mediante el reenvío SMTP y las reglas de la bandeja de entrada (y enviar un NDR al usuario), establece la opción de Reenvío automático en la política correspondiente a Automático o Desactivado. (Automático y Desactivado son equivalentes.)
+
+Para validar ir a https://security.microsoft.com/antispam
+
+Clic en Anti-spam outbound policy (Default)
+Validar en **Forwarding rules** que **Automatic forwarding rules** este seleccionado **Automatic System-controlled** este seleccionado
+
+## Remote domain
+
+Para eliminar silenciosamente los correos electrónicos reenviados automáticamente enviados por reglas de la Bandeja de entrada y el reenvío SMTP a cualquier dominio externo que no esté cubierto por una política de dominio remoto más específica, ejecuta el siguiente comando:
+
+```powershell
+Set-RemoteDomain -Name Default -AutoForwardEnabled $false
+```
+> Esta configuración no envia notificaciones del bloqueo de reenvio automatico
+
+## Mail flow rule
+
+Para actuar sobre los correos electrónicos reenviados desde Power Automate, crea una regla de flujo de correo que busque los encabezados que Power Automate añade a cada correo que envía. 
+
+Para actuar sobre los correos electrónicos reenviados por las reglas de la bandeja de entrada, crea una regla de flujo de correo basada en el tipo de mensaje "Reenvío automático" (condición) que va a "Fuera de la organización" (condición), con la acción deseada, como Rechazar o Eliminar (acción).
+
+Los administradores de Exchange pueden usar estos encabezados para configurar reglas de bloqueo de exfiltración en el centro de administración de Exchange, como se muestra en el ejemplo aquí. Aquí, la regla de 'flujo de correo' rechaza los mensajes de correo salientes con:
+
+- ‘x-ms-mail-application’ header set as ‘Microsoft Power Automate’ y
+- ‘x-ms-mail-operation-type’ header set as ‘Send’ or ‘Forward’
+
+Esto es equivalente a la regla de 'flujo de correo' de Exchange configurada para el tipo de mensaje igual a 'reenviar automáticamente'. Esta regla utiliza Outlook y los clientes de Outlook en la web.
+
+Ejemplo de creacion de regla de flujo de correo
+
+Name: **Bloquear la exfiltración de correos de Power Platform**
+Apply this rule if... **The recipient es located...** y seleccioanr **Outside the organization**
+and
+**A message header includes...** agregar **‘x-ms-mail-application’** header includes **‘Microsoft Power Automate’**
+and
+**A message header matches...** agregar **‘x-ms-mail-operation-type’** header matches ‘Send’ or ‘Forward’**
+
+Do the following... **Delete the message without notifying anymore**
+
+y guardar
+
+---
+
+# 8. Validación Línea base para mejorar la postura de seguridad en Exchange online
 
 **Se puede hacer una validación rapida ejecutando el siguiente escript: [Validate-EXOSecurityBaseline](../Scripts/Validate-EXOSecurityBaseline.ps1)**
 
