@@ -691,10 +691,15 @@ Ejemplo de creacion de regla de flujo de correo
 
 Name: **Bloquear la exfiltración de correos de Power Platform**
 Apply this rule if... **The recipient es located...** y seleccioanr **Outside the organization**
+
 and
+
 **A message header includes...** agregar **‘x-ms-mail-application’** header includes **‘Microsoft Power Automate’**
+
 and
+
 **A message header matches...** agregar **‘x-ms-mail-operation-type’** header matches ‘Send’ or ‘Forward’**
+
 
 Do the following... **Delete the message without notifying anymore**
 
