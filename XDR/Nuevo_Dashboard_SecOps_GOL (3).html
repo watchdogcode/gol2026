@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="es" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <title>Reporte Diario de Operaciones de Seguridad — Proyecto GOL</title>
+    <script>
+    /* Fija el tema inicial (preferencia guardada o del sistema) antes de pintar */
+    (function () {
+        try {
+            var saved = localStorage.getItem('gol-theme');
+            var theme = (saved === 'light' || saved === 'dark') ? saved
+                : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {}
+    })();
+    </script>
+    <style>
+        :root {
+            --primary-color: #0078d4;
+            --primary-dark: #005a9e;
+            --secondary-color: #2b2b2b;
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --text-color: #323130;
+            --text-muted: #605e5c;
+            --border-color: #e1dfdd;
+            --critical-color: #7a0018;
+            --high-color: #d13438;
+            --medium-color: #ff8c00;
+            --low-color: #8764b8;
+            --info-color: #0078d4;
+            --none-color: #107c10;
+            --up-color: #d13438;      /* tendencia al alza = peor (más incidentes) */
+            --down-color: #107c10;    /* tendencia a la baja = mejor */
+            --nav-bg: #ffffff;
+            --code-bg: #1e1e1e;
+            --code-fg: #d4d4d4;
+        }
+
+        /* ── Temas: el switch fija data-theme="light|dark" en el documento. ── */
+        :root[data-theme="dark"] {
+            --bg-color: #1b1a19;
+            --card-bg: #262523;
+            --text-color: #f3f2f1;
+            --text-muted: #c8c6c4;
+            --border-color: #3b3a39;
+            --secondary-color: #f3f2f1;
+            --nav-bg: #201f1e;
+        }
+        /* Respaldo: SO en modo oscuro y aún sin elección manual (p. ej. sin JS) */
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme]) {
+                --bg-color: #1b1a19;
+                --card-bg: #262523;
+                --text-color: #f3f2f1;
+                --text-muted: #c8c6c4;
+                --border-color: #3b3a39;
+                --secondary-color: #f3f2f1;
+                --nav-bg: #201f1e;
+            }
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.5;
+        }
+
+        /* ─── Encabezado ─── */
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+            color: #fff;
+            padding: 22px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+        }
+        .header .brand { display: flex; align-items: center; gap: 14px; }
+        .header .logo {
+            width: 44px; height: 44px; border-radius: 10px;
+            background: rgba(255,255,255,0.18);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px; flex-shrink: 0;
+        }
+        .header h1 { margin: 0; font-size: 22px; font-weight: 600; line-height: 1.2; }
+        .header .subtitle { margin-top: 4px; font-size: 0.82em; opacity: 0.92; }
+        .header .meta { font-size: 0.85em; opacity: 0.95; text-align: right; }
+        .header .meta div { margin-bottom: 3px; }
+        .header-right { display: flex; align-items: center; gap: 16px; }
+        .theme-toggle { background: none; border: none; cursor: pointer; padding: 4px; display: inline-flex; align-items: center; border-radius: 999px; }
+        .theme-toggle:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+        .tt-track {
+            position: relative; width: 58px; height: 28px; border-radius: 999px;
+            background: rgba(255,255,255,0.28); display: inline-flex; align-items: center;
+            justify-content: space-between; padding: 0 7px; box-sizing: border-box;
+            transition: background 0.2s ease;
+        }
+        .theme-toggle:hover .tt-track { background: rgba(255,255,255,0.42); }
+        .tt-icon { font-size: 13px; line-height: 1; z-index: 1; }
+        .tt-knob {
+            position: absolute; top: 3px; left: 3px; width: 22px; height: 22px;
+            border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+            transition: transform 0.2s ease;
+        }
+        :root[data-theme="dark"] .tt-knob { transform: translateX(30px); }
+
+        /* ─── Navegación pegajosa ─── */
+        .subnav {
+            position: sticky; top: 0; z-index: 50;
+            background: var(--nav-bg);
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            padding: 0 20px;
+            overflow-x: auto;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+        }
+        .subnav a {
+            display: inline-block;
+            padding: 12px 14px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.86em;
+            font-weight: 600;
+            border-bottom: 3px solid transparent;
+        }
+        .subnav a:hover { color: var(--primary-color); border-bottom-color: var(--primary-color); }
+
+        .container { max-width: 1200px; margin: 28px auto; padding: 0 20px; }
+
+        section { scroll-margin-top: 64px; }
+
+        h2 {
+            color: var(--secondary-color);
+            margin-top: 44px; margin-bottom: 16px;
+            font-size: 18px;
+            border-left: 4px solid var(--primary-color);
+            padding-left: 12px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        h3.block-title { margin: 0 0 14px 0; color: var(--secondary-color); font-size: 1.05em; }
+
+        /* ─── Banner de estado general ─── */
+        .status-banner {
+            display: flex; align-items: center; gap: 16px;
+            padding: 18px 22px;
+            border-radius: 12px;
+            margin-bottom: 26px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+            border-inline-start: 6px solid var(--high-color);
+            background: linear-gradient(90deg, rgba(209,52,56,0.10), rgba(209,52,56,0.02));
+        }
+        .status-banner .dot {
+            width: 16px; height: 16px; border-radius: 50%;
+            background: var(--high-color);
+            box-shadow: 0 0 0 5px rgba(209,52,56,0.18);
+            flex-shrink: 0;
+        }
+        .status-banner .status-text { flex: 1; }
+        .status-banner .status-title { font-weight: 700; font-size: 1.05em; color: var(--secondary-color); }
+        .status-banner .status-sub { font-size: 0.9em; color: var(--text-muted); margin-top: 2px; }
+        .status-banner .status-chip {
+            padding: 6px 14px; border-radius: 999px; font-weight: 700; font-size: 0.8em;
+            text-transform: uppercase; letter-spacing: 0.5px; color: #fff; background: var(--high-color);
+            white-space: nowrap;
+        }
+
+        /* Marca de datos de ejemplo */
+        .demo-tag {
+            display: inline-flex; align-items: center; gap: 5px;
+            background: #fff4ce; color: #6b5900;
+            border: 1px solid #f5d97a;
+            padding: 2px 9px; border-radius: 6px;
+            font-size: 0.72em; font-weight: 700; letter-spacing: 0.3px;
+            text-transform: uppercase; vertical-align: middle;
+        }
+        :root[data-theme="dark"] .demo-tag { background: #3a3200; color: #ffe58a; border-color: #6b5900; }
+
+        /* ─── KPIs ─── */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin: 0 0 12px 0;
+        }
+        .kpi-card {
+            background: var(--card-bg);
+            padding: 18px 16px;
+            border-radius: 10px;
+            text-align: center;
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            border-top: 4px solid transparent;
+            text-decoration: none; color: inherit;
+            min-height: 156px;
+        }
+        .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.12); }
+        .kpi-card.critical { border-top-color: var(--critical-color); }
+        .kpi-card.high { border-top-color: var(--high-color); }
+        .kpi-card.medium { border-top-color: var(--medium-color); }
+        .kpi-card.low { border-top-color: var(--low-color); }
+        .kpi-card.info { border-top-color: var(--info-color); }
+        .kpi-card.none { border-top-color: var(--none-color); }
+        .kpi-val { font-size: 2.6em; font-weight: 700; color: var(--secondary-color); line-height: 1; margin-bottom: 6px; }
+        .kpi-label {
+            font-size: 0.78em; color: var(--text-muted); text-transform: uppercase;
+            letter-spacing: 0.4px; font-weight: 600; line-height: 1.3; min-height: 2.6em;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .kpi-trend {
+            margin-top: 8px; font-size: 0.78em; font-weight: 700;
+            display: inline-flex; align-items: center; gap: 4px;
+        }
+        .kpi-trend.up { color: var(--up-color); }
+        .kpi-trend.down { color: var(--down-color); }
+        .kpi-trend.flat { color: var(--text-muted); }
+        .kpi-open { margin-top: 6px; font-size: 0.72em; font-weight: 600; color: var(--primary-color); opacity: 0; transition: opacity 0.15s; }
+        .kpi-card:hover .kpi-open { opacity: 1; }
+
+        /* ─── Gráficas ─── */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 18px;
+            margin-bottom: 8px;
+        }
+        .chart-card {
+            background: var(--card-bg); border-radius: 10px; padding: 18px 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .chart-card h4 { margin: 0 0 4px 0; font-size: 0.98em; color: var(--secondary-color); display:flex; align-items:center; gap:8px; }
+        .chart-card .chart-note { font-size: 0.78em; color: var(--text-muted); margin-bottom: 14px; }
+        .donut-wrap { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; justify-content: center; }
+        .donut-legend { list-style: none; margin: 0; padding: 0; font-size: 0.85em; }
+        .donut-legend li { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+        .donut-legend .sw { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+        .donut-legend .lv { color: var(--text-muted); }
+        .donut-legend .ct { margin-inline-start: auto; font-weight: 700; color: var(--secondary-color); }
+
+        /* Barras por workload */
+        .bars { display: flex; flex-direction: column; gap: 12px; }
+        .bar-row { display: grid; grid-template-columns: 96px 1fr 30px; align-items: center; gap: 10px; font-size: 0.85em; }
+        .bar-row .bar-label { color: var(--text-muted); font-weight: 600; }
+        .bar-track { background: rgba(0,0,0,0.06); border-radius: 6px; height: 16px; overflow: hidden; }
+        :root[data-theme="dark"] .bar-track { background: rgba(255,255,255,0.09); }
+        .bar-fill { height: 100%; border-radius: 6px; }
+        .bar-row .bar-val { text-align: end; font-weight: 700; color: var(--secondary-color); }
+
+        /* ─── Tablas ─── */
+        .table-container {
+            background: var(--card-bg); border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            overflow: hidden; margin-bottom: 18px;
+        }
+        .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.92em; }
+        caption { text-align: start; padding: 0 0 10px 2px; font-size: 0.82em; color: var(--text-muted); }
+        thead th {
+            background-color: rgba(0,0,0,0.03); color: var(--text-muted); text-align: start;
+            padding: 11px 16px; font-weight: 600; font-size: 0.8em;
+            text-transform: uppercase; letter-spacing: 0.4px;
+            border-bottom: 2px solid var(--border-color); white-space: nowrap;
+        }
+        :root[data-theme="dark"] thead th { background-color: rgba(255,255,255,0.04); }
+        tbody td { border-bottom: 1px solid var(--border-color); padding: 11px 16px; vertical-align: middle; }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover { background-color: rgba(0,0,0,0.02); }
+        :root[data-theme="dark"] tbody tr:hover { background-color: rgba(255,255,255,0.03); }
+        .entity { font-size: 0.86em; color: var(--text-muted); }
+        .id-cell { font-family: 'Cascadia Code','Consolas',monospace; font-size: 0.86em; color: var(--primary-color); font-weight: 600; white-space: nowrap; }
+        .row-more td { text-align: center; color: var(--text-muted); font-size: 0.85em; background: rgba(0,0,0,0.015); }
+
+        /* Badges de severidad (color + icono + texto, no solo color) */
+        .sev {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 10px; border-radius: 999px;
+            font-size: 0.74em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+            color: #fff; white-space: nowrap;
+        }
+        .sev::before { font-size: 0.9em; line-height: 1; }
+        .sev.critical { background: var(--critical-color); }
+        .sev.critical::before { content: "\25C6"; }      /* ◆ */
+        .sev.high { background: var(--high-color); }
+        .sev.high::before { content: "\25B2"; }          /* ▲ */
+        .sev.medium { background: var(--medium-color); }
+        .sev.medium::before { content: "\25CF"; }        /* ● */
+        .sev.low { background: var(--low-color); }
+        .sev.low::before { content: "\25BC"; }           /* ▼ */
+        .sev.info { background: var(--info-color); }
+        .sev.info::before { content: "\2139"; }          /* ℹ */
+
+        /* Estado del incidente */
+        .state {
+            display: inline-block; padding: 3px 10px; border-radius: 6px;
+            font-size: 0.76em; font-weight: 600; white-space: nowrap;
+            border: 1px solid var(--border-color); color: var(--text-muted);
+            background: rgba(0,0,0,0.02);
+        }
+        .state.new { color: #a80000; border-color: #f1bcbc; background: #fdeeee; }
+        .state.investigating { color: #7a5b00; border-color: #f0d98a; background: #fff8e6; }
+        .state.contained { color: #0b5e0b; border-color: #b7e0b7; background: #eef9ee; }
+        :root[data-theme="dark"] .state.new { background: rgba(168,0,0,0.18); border-color: #7a0018; color:#ff9c9c;}
+        :root[data-theme="dark"] .state.investigating { background: rgba(122,91,0,0.2); border-color:#6b5900; color:#ffe58a;}
+        :root[data-theme="dark"] .state.contained { background: rgba(16,124,16,0.18); border-color:#0b5e0b; color:#9be09b;}
+
+        /* Botones */
+        .btn {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 5px 13px; border-radius: 5px;
+            font-size: 0.8em; font-weight: 600; text-decoration: none; white-space: nowrap;
+            transition: background 0.15s ease;
+        }
+        .btn.portal { background: var(--primary-color); color: #fff; }
+        .btn.portal:hover { background: var(--primary-dark); }
+        .btn.doc { background: rgba(0,0,0,0.05); color: var(--text-color); border: 1px solid var(--border-color); }
+        .btn.doc:hover { background: rgba(0,0,0,0.1); }
+        :root[data-theme="dark"] .btn.doc { background: rgba(255,255,255,0.06); }
+
+        .section-cta { margin: 4px 0 12px 0; }
+
+        /* Empty state mejorado */
+        .empty-state {
+            display: flex; align-items: center; gap: 12px;
+            padding: 16px 20px; color: var(--text-muted);
+            background: rgba(16,124,16,0.06); border: 1px solid rgba(16,124,16,0.25);
+            border-radius: 8px;
+        }
+        .empty-state .ok-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--none-color); flex-shrink: 0; }
+        .empty-state strong { color: var(--none-color); }
+
+        /* ─── Acordeón de tareas operativas ─── */
+        details.accordion {
+            background: var(--card-bg); border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05); overflow: hidden; margin-bottom: 14px;
+        }
+        details.accordion > summary {
+            list-style: none; cursor: pointer;
+            display: flex; align-items: center; gap: 10px;
+            padding: 13px 20px; font-weight: 600; font-size: 0.98em; color: #fff;
+        }
+        details.accordion > summary::-webkit-details-marker { display: none; }
+        summary .chev { margin-inline-start: auto; transition: transform 0.2s ease; font-size: 0.9em; }
+        details.accordion[open] > summary .chev { transform: rotate(180deg); }
+        .hdr-mdo   { background: linear-gradient(135deg, #0078d4, #005a9e); }
+        .hdr-mde   { background: linear-gradient(135deg, #d83b01, #a52a00); }
+        .hdr-mdi   { background: linear-gradient(135deg, #e97a00, #c25e00); }
+        .hdr-entra { background: linear-gradient(135deg, #107c10, #0b5e0b); }
+        .hdr-mda   { background: linear-gradient(135deg, #8764b8, #6b4fa0); }
+        .badge {
+            display: inline-block; padding: 2px 10px; border-radius: 12px;
+            font-size: 0.7em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;
+            background: rgba(255,255,255,0.25); color: #fff; line-height: 1.6;
+        }
+
+        /* Columna "Completado" en tareas operativas (se habilita al abrir el portal) */
+        .ops-check-cell { text-align: center; white-space: nowrap; width: 110px; }
+        .ops-check { width: 17px; height: 17px; cursor: pointer; accent-color: var(--none-color); vertical-align: middle; }
+        .ops-check:disabled { cursor: not-allowed; opacity: 0.45; }
+        .ops-check-hint { display: block; font-size: 0.68em; color: var(--text-muted); margin-top: 3px; }
+        tr.task-done td { background: rgba(16,124,16,0.07); }
+        tr.task-done td:first-child { text-decoration: line-through; color: var(--text-muted); }
+        .done-counter {
+            margin-inline-start: 6px; background: rgba(255,255,255,0.28); color: #fff;
+            padding: 2px 10px; border-radius: 12px; font-size: 0.72em; font-weight: 700; line-height: 1.6;
+        }
+        .done-counter.complete { background: #0b5e0b; }
+
+        /* ─── Bloque KQL ─── */
+        .kql-card {
+            background: var(--card-bg); border-radius: 8px; overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 14px;
+        }
+        .kql-head {
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px 20px; color: #fff; font-weight: 600; font-size: 0.96em;
+        }
+        .kql-body { padding: 18px 20px; }
+        .kql-cat {
+            background: rgba(0,0,0,0.06); padding: 3px 10px; border-radius: 4px;
+            font-size: 0.76em; font-weight: 600; display: inline-block; margin-bottom: 10px;
+        }
+        :root[data-theme="dark"] .kql-cat { background: rgba(255,255,255,0.1); }
+        pre.code {
+            background: var(--code-bg); color: var(--code-fg);
+            padding: 16px; border-radius: 6px; margin: 0 0 12px 0;
+            font-family: 'Cascadia Code','Consolas',monospace; font-size: 0.82em; line-height: 1.6;
+            overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+        }
+        .kql-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+        /* ─── Pie ─── */
+        .footer {
+            text-align: center; margin-top: 50px; color: var(--text-muted);
+            font-size: 0.83em; padding: 20px; border-top: 1px solid var(--border-color);
+        }
+        .legend {
+            display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+            margin-bottom: 10px; font-size: 0.82em; color: var(--text-muted);
+        }
+        .legend .sev { font-size: 0.68em; }
+
+        /* ─── Responsive ─── */
+        @media (max-width: 640px) {
+            .header { padding: 16px 20px; }
+            .header .meta { text-align: start; }
+            h2 { margin-top: 32px; }
+        }
+
+        /* ─── Impresión / PDF ─── */
+        @media print {
+            /* La impresión siempre en claro para máxima legibilidad */
+            :root, :root[data-theme="dark"] {
+                --bg-color:#fff; --card-bg:#fff; --text-color:#323130; --text-muted:#605e5c;
+                --border-color:#e1dfdd; --secondary-color:#2b2b2b; --nav-bg:#fff;
+            }
+            body { background: #fff; }
+            .subnav { display: none; }
+            .header { box-shadow: none; }
+            .kpi-card:hover, tbody tr:hover { transform: none; box-shadow: 0 2px 8px rgba(0,0,0,0.05); background: none; }
+            .kpi-open { display: none; }
+            details.accordion:not([open]) > *:not(summary) { display: revert !important; }
+            summary .chev { display: none; }
+            .chart-card, .kpi-card, .table-container, details.accordion, .kql-card, .status-banner { break-inside: avoid; page-break-inside: avoid; }
+            a[href]::after { content: ""; }
+        }
+    </style>
+</head>
+<body>
+    <!-- ══════════════════ ENCABEZADO ══════════════════ -->
+    <header class="header">
+        <div class="brand">
+            <div class="logo" role="img" aria-label="Escudo de seguridad">&#x1F6E1;</div>
+            <div>
+                <h1>Reporte Diario de Operaciones de Seguridad</h1>
+                <div class="subtitle">Proyecto GOL &middot; Microsoft 365 Defender XDR</div>
+            </div>
+        </div>
+        <div class="header-right">
+            <button id="themeToggle" class="theme-toggle" type="button" role="switch" aria-checked="false" aria-label="Cambiar entre modo claro y oscuro" title="Cambiar modo claro / oscuro">
+                <span class="tt-track">
+                    <span class="tt-icon sun" aria-hidden="true">&#x2600;</span>
+                    <span class="tt-icon moon" aria-hidden="true">&#x1F319;</span>
+                    <span class="tt-knob"></span>
+                </span>
+            </button>
+            <div class="meta">
+                <div><strong>Período:</strong> 2026-04-21 16:32 &rarr; 2026-04-22 16:32</div>
+                <div><strong>Generado:</strong> 2026-04-22 16:35 (CST)</div>
+                <div style="opacity:0.85;">Tenant ID: &#42;&#42;&#42;&#42;&#42;&#42;&#42;&#42;3efa</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ══════════════════ NAVEGACIÓN ══════════════════ -->
+    <nav class="subnav" aria-label="Navegación del reporte">
+        <a href="#resumen">Resumen</a>
+        <a href="#incidentes">Incidentes</a>
+        <a href="#detecciones">Detecciones</a>
+        <a href="#mdo">MDO</a>
+        <a href="#mde">MDE</a>
+        <a href="#mdi">MDI</a>
+        <a href="#entra">Entra ID</a>
+        <a href="#mda">MDA</a>
+    </nav>
+
+    <div class="container">
+
+        <!-- ══════════════════ ESTADO GENERAL ══════════════════ -->
+        <div class="status-banner" role="status">
+            <span class="dot" aria-hidden="true"></span>
+            <div class="status-text">
+                <div class="status-title">Atención requerida</div>
+                <div class="status-sub">14 incidentes activos (severidad máx. <strong>High</strong>) y 19 detecciones personalizadas requieren revisión hoy. Los 5 workloads sin alertas nuevas.</div>
+            </div>
+            <span class="status-chip">Riesgo: Alto</span>
+        </div>
+
+        <!-- ══════════════════ RESUMEN (KPIs + GRÁFICAS) ══════════════════ -->
+        <section id="resumen">
+            <h2><span role="img" aria-label="Indicadores">&#x1F4CA;</span> Resumen del día</h2>
+
+            <!-- KPIs: clickeables + tendencia vs. día anterior -->
+            <p style="margin:0 0 10px; font-size:0.82em; color:var(--text-muted);">
+                Toca cualquier indicador para abrirlo en el portal. <span class="demo-tag">Tendencias de ejemplo</span>
+            </p>
+            <div class="kpi-grid">
+                <a class="kpi-card high" href="https://security.microsoft.com/incidents" target="_blank" rel="noopener noreferrer">
+                    <div class="kpi-val">14</div>
+                    <div class="kpi-label">Incidentes Activos</div>
+                    <span class="kpi-trend up" title="vs. día anterior">&#x25B2; +3 vs. ayer</span>
+                    <span class="kpi-open">Abrir &rarr;</span>
+                </a>
+                <a class="kpi-card high" href="https://security.microsoft.com/v2/custom-detection" target="_blank" rel="noopener noreferrer">
+                    <div class="kpi-val">19</div>
+                    <div class="kpi-label">Detecciones Personalizadas</div>
+                    <span class="kpi-trend up" title="vs. día anterior">&#x25B2; +4 vs. ayer</span>
+                    <span class="kpi-open">Abrir &rarr;</span>
+                </a>
+                <a class="kpi-card none" href="https://security.microsoft.com/alerts" target="_blank" rel="noopener noreferrer">
+                    <div class="kpi-val">0</div>
+                    <div class="kpi-label">Alertas Defender for Office</div>
+                    <span class="kpi-trend flat">&#x2013; sin cambio</span>
+                    <span class="kpi-open">Abrir &rarr;</span>
+                </a>
+                <a class="kpi-card none" href="https://security.microsoft.com/machines" target="_blank" rel="noopener noreferrer">
+                    <div class="kpi-val">0</div>
+                    <div class="kpi-label">Alertas Defender for Endpoint</div>
+                    <span class="kpi-trend down" title="vs. día anterior">&#x25BC; -2 vs. ayer</span>
+                    <span class="kpi-open">Abrir &rarr;</span>
+                </a>
+                <a class="kpi-card none" href="https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskyUsers" target="_blank" rel="noopener noreferrer">
+                    <div class="kpi-val">0</div>
+                    <div class="kpi-label">Usuarios en Riesgo Entra ID</div>
+                    <span class="kpi-trend flat">&#x2013; sin cambio</span>
+                    <span class="kpi-open">Abrir &rarr;</span>
+                </a>
+                <a class="kpi-card none" href="https://security.microsoft.com/identities/dashboard" target="_blank" rel="noopener noreferrer">
+                    <div class="kpi-val">0</div>
+                    <div class="kpi-label">Alertas Defender for Identity</div>
+                    <span class="kpi-trend flat">&#x2013; sin cambio</span>
+                    <span class="kpi-open">Abrir &rarr;</span>
+                </a>
+                <a class="kpi-card none" href="https://security.microsoft.com/cloudapps/oauth-apps" target="_blank" rel="noopener noreferrer">
+                    <div class="kpi-val">0</div>
+                    <div class="kpi-label">Consentimientos OAuth (Cloud Apps)</div>
+                    <span class="kpi-trend flat">&#x2013; sin cambio</span>
+                    <span class="kpi-open">Abrir &rarr;</span>
+                </a>
+            </div>
+
+            <!-- Gráficas -->
+            <div class="charts-grid">
+                <!-- Dona: severidad de incidentes -->
+                <div class="chart-card">
+                    <h4><span role="img" aria-label="Dona">&#x1F369;</span> Incidentes por severidad <span class="demo-tag">Ejemplo</span></h4>
+                    <div class="chart-note">Distribución de los 14 incidentes activos</div>
+                    <div class="donut-wrap">
+                        <svg width="150" height="150" viewBox="0 0 160 160" role="img" aria-label="Gráfica de dona: 2 críticos, 8 altos, 3 medios, 1 bajo">
+                            <circle cx="80" cy="80" r="60" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="22"></circle>
+                            <g transform="rotate(-90 80 80)" fill="none" stroke-width="22">
+                                <circle cx="80" cy="80" r="60" stroke="#7a0018" stroke-dasharray="53.86 323.13" stroke-dashoffset="0"></circle>
+                                <circle cx="80" cy="80" r="60" stroke="#d13438" stroke-dasharray="215.42 161.57" stroke-dashoffset="-53.86"></circle>
+                                <circle cx="80" cy="80" r="60" stroke="#ff8c00" stroke-dasharray="80.78 296.21" stroke-dashoffset="-269.28"></circle>
+                                <circle cx="80" cy="80" r="60" stroke="#8764b8" stroke-dasharray="26.93 350.06" stroke-dashoffset="-350.06"></circle>
+                            </g>
+                            <text x="80" y="74" text-anchor="middle" font-size="30" font-weight="700" fill="currentColor">14</text>
+                            <text x="80" y="96" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.7">activos</text>
+                        </svg>
+                        <ul class="donut-legend">
+                            <li><span class="sw" style="background:#7a0018;"></span><span class="lv">Crítico</span><span class="ct">2</span></li>
+                            <li><span class="sw" style="background:#d13438;"></span><span class="lv">Alto</span><span class="ct">8</span></li>
+                            <li><span class="sw" style="background:#ff8c00;"></span><span class="lv">Medio</span><span class="ct">3</span></li>
+                            <li><span class="sw" style="background:#8764b8;"></span><span class="lv">Bajo</span><span class="ct">1</span></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Tendencia 7 días -->
+                <div class="chart-card">
+                    <h4><span role="img" aria-label="Línea de tendencia">&#x1F4C8;</span> Tendencia de incidentes (7 días) <span class="demo-tag">Ejemplo</span></h4>
+                    <div class="chart-note">Incidentes activos por día &middot; hoy: 14</div>
+                    <svg width="100%" height="130" viewBox="0 0 340 130" preserveAspectRatio="none" role="img" aria-label="Tendencia de incidentes de los últimos 7 días: 9, 11, 8, 12, 10, 13, 14">
+                        <line x1="30" y1="95" x2="320" y2="95" stroke="rgba(0,0,0,0.12)" stroke-width="1"></line>
+                        <polygon points="30,50 78.3,40 126.7,55 175,35 223.3,45 271.7,30 320,25 320,95 30,95" fill="rgba(0,120,212,0.12)"></polygon>
+                        <polyline points="30,50 78.3,40 126.7,55 175,35 223.3,45 271.7,30 320,25" fill="none" stroke="#0078d4" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"></polyline>
+                        <g fill="#0078d4">
+                            <circle cx="30" cy="50" r="3"></circle>
+                            <circle cx="78.3" cy="40" r="3"></circle>
+                            <circle cx="126.7" cy="55" r="3"></circle>
+                            <circle cx="175" cy="35" r="3"></circle>
+                            <circle cx="223.3" cy="45" r="3"></circle>
+                            <circle cx="271.7" cy="30" r="3"></circle>
+                            <circle cx="320" cy="25" r="4" stroke="#fff" stroke-width="2"></circle>
+                        </g>
+                        <g fill="currentColor" opacity="0.6" font-size="9" text-anchor="middle">
+                            <text x="30" y="112">-6d</text>
+                            <text x="126.7" y="112">-4d</text>
+                            <text x="223.3" y="112">-2d</text>
+                            <text x="320" y="112">Hoy</text>
+                        </g>
+                    </svg>
+                </div>
+
+                <!-- Barras por workload -->
+                <div class="chart-card">
+                    <h4><span role="img" aria-label="Barras">&#x1F4CA;</span> Incidentes por workload <span class="demo-tag">Ejemplo</span></h4>
+                    <div class="chart-note">Origen de los 14 incidentes activos</div>
+                    <div class="bars">
+                        <div class="bar-row"><span class="bar-label">MDE</span><span class="bar-track"><span class="bar-fill" style="width:100%; background:#d83b01;"></span></span><span class="bar-val">5</span></div>
+                        <div class="bar-row"><span class="bar-label">MDO</span><span class="bar-track"><span class="bar-fill" style="width:80%; background:#0078d4;"></span></span><span class="bar-val">4</span></div>
+                        <div class="bar-row"><span class="bar-label">MDI</span><span class="bar-track"><span class="bar-fill" style="width:40%; background:#e97a00;"></span></span><span class="bar-val">2</span></div>
+                        <div class="bar-row"><span class="bar-label">MDA</span><span class="bar-track"><span class="bar-fill" style="width:40%; background:#8764b8;"></span></span><span class="bar-val">2</span></div>
+                        <div class="bar-row"><span class="bar-label">Entra ID</span><span class="bar-track"><span class="bar-fill" style="width:20%; background:#107c10;"></span></span><span class="bar-val">1</span></div>
+                    </div>
+                </div>
+
+                <!-- Métrica MDO -->
+                <div class="chart-card">
+                    <h4><span role="img" aria-label="Barras">&#x1F4CA;</span> Métrica MDO &mdash; Amenazas de correo por categoría <span class="demo-tag">Ejemplo</span></h4>
+                    <div class="chart-note">Correos con amenaza detectada en los últimos 7 días &middot; total: 88</div>
+                    <svg width="100%" height="200" viewBox="0 0 360 200" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Gráfica de barras de amenazas de correo detectadas: Phishing 42, URL maliciosa 23, Suplantación 15, Malware 8">
+                        <line x1="20" y1="155" x2="340" y2="155" stroke="rgba(128,128,128,0.4)" stroke-width="1"></line>
+                        <rect x="34" y="25" width="52" height="130" rx="4" fill="#d13438"></rect>
+                        <text x="60" y="18" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">42</text>
+                        <text x="60" y="172" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.75">Phishing</text>
+                        <rect x="114" y="83.8" width="52" height="71.2" rx="4" fill="#ff8c00"></rect>
+                        <text x="140" y="77" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">23</text>
+                        <text x="140" y="172" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.75">URL malic.</text>
+                        <rect x="194" y="108.6" width="52" height="46.4" rx="4" fill="#8764b8"></rect>
+                        <text x="220" y="101" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">15</text>
+                        <text x="220" y="172" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.75">Suplantación</text>
+                        <rect x="274" y="130.2" width="52" height="24.8" rx="4" fill="#7a0018"></rect>
+                        <text x="300" y="123" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">8</text>
+                        <text x="300" y="172" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.75">Malware</text>
+                    </svg>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════ INCIDENTES ACTIVOS (NUEVO) ══════════════════ -->
+        <section id="incidentes">
+            <h2><span role="img" aria-label="Alerta">&#x1F6A8;</span> Incidentes Activos <span class="demo-tag">Datos de ejemplo</span></h2>
+            <div class="section-cta">
+                <a class="btn portal" href="https://security.microsoft.com/incidents" target="_blank" rel="noopener noreferrer">&#x1F517; Ver todos en Defender XDR</a>
+            </div>
+            <div class="table-container">
+                <div class="table-scroll">
+                <table>
+                    <caption>Mostrando 5 de 14 incidentes activos, ordenados por severidad y antigüedad.</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">ID</th>
+                            <th scope="col">Título</th>
+                            <th scope="col">Severidad</th>
+                            <th scope="col">Estado</th>
+                            <th scope="col">Antigüedad</th>
+                            <th scope="col">Entidad afectada</th>
+                            <th scope="col">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- ⇩⇩⇩ INYECCIÓN AUTOMÁTICA: filas de incidentes reales (una por incidente) ⇩⇩⇩ -->
+                        <tr>
+                            <td class="id-cell">INC-4821</td>
+                            <td>Actividad de inicio de sesión sospechosa (AiTM) desde IP anómala</td>
+                            <td><span class="sev critical">Crítico</span></td>
+                            <td><span class="state new">Nuevo</span></td>
+                            <td>2 h</td>
+                            <td class="entity">usuario: jdoe@gol.example</td>
+                            <td><a class="btn portal" href="https://security.microsoft.com/incidents" target="_blank" rel="noopener noreferrer">Ver</a></td>
+                        </tr>
+                        <tr>
+                            <td class="id-cell">INC-4820</td>
+                            <td>Posible robo de credenciales &mdash; múltiples fallos MFA</td>
+                            <td><span class="sev high">Alto</span></td>
+                            <td><span class="state investigating">En investigación</span></td>
+                            <td>5 h</td>
+                            <td class="entity">usuario: mruiz@gol.example</td>
+                            <td><a class="btn portal" href="https://security.microsoft.com/incidents" target="_blank" rel="noopener noreferrer">Ver</a></td>
+                        </tr>
+                        <tr>
+                            <td class="id-cell">INC-4817</td>
+                            <td>Ejecución de script sospechoso en endpoint corporativo</td>
+                            <td><span class="sev high">Alto</span></td>
+                            <td><span class="state investigating">En investigación</span></td>
+                            <td>6 h</td>
+                            <td class="entity">dispositivo: LAPTOP-2231</td>
+                            <td><a class="btn portal" href="https://security.microsoft.com/incidents" target="_blank" rel="noopener noreferrer">Ver</a></td>
+                        </tr>
+                        <tr>
+                            <td class="id-cell">INC-4815</td>
+                            <td>Malware detectado y remediado automáticamente</td>
+                            <td><span class="sev medium">Medio</span></td>
+                            <td><span class="state contained">Contenido</span></td>
+                            <td>8 h</td>
+                            <td class="entity">dispositivo: DESKTOP-0198</td>
+                            <td><a class="btn portal" href="https://security.microsoft.com/incidents" target="_blank" rel="noopener noreferrer">Ver</a></td>
+                        </tr>
+                        <tr>
+                            <td class="id-cell">INC-4809</td>
+                            <td>Consentimiento OAuth a aplicación de riesgo medio</td>
+                            <td><span class="sev medium">Medio</span></td>
+                            <td><span class="state investigating">En investigación</span></td>
+                            <td>11 h</td>
+                            <td class="entity">app: Contoso Sync</td>
+                            <td><a class="btn portal" href="https://security.microsoft.com/incidents" target="_blank" rel="noopener noreferrer">Ver</a></td>
+                        </tr>
+                        <!-- ⇧⇧⇧ FIN INYECCIÓN AUTOMÁTICA ⇧⇧⇧ -->
+                        <tr class="row-more"><td colspan="7">+ 9 incidentes adicionales &middot; <a href="https://security.microsoft.com/incidents" target="_blank" rel="noopener noreferrer">Ver los 14 en el portal &rarr;</a></td></tr>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════ DETECCIONES PERSONALIZADAS (NUEVO) ══════════════════ -->
+        <section id="detecciones">
+            <h2><span role="img" aria-label="Lupa">&#x1F50D;</span> Detecciones Personalizadas <span class="demo-tag">Datos de ejemplo</span></h2>
+            <div class="section-cta">
+                <a class="btn portal" href="https://security.microsoft.com/v2/custom-detection" target="_blank" rel="noopener noreferrer">&#x1F517; Ver reglas en Defender XDR</a>
+            </div>
+            <div class="table-container">
+                <div class="table-scroll">
+                <table>
+                    <caption>Mostrando 4 de 19 reglas de detección personalizada con coincidencias en el período.</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Regla</th>
+                            <th scope="col">Workload</th>
+                            <th scope="col">Severidad</th>
+                            <th scope="col">Coincidencias</th>
+                            <th scope="col">Última coincidencia</th>
+                            <th scope="col">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- ⇩⇩⇩ INYECCIÓN AUTOMÁTICA: filas de detecciones reales ⇩⇩⇩ -->
+                        <tr>
+                            <td>Enumeración LDAP / SAM-R anómala</td>
+                            <td class="entity">MDI</td>
+                            <td><span class="sev high">Alto</span></td>
+                            <td>7</td>
+                            <td class="entity">hace 1 h</td>
+                            <td><a class="btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank" rel="noopener noreferrer">Investigar</a></td>
+                        </tr>
+                        <tr>
+                            <td>Adjuntos HTML/HTA con Data URI</td>
+                            <td class="entity">MDO</td>
+                            <td><span class="sev high">Alto</span></td>
+                            <td>4</td>
+                            <td class="entity">hace 3 h</td>
+                            <td><a class="btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank" rel="noopener noreferrer">Investigar</a></td>
+                        </tr>
+                        <tr>
+                            <td>Aplicaciones OAuth nuevas de alto riesgo</td>
+                            <td class="entity">MDA</td>
+                            <td><span class="sev medium">Medio</span></td>
+                            <td>5</td>
+                            <td class="entity">hace 6 h</td>
+                            <td><a class="btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank" rel="noopener noreferrer">Investigar</a></td>
+                        </tr>
+                        <tr>
+                            <td>Dispositivos con exposición alta o media</td>
+                            <td class="entity">MDE</td>
+                            <td><span class="sev medium">Medio</span></td>
+                            <td>3</td>
+                            <td class="entity">hace 9 h</td>
+                            <td><a class="btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank" rel="noopener noreferrer">Investigar</a></td>
+                        </tr>
+                        <!-- ⇧⇧⇧ FIN INYECCIÓN AUTOMÁTICA ⇧⇧⇧ -->
+                        <tr class="row-more"><td colspan="6">+ 15 detecciones adicionales &middot; <a href="https://security.microsoft.com/v2/custom-detection" target="_blank" rel="noopener noreferrer">Ver las 19 en el portal &rarr;</a></td></tr>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════ MDO ══════════════════ -->
+        <section id="mdo">
+            <h2><span role="img" aria-label="Correo">&#x1F4E7;</span> MDO &middot; Microsoft Defender for Office 365</h2>
+
+            <!-- Alertas (dinámico) primero -->
+            <h3 class="block-title">Alertas del workload &mdash; Top 5 por criticidad</h3>
+            <div class="empty-state">
+                <span class="ok-dot" aria-hidden="true"></span>
+                <div><strong>Sin alertas activas.</strong> No se detectaron alertas en el período analizado.</div>
+            </div>
+
+            <!-- KQL diario -->
+            <div class="kql-card">
+                <div class="kql-head hdr-mdo">
+                    <span role="img" aria-label="Lupa">&#x1F50D;</span> Recomendación KQL del día
+                    <span class="badge" title="Consulta #19 del catálogo MDO">Catálogo #19</span>
+                </div>
+                <div class="kql-body">
+                    <span class="kql-cat">Análisis de URLs &amp; Adjuntos</span>
+                    <h3 class="block-title">Adjuntos HTML/HTA con Data URI</h3>
+<pre class="code">EmailAttachmentInfo
+| where Timestamp &gt; ago(7d)
+| where tolower(FileName) matches regex @"\.(html|htm|hta)$"
+| join kind=inner (EmailEvents) on NetworkMessageId
+| join kind=leftouter (EmailUrlInfo) on NetworkMessageId
+| extend IsDataUri = iif(isnotempty(Url) and Url startswith "data:text/html", true, false)
+| summarize Total=count(), DataUri=countif(IsDataUri) by SenderFromAddress
+| order by DataUri desc, Total desc</pre>
+                    <div class="kql-actions">
+                        <a class="btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank" rel="noopener noreferrer">&#x1F517; Ejecutar en Advanced Hunting</a>
+                        <a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md" target="_blank" rel="noopener noreferrer">&#x1F4DA; Catálogo KQL de MDO</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tareas operativas (estático) colapsadas -->
+            <details class="accordion" open>
+                <summary class="hdr-mdo">
+                    <span role="img" aria-label="Lista">&#x1F4CB;</span> Tareas operativas diarias
+                    <span class="badge">8 diarias</span>
+                    <span class="chev" aria-hidden="true">&#x25BE;</span>
+                </summary>
+                <div class="table-scroll">
+                <table class="ops-table">
+                    <thead><tr><th scope="col" style="width:50%">Tarea</th><th scope="col" style="width:25%">Portal</th><th scope="col" style="width:25%">Documentación</th></tr></thead>
+                    <tbody>
+                        <tr><td>Revisar alertas activas</td><td><a class="btn portal" href="https://security.microsoft.com/alerts" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#monitoreo-de-alertas" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Monitoreo de incidentes</td><td><a class="btn portal" href="https://security.microsoft.com/incidents" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#monitoreo-de-incidentes" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Validar correos entregados con algún tipo de amenaza</td><td><a class="btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#validar-correos-entregados-con-alg%C3%BAn-tipo-de-amenaza" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Triage de mensajes de Teams reportados</td><td><a class="btn portal" href="https://admin.teams.microsoft.com/policies/messaging?view=reportedsafety" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#triage-de-mensajes-de-teams-reportados-por-usuarios" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Revisar y actuar sobre los AIRs</td><td><a class="btn portal" href="https://security.microsoft.com/action-center/pending" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-y-actuar-sobre-los-airs" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Revisar tendencias de detección MDO</td><td><a class="btn portal" href="https://security.microsoft.com/reports/TPSAggregateReportATP" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-las-tendencias-de-detecci%C3%B3n-de-correo-en-microsoft-defender-for-office-365" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Revisar campañas entregadas</td><td><a class="btn portal" href="https://security.microsoft.com/threatexplorerv3" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-campa%C3%B1as-de-phishing-y-malware-que-resultaron-en-correos-entregados" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Revisión de Top Targeted Users</td><td><a class="btn portal" href="https://security.microsoft.com/threatexplorerv3" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisi%C3%B3n-de-top-targeted-users" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                    </tbody>
+                </table>
+                </div>
+            </details>
+        </section>
+
+        <!-- ══════════════════ MDE ══════════════════ -->
+        <section id="mde">
+            <h2><span role="img" aria-label="Equipo de cómputo">&#x1F5A5;</span> MDE &middot; Microsoft Defender for Endpoint</h2>
+
+            <h3 class="block-title">Alertas del workload &mdash; Top 5 por criticidad</h3>
+            <div class="empty-state">
+                <span class="ok-dot" aria-hidden="true"></span>
+                <div><strong>Sin alertas activas.</strong> No se detectaron alertas en el período analizado.</div>
+            </div>
+
+            <div class="kql-card">
+                <div class="kql-head hdr-mde">
+                    <span role="img" aria-label="Lupa">&#x1F50D;</span> Recomendación KQL del día
+                    <span class="badge" title="Consulta #12 del catálogo MDE">Catálogo #12</span>
+                </div>
+                <div class="kql-body">
+                    <span class="kql-cat">Exposición de dispositivos</span>
+                    <h3 class="block-title">Dispositivos con exposición alta o media</h3>
+<pre class="code">DeviceInfo
+| summarize arg_max(Timestamp, *) by DeviceId
+| where ExposureLevel in ("High","Medium")
+| project DeviceName, OSPlatform, ExposureLevel, OnboardingStatus, Timestamp
+| order by ExposureLevel asc, Timestamp desc
+| take 50</pre>
+                    <div class="kql-actions">
+                        <a class="btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank" rel="noopener noreferrer">&#x1F517; Ejecutar en Advanced Hunting</a>
+                        <a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDE/Paquete%20MDE%20KQL%20Advance%20Hunting.md" target="_blank" rel="noopener noreferrer">&#x1F4DA; Catálogo KQL de MDE</a>
+                    </div>
+                </div>
+            </div>
+
+            <details class="accordion" open>
+                <summary class="hdr-mde">
+                    <span role="img" aria-label="Lista">&#x1F4CB;</span> Tareas operativas diarias
+                    <span class="badge">6 diarias</span>
+                    <span class="chev" aria-hidden="true">&#x25BE;</span>
+                </summary>
+                <div class="table-scroll">
+                <table class="ops-table">
+                    <thead><tr><th scope="col" style="width:50%">Tarea</th><th scope="col" style="width:25%">Portal</th><th scope="col" style="width:25%">Documentación</th></tr></thead>
+                    <tbody>
+                        <tr><td>Monitoreo de incidentes y alertas</td><td><a class="btn portal" href="https://security.microsoft.com/incidents" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md#monitoreo-de-incidentes-y-alertas" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Gestión y clasificación de alertas</td><td><a class="btn portal" href="https://security.microsoft.com/alerts" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md#gesti%C3%B3n-y-clasificaci%C3%B3n-de-alertas" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Dispositivos en riesgo</td><td><a class="btn portal" href="https://security.microsoft.com/machines" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md#monitoreo-de-incidentes-y-alertas" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Salud del sensor y cobertura EDR</td><td><a class="btn portal" href="https://security.microsoft.com/machines" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md#monitoreo-de-incidentes-y-alertas" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Acciones de respuesta a incidentes</td><td><a class="btn portal" href="https://security.microsoft.com/action-center/pending" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md#monitoreo-de-incidentes-y-alertas" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Revisión de Threat Analytics</td><td><a class="btn portal" href="https://security.microsoft.com/threatanalytics3" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md#revisi%C3%B3n-de-threat-analytics" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                    </tbody>
+                </table>
+                </div>
+            </details>
+        </section>
+
+        <!-- ══════════════════ MDI ══════════════════ -->
+        <section id="mdi">
+            <h2><span role="img" aria-label="Escudo">&#x1F6E1;</span> MDI &middot; Microsoft Defender for Identity</h2>
+
+            <h3 class="block-title">Alertas del workload &mdash; Top 5 por criticidad</h3>
+            <div class="empty-state">
+                <span class="ok-dot" aria-hidden="true"></span>
+                <div><strong>Sin alertas activas.</strong> No se detectaron alertas en el período analizado.</div>
+            </div>
+
+            <div class="kql-card">
+                <div class="kql-head hdr-mdi">
+                    <span role="img" aria-label="Lupa">&#x1F50D;</span> Recomendación KQL del día
+                    <span class="badge" title="Consulta #5 del catálogo MDI">Catálogo #5</span>
+                </div>
+                <div class="kql-body">
+                    <span class="kql-cat">Enumeración LDAP / SAM-R anómala</span>
+                    <h3 class="block-title">Enumeración LDAP / SAM-R anómala</h3>
+<pre class="code">let TimeRange = 1d;
+IdentityQueryEvents
+| where Timestamp &gt;= ago(TimeRange)
+| where ActionType in ("SamR query", "Ldap query")
+| summarize QueryCount = count() by DeviceName, AccountUpn, bin(Timestamp, 1h)
+| where QueryCount &gt; 500
+| order by QueryCount desc</pre>
+                    <div class="kql-actions">
+                        <a class="btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank" rel="noopener noreferrer">&#x1F517; Ejecutar en Advanced Hunting</a>
+                        <a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md" target="_blank" rel="noopener noreferrer">&#x1F4DA; Catálogo KQL de MDI</a>
+                    </div>
+                </div>
+            </div>
+
+            <details class="accordion" open>
+                <summary class="hdr-mdi">
+                    <span role="img" aria-label="Lista">&#x1F4CB;</span> Tareas operativas diarias
+                    <span class="badge">5 diarias</span>
+                    <span class="chev" aria-hidden="true">&#x25BE;</span>
+                </summary>
+                <div class="table-scroll">
+                <table class="ops-table">
+                    <thead><tr><th scope="col" style="width:50%">Tarea</th><th scope="col" style="width:25%">Portal</th><th scope="col" style="width:25%">Documentación</th></tr></thead>
+                    <tbody>
+                        <tr><td>Revisar ITDR Dashboard</td><td><a class="btn portal" href="https://security.microsoft.com/identities/dashboard" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-itdr-dashboard-identities--dashboard" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Triage de incidentes por prioridad</td><td><a class="btn portal" href="https://security.microsoft.com/incidents" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#triage-de-incidentes-por-prioridad-incidents--alerts" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Configurar tuning para false positives</td><td><a class="btn portal" href="https://security.microsoft.com/advanced-hunting" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#configurar-tuning-para-benign--false-positives-advanced-hunting" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Proactive hunting diario</td><td><a class="btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#proactive-hunting-diario-o-semanal-seg%C3%BAn-madurez" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Revisar Health Issues</td><td><a class="btn portal" href="https://security.microsoft.com/identities/health-issues" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-health-issues-global-y-sensor" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                    </tbody>
+                </table>
+                </div>
+            </details>
+        </section>
+
+        <!-- ══════════════════ ENTRA ID ══════════════════ -->
+        <section id="entra">
+            <h2><span role="img" aria-label="Candado">&#x1F510;</span> Entra ID &middot; Microsoft Entra ID</h2>
+
+            <h3 class="block-title">Alertas del workload &mdash; Top 5 por criticidad</h3>
+            <div class="empty-state">
+                <span class="ok-dot" aria-hidden="true"></span>
+                <div><strong>Sin alertas activas.</strong> No se detectaron alertas en el período analizado.</div>
+            </div>
+
+            <div class="kql-card">
+                <div class="kql-head hdr-entra">
+                    <span role="img" aria-label="Lupa">&#x1F50D;</span> Recomendación KQL del día
+                    <span class="badge" title="Consulta #24 del catálogo Entra ID">Catálogo #24</span>
+                </div>
+                <div class="kql-body">
+                    <span class="kql-cat">Triaje &mdash; pivotes rápidos (de señal a contexto)</span>
+                    <h3 class="block-title">Pivote por CorrelationId (sign-in específico)</h3>
+<pre class="code">let Correlation = "&lt;paste-correlation-id&gt;";
+EntraIdSignInEvents
+| where CorrelationId == Correlation
+| project Timestamp, AccountUpn, Application, ResourceDisplayName, IPAddress, Country, City,
+          LogonType, ErrorCode, AuthenticationRequirement, ConditionalAccessStatus, ConditionalAccessPolicies,
+          RiskLevelAggregated, RiskState, RiskDetails, UserAgent, ClientAppUsed, EntraIdDeviceId, DeviceName
+| order by Timestamp desc</pre>
+                    <div class="kql-actions">
+                        <a class="btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank" rel="noopener noreferrer">&#x1F517; Ejecutar en Advanced Hunting</a>
+                        <a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Paquete%20KQL%20Queries%20EntraID%20Advanced%20Hunting.md" target="_blank" rel="noopener noreferrer">&#x1F4DA; Catálogo KQL de Entra ID</a>
+                    </div>
+                </div>
+            </div>
+
+            <details class="accordion" open>
+                <summary class="hdr-entra">
+                    <span role="img" aria-label="Lista">&#x1F4CB;</span> Tareas operativas diarias
+                    <span class="badge">4 diarias</span>
+                    <span class="chev" aria-hidden="true">&#x25BE;</span>
+                </summary>
+                <div class="table-scroll">
+                <table class="ops-table">
+                    <thead><tr><th scope="col" style="width:50%">Tarea</th><th scope="col" style="width:25%">Portal</th><th scope="col" style="width:25%">Documentación</th></tr></thead>
+                    <tbody>
+                        <tr><td>Monitorear eventos de inicio de sesión</td><td><a class="btn portal" href="https://entra.microsoft.com/#view/Microsoft_AAD_IAM/SignInLogsList.ReactView/timeRangeType/last24hours/showApplicationSignIns~/true" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#monitorear-eventos-de-inicio-de-sesi%C3%B3n-y-autenticaci%C3%B3n" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Revisión de usuarios con riesgo</td><td><a class="btn portal" href="https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskyUsers" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisi%C3%B3n-de-usuarios-con-riesgo-alto--medio" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Revisión de inicios de sesión con riesgo</td><td><a class="btn portal" href="https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskySignIns" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisi%C3%B3n-de-inicios-de-sesi%C3%B3n-con-riesgo" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Revisar alertas de Entra Connect Health</td><td><a class="btn portal" href="https://entra.microsoft.com/#view/Microsoft_AAD_Connect_Health/ConnectHealthMenuBlade/~/overview" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisar-alertas-de-microsoft-entra-connect-health-entornos-h%C3%ADbridos" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                    </tbody>
+                </table>
+                </div>
+            </details>
+        </section>
+
+        <!-- ══════════════════ MDA ══════════════════ -->
+        <section id="mda">
+            <h2><span role="img" aria-label="Nube">&#x2601;</span> MDA &middot; Microsoft Defender for Cloud Apps</h2>
+
+            <h3 class="block-title">Alertas del workload &mdash; Top 5 por criticidad</h3>
+            <div class="empty-state">
+                <span class="ok-dot" aria-hidden="true"></span>
+                <div><strong>Sin alertas activas.</strong> No se detectaron alertas en el período analizado.</div>
+            </div>
+
+            <div class="kql-card">
+                <div class="kql-head hdr-mda">
+                    <span role="img" aria-label="Lupa">&#x1F50D;</span> Recomendación KQL del día
+                    <span class="badge" title="Consulta #4 del catálogo MDA">Catálogo #4</span>
+                </div>
+                <div class="kql-body">
+                    <span class="kql-cat">Shadow IT</span>
+                    <h3 class="block-title">Aplicaciones nuevas (primera vez vistas en 7 días)</h3>
+<pre class="code">let Lookback = 7d;
+let Baseline = 60d;
+let recent = CloudAppEvents
+| where Timestamp &gt;= ago(Lookback)
+| summarize FirstSeen=min(Timestamp), Events=count() by Application;
+let historical = CloudAppEvents
+| where Timestamp between (ago(Baseline) .. ago(Lookback))
+| summarize PrevEvents=count() by Application;
+recent
+| join kind=leftanti historical on Application
+| order by Events desc</pre>
+                    <div class="kql-actions">
+                        <a class="btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank" rel="noopener noreferrer">&#x1F517; Ejecutar en Advanced Hunting</a>
+                        <a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDA/Paquete%20MDA%20KQL%20Advance%20Hunting.md" target="_blank" rel="noopener noreferrer">&#x1F4DA; Catálogo KQL de MDA</a>
+                    </div>
+                </div>
+            </div>
+
+            <details class="accordion" open>
+                <summary class="hdr-mda">
+                    <span role="img" aria-label="Lista">&#x1F4CB;</span> Tareas operativas diarias
+                    <span class="badge">10 diarias</span>
+                    <span class="chev" aria-hidden="true">&#x25BE;</span>
+                </summary>
+                <div class="table-scroll">
+                <table class="ops-table">
+                    <thead><tr><th scope="col" style="width:50%">Tarea</th><th scope="col" style="width:25%">Portal</th><th scope="col" style="width:25%">Documentación</th></tr></thead>
+                    <tbody>
+                        <tr><td>Revisar alertas e incidentes</td><td><a class="btn portal" href="https://security.microsoft.com/alerts" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#review-alerts-and-incidents" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Triage desde Microsoft Defender XDR</td><td><a class="btn portal" href="https://security.microsoft.com/incidents" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#triage-desde-microsoft-defender-xdr" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Revisar datos de detección de amenazas</td><td><a class="btn portal" href="https://security.microsoft.com/threatanalytics3" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#review-threat-detection-data" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Application Governance &mdash; riesgo OAuth</td><td><a class="btn portal" href="https://security.microsoft.com/cloudapps/governance-log" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#application-governance--oauth-risk" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>App Governance &mdash; vista general</td><td><a class="btn portal" href="https://security.microsoft.com/cloudapps/governance-log" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#app-governance--overview" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Revisar datos de apps OAuth</td><td><a class="btn portal" href="https://security.microsoft.com/cloudapps/oauth-apps" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#review-oauth-app-data" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Políticas de App Governance</td><td><a class="btn portal" href="https://security.microsoft.com/cloudapps/policies/management" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#review-alerts-and-incidents" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Conditional Access App Control</td><td><a class="btn portal" href="https://security.microsoft.com/cloudapps/policies/management?tab=conditionalAccessPolicies" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#conditional-access-app-control" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Shadow IT &mdash; Cloud Discovery</td><td><a class="btn portal" href="https://security.microsoft.com/cloudapps/discovery" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#shadow-it--cloud-discovery" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                        <tr><td>Cloud Discovery Dashboard</td><td><a class="btn portal" href="https://security.microsoft.com/cloudapps/discovery" target="_blank" rel="noopener noreferrer">&#x1F517; Abrir</a></td><td><a class="btn doc" href="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#cloud-discovery-dashboard" target="_blank" rel="noopener noreferrer">&#x1F4D6; Guía</a></td></tr>
+                    </tbody>
+                </table>
+                </div>
+            </details>
+        </section>
+
+        <!-- ══════════════════ PIE ══════════════════ -->
+        <div class="footer">
+            <div class="legend" aria-label="Leyenda de severidad">
+                <span class="sev critical">Crítico</span>
+                <span class="sev high">Alto</span>
+                <span class="sev medium">Medio</span>
+                <span class="sev low">Bajo</span>
+                <span class="sev info">Info</span>
+            </div>
+            <div>Generado por Operaciones de Seguridad Automatizadas &middot; Microsoft 365 Defender XDR &middot; Proyecto GOL</div>
+            <div style="margin-top:4px; opacity:0.8;">Los bloques marcados como <span class="demo-tag">Ejemplo</span> contienen datos de muestra que serán reemplazados por el proceso automatizado.</div>
+        </div>
+    </div>
+    <script>
+    /* Columna "Completado" para tareas operativas.
+       Regla: el checkbox permanece deshabilitado hasta que el usuario
+       hace clic en el botón "Abrir" del portal de esa tarea. */
+    (function () {
+        var tables = document.querySelectorAll('table.ops-table');
+        for (var t = 0; t < tables.length; t++) {
+            (function (table) {
+                var headRow = table.querySelector('thead tr');
+                if (headRow) {
+                    var th = document.createElement('th');
+                    th.setAttribute('scope', 'col');
+                    th.style.width = '110px';
+                    th.textContent = 'Completado';
+                    headRow.appendChild(th);
+                }
+
+                var rows = table.querySelectorAll('tbody tr');
+                var total = rows.length;
+
+                var counter = null;
+                var details = table.closest('details.accordion');
+                if (details) {
+                    var summary = details.querySelector('summary');
+                    counter = document.createElement('span');
+                    counter.className = 'done-counter';
+                    counter.textContent = '0/' + total;
+                    var chev = summary.querySelector('.chev');
+                    if (chev) { summary.insertBefore(counter, chev); } else { summary.appendChild(counter); }
+                }
+
+                function updateCounter() {
+                    if (!counter) return;
+                    var done = table.querySelectorAll('tbody tr.task-done').length;
+                    counter.textContent = done + '/' + total;
+                    if (done === total && total > 0) { counter.classList.add('complete'); }
+                    else { counter.classList.remove('complete'); }
+                }
+
+                for (var r = 0; r < rows.length; r++) {
+                    (function (row) {
+                        var portal = row.querySelector('.btn.portal');
+                        var td = document.createElement('td');
+                        td.className = 'ops-check-cell';
+
+                        var cb = document.createElement('input');
+                        cb.type = 'checkbox';
+                        cb.className = 'ops-check';
+                        cb.disabled = true;
+                        cb.title = 'Abre el portal de esta tarea para habilitar';
+                        cb.setAttribute('aria-label', 'Marcar tarea como completada');
+
+                        var hint = document.createElement('span');
+                        hint.className = 'ops-check-hint';
+                        hint.textContent = 'Abre el portal';
+
+                        td.appendChild(cb);
+                        td.appendChild(hint);
+                        row.appendChild(td);
+
+                        if (portal) {
+                            portal.addEventListener('click', function () {
+                                if (cb.disabled) {
+                                    cb.disabled = false;
+                                    hint.textContent = 'Marcar como hecho';
+                                }
+                            });
+                        }
+
+                        cb.addEventListener('change', function () {
+                            if (cb.checked) { row.classList.add('task-done'); hint.textContent = 'Completado'; }
+                            else { row.classList.remove('task-done'); hint.textContent = 'Marcar como hecho'; }
+                            updateCounter();
+                        });
+                    })(rows[r]);
+                }
+            })(tables[t]);
+        }
+    })();
+    </script>
+    <script>
+    /* Switch de tema claro/oscuro (recuerda la elección en este navegador) */
+    (function () {
+        var btn = document.getElementById('themeToggle');
+        if (!btn) return;
+        function current() { return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'; }
+        function apply(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            btn.setAttribute('aria-checked', theme === 'dark' ? 'true' : 'false');
+            try { localStorage.setItem('gol-theme', theme); } catch (e) {}
+        }
+        apply(current());
+        btn.addEventListener('click', function () {
+            apply(current() === 'dark' ? 'light' : 'dark');
+        });
+    })();
+    </script>
+</body>
+</html>
