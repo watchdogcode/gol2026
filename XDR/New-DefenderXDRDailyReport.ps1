@@ -8,82 +8,24 @@
     consultas de hunting diarias y genera un reporte ejecutivo profesional en HTML.
 
 .PARAMETER TimeWindowHours
-    Ventana de tiempo en horas para el análisis (Por defecto: 720).
+    Ventana de tiempo en horas para el análisis (Por defecto: 24).
 
 .PARAMETER OutputPath
     Ruta completa para el archivo HTML de salida.
 
-.PARAMETER TenantId
-    Tenant ID de Entra ID. Toma por defecto $env:AZURE_TENANT_ID.
-
-.PARAMETER ClientId
-    App/Client ID de la aplicación registrada. Toma por defecto $env:AZURE_CLIENT_ID.
-
-.PARAMETER ClientSecret
-    Secreto de la aplicación para AuthMode Secret. Toma por defecto $env:AZURE_CLIENT_SECRET.
-
 .PARAMETER AuthMode
-    Método de autenticación: 'Secret', 'Certificate', 'Interactive', 'DeviceCode'.
-    Para 'Secret', configure $ClientId, $TenantId y $ClientSecret.
-    Para 'Certificate', configure $ClientId, $TenantId y el certificado por thumbprint o ruta PFX.
-
-.PARAMETER CertificateThumbprint
-    Thumbprint del certificado en CurrentUser/My o LocalMachine/My.
-
-.PARAMETER CertificatePath
-    Ruta a archivo PFX/P12 para autenticación por certificado.
-
-.PARAMETER CertificatePassword
-    Password SecureString para abrir CertificatePath (opcional si el PFX no tiene password).
-
-.PARAMETER TimeoutSec
-    Timeout por consulta a la API (segundos). Por defecto: 120.
-
-.PARAMETER FailFast
-    Si es $true, detiene ejecución ante el primer error de consulta.
-
-.PARAMETER IncludeMDO
-    Incluir secciones de Microsoft Defender for Office 365. Si no se especifica ningún producto, se incluyen todos.
-
-.PARAMETER IncludeMDE
-    Incluir secciones de Microsoft Defender for Endpoint. Si no se especifica ningún producto, se incluyen todos.
-
-.PARAMETER IncludeMDI
-    Incluir secciones de Microsoft Defender for Identity y Entra ID. Si no se especifica ningún producto, se incluyen todos.
-
-.PARAMETER IncludeMDA
-    Incluir secciones de Microsoft Defender for Cloud Apps. Si no se especifica ningún producto, se incluyen todos.
-
-.EXAMPLE
-    .\New-DefenderXDRDailyReport.ps1
-    Ejecuta el reporte con AuthMode Secret (default) y todos los productos habilitados.
-
-.EXAMPLE
-    .\New-DefenderXDRDailyReport.ps1 -AuthMode Certificate -TenantId "<tenant>" -ClientId "<appId>" -CertificateThumbprint "<thumbprint>"
-    Ejecuta el reporte usando autenticación por certificado desde el store de certificados.
-
-.EXAMPLE
-    $pwd = Read-Host "Password del PFX" -AsSecureString
-    .\New-DefenderXDRDailyReport.ps1 -AuthMode Certificate -TenantId "<tenant>" -ClientId "<appId>" -CertificatePath "C:\certs\app.pfx" -CertificatePassword $pwd
-    Ejecuta el reporte usando un certificado PFX.
-
-.EXAMPLE
-    .\New-DefenderXDRDailyReport.ps1 -IncludeMDO -IncludeMDE
-    Ejecuta el reporte solo con las secciones de MDO y MDE.
-
-.EXAMPLE
-    .\New-DefenderXDRDailyReport.ps1 -IncludeMDA
-    Ejecuta el reporte solo con la sección de MDA (Cloud Apps).
+    Método de autenticación: 'Secret', 'Interactive', 'DeviceCode'.
+    Para 'Secret', asegúrese de configurar $ClientId, $TenantId y $ClientSecret (o variables de entorno).
 
 .NOTES
     Endpoint de API: https://api.security.microsoft.com
     Permiso requerido: AdvancedHunting.Read.All
-    Author  : Ernesto Cobos Roqueñí, Arturo Mandujano
 #>
 
 param(
     [int]$TimeWindowHours = 180,
     [string]$OutputPath = "$PSScriptRoot\Daily_SecOps_Report_$(Get-Date -Format 'yyyyMMdd').html",
+    [string]$TemplatePath = "$PSScriptRoot\Nuevo_Dashboard_SecOps_GOL (3).html",
     [string]$TenantId = $env:AZURE_TENANT_ID,
     [string]$ClientId = $env:AZURE_CLIENT_ID,
     [string]$ClientSecret = $env:AZURE_CLIENT_SECRET,
@@ -129,152 +71,6 @@ $ApiBaseUrl = "https://api.security.microsoft.com/api"
 $ResourceUrl = "https://api.security.microsoft.com"
 $ReportDate = Get-Date
 $StartDate = $ReportDate.AddHours(-$TimeWindowHours)
-
-# --- PARSER DE CATÁLOGOS KQL DESDE MARKDOWN ---
-# Carga automáticamente los catálogos KQL desde los archivos .md del repositorio.
-# Formatos soportados:
-#   MDO:     ## emoji Categoría  →  ### N. Título  →  ```kql ... ```
-#   MDI:     ## N. Título  →  ```kql ... ```  (sin categorías)
-#   EntraID: # X) Categoría  →  ## XN) Título  →  ```kql ... ```
-function Import-KqlCatalogFromMarkdown {
-    param(
-        [string]$Url,
-        [string]$LocalPath,
-        [Parameter(Mandatory)][ValidateSet('MDO','MDI','EntraID')][string]$Format
-    )
-
-    $Content = $null
-    $LoadedFrom = $null
-
-    # Intentar descarga desde GitHub (fuente canónica)
-    if ($Url) {
-        try {
-            if ($Url -match '^https://github\.com/.+/blob/.+$') {
-                $Url = $Url -replace '^https://github\.com/', 'https://raw.githubusercontent.com/' -replace '/blob/', '/'
-            }
-            Write-Log "Descargando catálogo $Format desde GitHub..."
-            $Content = (Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 15).Content
-            if ($Content) { $LoadedFrom = 'GitHub' }
-        }
-        catch {
-            Write-Log "No se pudo descargar catálogo $Format desde GitHub: $($_.Exception.Message)" -Level WARN
-        }
-    }
-
-    # Fallback: archivo local
-    if (-not $Content -and $LocalPath -and (Test-Path $LocalPath)) {
-        Write-Log "Cargando catálogo $Format desde archivo local: $LocalPath"
-        $Content = Get-Content $LocalPath -Raw -Encoding UTF8
-        if ($Content) { $LoadedFrom = 'Local' }
-    }
-
-    if (-not $Content) {
-        Write-Log "Catálogo $Format no disponible (ni GitHub ni local)" -Level WARN
-        return $null
-    }
-    $Lines     = $Content -split "`n"
-    $Catalog   = @()
-    $Category  = ""
-    $InKql     = $false
-    $KqlBuffer = ""
-    $CurrentId = $null
-    $CurrentTitle = ""
-
-    foreach ($Line in $Lines) {
-        $Trimmed = $Line.TrimEnd()
-
-        # --- Detectar categoría ---
-        switch ($Format) {
-            'MDO' {
-                # ## 🎭 Spoofing y Autenticación  (## + emoji + texto)
-                if ($Trimmed -match '^## [^\w\s#*].+') {
-                    $Cat = $Trimmed -replace '^## \S+\s*', ''
-                    if ($Cat -and $Cat -notmatch '^\*' -and $Cat -notmatch '^Índice' -and $Cat -notmatch '^Recomendaciones') {
-                        $Category = $Cat.Trim()
-                    }
-                }
-            }
-            'EntraID' {
-                # Compatibilidad: # A) ... (formato legado) y # 1) ... (formato actual)
-                if ($Trimmed -match '^# (?:[A-Z]|\d+)\)\s+(.+)$') {
-                    $Category = $Matches[1].Trim()
-                }
-            }
-            # MDI: sin categorías, se mantiene el valor vacío
-        }
-
-        # --- Detectar encabezado de query ---
-        $QueryMatch = $false
-        switch ($Format) {
-            'MDO' {
-                # ### 1. Spoofing: From (Header) ≠ MailFrom (Envelope)
-                if ($Trimmed -match '^### (\d+)\.\s+(.+)$') {
-                    $QueryMatch = $true
-                    $CurrentId = [int]$Matches[1]
-                    $CurrentTitle = $Matches[2].Trim()
-                }
-            }
-            'MDI' {
-                # ## 1. Alertas de Defender for Identity (últimos 7d)
-                if ($Trimmed -match '^## (\d+)\.\s+(.+)$') {
-                    $QueryMatch = $true
-                    $CurrentId = [int]$Matches[1]
-                    $CurrentTitle = $Matches[2].Trim()
-                }
-            }
-            'EntraID' {
-                # Compatibilidad: ## A1) ... (formato legado) y ## 1.1) ... (formato actual)
-                if ($Trimmed -match '^## ((?:[A-Z]\d+|\d+\.\d+))\)\s+(.+)$') {
-                    $QueryMatch = $true
-                    $CurrentId = $Matches[1].Trim()
-                    $CurrentTitle = $Matches[2].Trim()
-                }
-            }
-        }
-
-        # --- Capturar bloque KQL ---
-        if ($Trimmed -match '^```kql' -and $CurrentId) {
-            $InKql = $true
-            $KqlBuffer = ""
-            continue
-        }
-
-        if ($InKql -and $Trimmed -match '^```\s*$') {
-            $InKql = $false
-            # Emitir entrada del catálogo
-            $Entry = @{
-                Id       = $CurrentId
-                Category = if ($Category) { $Category } else { $CurrentTitle }
-                Title    = $CurrentTitle
-                Query    = $KqlBuffer.TrimEnd()
-            }
-            $Catalog += $Entry
-            $CurrentId = $null
-            $CurrentTitle = ""
-            $KqlBuffer = ""
-            continue
-        }
-
-        if ($InKql) {
-            $KqlBuffer += $Trimmed + "`n"
-        }
-    }
-
-    # Para EntraID, re-numerar secuencialmente (1, 2, 3...) ya que los IDs originales son alfanuméricos
-    if ($Format -eq 'EntraID') {
-        for ($i = 0; $i -lt $Catalog.Count; $i++) {
-            $Catalog[$i].Id = $i + 1
-        }
-    }
-
-    if ($Catalog.Count -eq 0 -and $LoadedFrom -eq 'GitHub' -and $LocalPath -and (Test-Path $LocalPath)) {
-        Write-Log "Catálogo $Format en GitHub sin queries parseables. Reintentando archivo local..." -Level WARN
-        return Import-KqlCatalogFromMarkdown -Url $null -LocalPath $LocalPath -Format $Format
-    }
-
-    Write-Log "Catálogo $Format cargado desde Markdown: $($Catalog.Count) queries"
-    return $Catalog
-}
 
 # --- ENMASCARAMIENTO DE CREDENCIALES ---
 function Mask-String {
@@ -411,7 +207,6 @@ function New-ClientAssertionJwt {
 
     $Rsa = $null
     try {
-        # Compatibilidad amplia: en algunos hosts GetRSAPrivateKey no está disponible como método de instancia.
         $Rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($Certificate)
     }
     catch {
@@ -708,7 +503,23 @@ AlertInfo
 | order by Count desc
 "@
 
-    "AlertsByWorkload" = @"
+    "XDR_Incidents" = @"
+AlertInfo
+| where Timestamp >= ago(24h)
+| join kind=leftouter (AlertEvidence | where Timestamp >= ago(24h) | summarize Entities=dcount(EntityType), DevicesAffected=dcount(DeviceId) by AlertId) on AlertId
+| project Timestamp, AlertId, Title, Severity, ServiceSource, Category, Entities=coalesce(Entities, 0), DevicesAffected=coalesce(DevicesAffected, 0)
+| order by Timestamp desc
+| take 25
+"@
+
+    "XDR_Trend7d" = @"
+AlertInfo
+| where Timestamp >= ago(7d)
+| summarize Count=dcount(AlertId) by Day=bin(Timestamp, 1d)
+| order by Day asc
+"@
+
+    "XDR_AlertsTop" = @"
 AlertInfo
 | where Timestamp >= ago(24h)
 | project Timestamp,
@@ -716,24 +527,18 @@ AlertInfo
           Title = tostring(column_ifexists("Title", "")),
           Severity = tostring(column_ifexists("Severity", "")),
           ServiceSource = tostring(column_ifexists("ServiceSource", "")),
-          DetectionSource = tostring(column_ifexists("DetectionSource", "")),
-          ProviderName = tostring(column_ifexists("ProviderName", "")),
+          Status = tostring(column_ifexists("Status", "")),
           Category = tostring(column_ifexists("Category", ""))
-| order by Timestamp desc, Severity desc
+| order by Timestamp desc
+| take 500
 "@
 
-    "XDR_Incidents" = @"
-AlertInfo
-| where Timestamp >= ago(24h)
-| extend IncidentRef = tostring(column_ifexists("IncidentId", ""))
-| extend IncidentRef = iif(isempty(IncidentRef), tostring(AlertId), IncidentRef)
-| extend IncidentStatus = trim(@" ", tostring(column_ifexists("Status", "")))
-| summarize arg_max(Timestamp, Title, Severity, IncidentStatus) by IncidentRef
-| extend IncidentStatusNorm = tolower(IncidentStatus)
-| where isempty(IncidentStatusNorm) or not(IncidentStatusNorm has "closed")
-| where isempty(IncidentStatusNorm) or not(IncidentStatusNorm has "resolved")
-| project Timestamp, IncidentId=IncidentRef, Title, Severity, Status=IncidentStatus
-| order by Timestamp desc
+    "MDO_ThreatMetrics7d" = @"
+let p = toscalar(EmailEvents | where Timestamp >= ago(7d) and ThreatTypes has "Phish" | summarize c=count());
+let m = toscalar(EmailEvents | where Timestamp >= ago(7d) and ThreatTypes has "Malware" | summarize c=count());
+let s = toscalar(EmailEvents | where Timestamp >= ago(7d) and SenderFromDomain != SenderMailFromDomain | summarize c=count());
+let u = toscalar(EmailUrlInfo | where Timestamp >= ago(7d) | summarize c=count());
+print Phishing=p, UrlMaliciosa=u, Suplantacion=s, Malware=m
 "@
 
     "MDI_HighRiskUsers" = @"
@@ -742,7 +547,7 @@ EntraIdSignInEvents
 | where RiskLevelAggregated in (50, 100)
 | summarize Events=count() by 
 AccountUpn, RiskLevelAggregated
-| top 99 by Events desc
+| top 25 by Events desc
 "@
 
     "MDE_Health" = @"
@@ -750,7 +555,7 @@ DeviceInfo
 | summarize arg_max(Timestamp, *) by DeviceId
 | project Timestamp, DeviceName, OSPlatform, ExposureLevel, OnboardingStatus
 | where OnboardingStatus !in ("Onboarded","Unknown") or ExposureLevel in ("High","Medium")
-| top 99 by Timestamp desc
+| top 50 by Timestamp desc
 "@
 
     "MDI_BruteForce" = @"
@@ -774,22 +579,14 @@ CloudAppEvents
 | where Timestamp >= ago(24h)
 | where ActionType in ("Consent to application","Grant consent")
 | summarize Consents=count(), Users=dcount(AccountId) by Application, ApplicationId
-| top 99 by Consents desc
+| top 20 by Consents desc
 "@
 
     "MDA_ShadowIT" = @"
 CloudAppEvents
 | where Timestamp >= ago(24h)
 | summarize Events=count(), Users=dcount(AccountId) by Application
-| top 99 by Events desc
-"@
-
-    "XDR_CustomDetections" = @"
-AlertInfo
-| where Timestamp >= ago($($CustomDetectionsWindowHours)h)
-| where DetectionSource =~ "Custom Detection"
-| summarize Count=count() by Severity, Title
-| order by Count desc
+| top 20 by Events desc
 "@
 }
 
@@ -810,157 +607,22 @@ foreach ($Key in $Queries.Keys) {
 }
 
 # 3. Calcular KPIs
+$Kpi_TotalAlerts = ($Data["XDR_AllAlerts"] | Measure-Object -Property Count -Sum).Sum
+if (-not $Kpi_TotalAlerts) { $Kpi_TotalAlerts = 0 }
+
 $Kpi_IncidentCount = $Data["XDR_Incidents"].Count
 if (-not $Kpi_IncidentCount) { $Kpi_IncidentCount = 0 }
 
-$Kpi_MdoAlerts = 0
-if ($RunMDO) {
-    $Kpi_MdoAlerts = ($Data["XDR_AllAlerts"] | Where-Object { $_.ServiceSource -match "Defender for Office 365|Office 365" } | Measure-Object -Property Count -Sum).Sum
-    if (-not $Kpi_MdoAlerts) { $Kpi_MdoAlerts = 0 }
-}
+$Kpi_PhishDelivered = ($Data["MDO_Campaigns"] | Measure-Object -Property Events -Sum).Sum
+if (-not $Kpi_PhishDelivered) { $Kpi_PhishDelivered = 0 }
 
-$Kpi_MdeAlerts = 0
-if ($RunMDE) {
-    $Kpi_MdeAlerts = ($Data["XDR_AllAlerts"] | Where-Object { $_.ServiceSource -match "Defender for Endpoint|Endpoint" } | Measure-Object -Property Count -Sum).Sum
-    if (-not $Kpi_MdeAlerts) { $Kpi_MdeAlerts = 0 }
-}
-
-$Kpi_MdiAlerts = 0
-$Kpi_HighRiskUsers = 0
-if ($RunMDI) {
-    $Kpi_MdiAlerts = ($Data["XDR_AllAlerts"] | Where-Object { $_.ServiceSource -match "Defender for Identity" } | Measure-Object -Property Count -Sum).Sum
-    if (-not $Kpi_MdiAlerts) { $Kpi_MdiAlerts = 0 }
-    $Kpi_HighRiskUsers = $Data["MDI_HighRiskUsers"].Count
-}
-
-$Kpi_NewOAuth = 0
-if ($RunMDA) {
-    $Kpi_NewOAuth = ($Data["MDA_OAuth"] | Measure-Object -Property Consents -Sum).Sum
-    if (-not $Kpi_NewOAuth) { $Kpi_NewOAuth = 0 }
-}
-
-$Kpi_CustomDetections = 0
-if ($Data["XDR_CustomDetections"] -and $Data["XDR_CustomDetections"].Count -gt 0) {
-    $Kpi_CustomDetections = ($Data["XDR_CustomDetections"] | Measure-Object -Property Count -Sum).Sum
-    if (-not $Kpi_CustomDetections) { $Kpi_CustomDetections = 0 }
-}
-
-# --- Severidad máxima por workload para colorear KPIs ---
-function Get-SeverityRank {
-    param([string]$Severity)
-
-    switch -Regex (($Severity | ForEach-Object { $_.ToString().Trim().ToLower() })) {
-        'critical'      { return 5 }
-        '^high$'        { return 4 }
-        '^medium$'      { return 3 }
-        '^low$'         { return 2 }
-        'informational|info' { return 1 }
-        default         { return 0 }
-    }
-}
-
-function Get-HighestSeverity {
-    param($Rows)
-
-    if (-not $Rows -or $Rows.Count -eq 0) { return $null }
-
-    $Top = $Rows |
-        Sort-Object -Property @{ Expression = { Get-SeverityRank $_.Severity }; Descending = $true } |
-        Select-Object -First 1
-
-    return [string]$Top.Severity
-}
-
-function Get-KpiSeverityClass {
-    param([string]$Severity)
-
-    switch -Regex (($Severity | ForEach-Object { $_.ToString().Trim().ToLower() })) {
-        'critical'      { return 'critical' }
-        '^high$'        { return 'high' }
-        '^medium$'      { return 'medium' }
-        '^low$'         { return 'low' }
-        'informational|info' { return 'info' }
-        default         { return 'none' }
-    }
-}
-
-function Get-KpiClassFromRiskLevel {
-    param([int]$RiskLevel)
-
-    if ($RiskLevel -ge 100) { return 'critical' }
-    if ($RiskLevel -ge 50)  { return 'high' }
-    if ($RiskLevel -gt 0)   { return 'medium' }
-    return 'none'
-}
-
-$AllAlerts = @($Data["XDR_AllAlerts"])
-
-$XdrMaxSeverity = Get-HighestSeverity -Rows @($Data["XDR_Incidents"])
-$Kpi_XdrSeverityClass = Get-KpiSeverityClass -Severity $XdrMaxSeverity
-$Kpi_XdrSeverityLabel = if ($XdrMaxSeverity) { $XdrMaxSeverity } else { 'Sin alertas' }
-
-$Kpi_MdoSeverityClass = 'none'
-$Kpi_MdoSeverityLabel = 'Sin alertas'
-if ($RunMDO) {
-    $MdoAlerts = @($AllAlerts | Where-Object { $_.ServiceSource -match 'Defender for Office 365|Office 365' })
-    $MdoMaxSeverity = Get-HighestSeverity -Rows $MdoAlerts
-    $Kpi_MdoSeverityClass = Get-KpiSeverityClass -Severity $MdoMaxSeverity
-    if ($MdoMaxSeverity) { $Kpi_MdoSeverityLabel = $MdoMaxSeverity }
-}
-
-$Kpi_MdeSeverityClass = 'none'
-$Kpi_MdeSeverityLabel = 'Sin alertas'
-if ($RunMDE) {
-    $MdeAlerts = @($AllAlerts | Where-Object { $_.ServiceSource -match 'Defender for Endpoint|Endpoint' })
-    $MdeMaxSeverity = Get-HighestSeverity -Rows $MdeAlerts
-    $Kpi_MdeSeverityClass = Get-KpiSeverityClass -Severity $MdeMaxSeverity
-    if ($MdeMaxSeverity) { $Kpi_MdeSeverityLabel = $MdeMaxSeverity }
-}
-
-$Kpi_MdiSeverityClass = 'none'
-$Kpi_MdiSeverityLabel = 'Sin alertas'
-if ($RunMDI) {
-    $MdiAlerts = @($AllAlerts | Where-Object { $_.ServiceSource -match 'Defender for Identity|Identity' })
-    $MdiMaxSeverity = Get-HighestSeverity -Rows $MdiAlerts
-    $Kpi_MdiSeverityClass = Get-KpiSeverityClass -Severity $MdiMaxSeverity
-    if ($MdiMaxSeverity) { $Kpi_MdiSeverityLabel = $MdiMaxSeverity }
-}
-
-$Kpi_MdaSeverityClass = 'none'
-$Kpi_MdaSeverityLabel = 'Sin alertas'
-if ($RunMDA) {
-    $MdaAlerts = @($AllAlerts | Where-Object { $_.ServiceSource -match 'Defender for Cloud Apps|Cloud Apps|Microsoft Cloud App Security|MCAS' })
-    $MdaMaxSeverity = Get-HighestSeverity -Rows $MdaAlerts
-    $Kpi_MdaSeverityClass = Get-KpiSeverityClass -Severity $MdaMaxSeverity
-    if ($MdaMaxSeverity) { $Kpi_MdaSeverityLabel = $MdaMaxSeverity }
-}
-
-$Kpi_EntraMaxRiskLevel = 0
-if ($RunMDI -and $Data["MDI_HighRiskUsers"] -and $Data["MDI_HighRiskUsers"].Count -gt 0) {
-    $Kpi_EntraMaxRiskLevel = (($Data["MDI_HighRiskUsers"] | Measure-Object -Property RiskLevelAggregated -Maximum).Maximum)
-    if (-not $Kpi_EntraMaxRiskLevel) { $Kpi_EntraMaxRiskLevel = 0 }
-}
-$Kpi_EntraSeverityClass = Get-KpiClassFromRiskLevel -RiskLevel $Kpi_EntraMaxRiskLevel
-$Kpi_EntraSeverityLabel = if ($Kpi_EntraMaxRiskLevel -eq 100) { 'High (100)' } elseif ($Kpi_EntraMaxRiskLevel -eq 50) { 'Medium (50)' } elseif ($Kpi_EntraMaxRiskLevel -gt 0) { "Riesgo $Kpi_EntraMaxRiskLevel" } else { 'Sin riesgo' }
-
-$Kpi_CustomDetectionsSeverityClass = 'none'
-$Kpi_CustomDetectionsSeverityLabel = 'Sin detecciones'
-if ($Data["XDR_CustomDetections"] -and $Data["XDR_CustomDetections"].Count -gt 0) {
-    $CustomMaxSeverity = Get-HighestSeverity -Rows $Data["XDR_CustomDetections"]
-    $Kpi_CustomDetectionsSeverityClass = Get-KpiSeverityClass -Severity $CustomMaxSeverity
-    if ($CustomMaxSeverity) { $Kpi_CustomDetectionsSeverityLabel = $CustomMaxSeverity }
-}
+$Kpi_CompromisedIdentities = $Data["MDI_BruteForce"].Count
+$Kpi_HighRiskUsers = $Data["MDI_HighRiskUsers"].Count
+$Kpi_NewOAuth = ($Data["MDA_OAuth"] | Measure-Object -Property Consents -Sum).Sum
+if (-not $Kpi_NewOAuth) { $Kpi_NewOAuth = 0 }
 
 # --- CATÁLOGO COMPLETO DE KQL (MDO Advanced Hunting) ---
-# Se carga dinámicamente desde GitHub (rama main) o archivo local como fallback.
-# Si ambos fallan, se usa el catálogo hardcoded.
-$MdoKqlCatalog = Import-KqlCatalogFromMarkdown `
-    -Url 'https://raw.githubusercontent.com/watchdogcode/gol2026/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md' `
-    -LocalPath (Join-Path $PSScriptRoot "..\MDO\Paquete MDO KQL Advance Hunting.md") `
-    -Format MDO
-
-if (-not $MdoKqlCatalog -or $MdoKqlCatalog.Count -eq 0) {
-Write-Log "Cargando catálogo MDO desde fallback hardcoded..." -Level WARN
+# Fuente: https://github.com/watchdogcode/gol2026/blob/V2.1/MDO/04%20Paquete%20MDO%20KQL%20Advance%20Hunting.md
 $MdoKqlCatalog = @(
     # ── Spoofing y Autenticación ──
     @{ Id=1;  Category="Spoofing y Autenticación"; Title="Spoofing: From (Header) ≠ MailFrom (Envelope)"; Query=@"
@@ -1271,30 +933,11 @@ EmailEvents
 | where OrgLevelAction in ("Allow","DeliverToInbox") or (DetectionMethods has "UserOverride" or DetectionMethods has "AdminOverride")
 | summarize Total=count(), DistinctSenders=dcount(SenderFromAddress) by OrgLevelAction, DetectionMethods
 | order by Total desc
-"@ },
-    # ── Validación de Correos Entregados con Amenazas ──
-    @{ Id=29; Category="Validación de Correos Entregados con Amenazas"; Title="Correos entregados con algún tipo de amenaza (Query base)"; Query=@"
-EmailEvents
-| where DeliveryAction == "Delivered"
-| where ThreatTypes != ""
-| project Timestamp, NetworkMessageId, SenderFromAddress, RecipientEmailAddress, Subject, ThreatTypes, DetectionMethods, ConfidenceLevel, DeliveryLocation
-| order by Timestamp desc
-"@ },
-    @{ Id=30; Category="Validación de Correos Entregados con Amenazas"; Title="Confirmar si fue Safe Attachments o Safe Links"; Query=@"
-EmailAttachmentInfo
-| where MalwareFilterVerdict != "Clean"
-| project Timestamp, NetworkMessageId, FileName, MalwareFilterVerdict, DetectionMethods
-"@ },
-    @{ Id=31; Category="Validación de Correos Entregados con Amenazas"; Title="Enlaces maliciosos entregados"; Query=@"
-EmailUrlInfo
-| where UrlThreatType != "None"
-| project Timestamp, NetworkMessageId, Url, UrlThreatType, DetectionMethods
 "@ }
 )
-} # fin fallback MDO
 
 # Seleccionar un KQL aleatorio del catálogo MDO
-$SelectedMdoKql = if ($RunMDO) { $MdoKqlCatalog | Get-Random } else { $null }
+$SelectedMdoKql = $MdoKqlCatalog | Get-Random
 
 # --- CATÁLOGO KQL: MDE (Advanced Hunting – Endpoint Security) ---
 $MdeKqlCatalog = @(
@@ -1405,17 +1048,10 @@ DeviceInfo
 | take 50
 "@ }
 )
-$SelectedMdeKql = if ($RunMDE) { $MdeKqlCatalog | Get-Random } else { $null }
+$SelectedMdeKql = $MdeKqlCatalog | Get-Random
 
 # --- CATÁLOGO KQL: MDI (Advanced Hunting – Identity Threat Detection) ---
-# Se carga dinámicamente desde GitHub (rama main) o archivo local como fallback.
-$MdiKqlCatalog = Import-KqlCatalogFromMarkdown `
-    -Url 'https://raw.githubusercontent.com/watchdogcode/gol2026/main/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md' `
-    -LocalPath (Join-Path $PSScriptRoot "..\MDI\Paquete MDI KQL Advance Hunting.md") `
-    -Format MDI
-
-if (-not $MdiKqlCatalog -or $MdiKqlCatalog.Count -eq 0) {
-Write-Log "Cargando catálogo MDI desde fallback hardcoded..." -Level WARN
+# Fuente: https://github.com/watchdogcode/gol2026/blob/V2.1/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md
 $MdiKqlCatalog = @(
     @{ Id=1; Category="Alertas e Incidentes MDI"; Title="Alertas de Defender for Identity (últimos 7d)"; Query=@"
 let TimeRange = 7d;
@@ -1519,19 +1155,10 @@ DeviceNetworkEvents
 | order by DNSQueries desc
 "@ }
 )
-} # fin fallback MDI
-
-$SelectedMdiKql = if ($RunMDI) { $MdiKqlCatalog | Get-Random } else { $null }
+$SelectedMdiKql = $MdiKqlCatalog | Get-Random
 
 # --- CATÁLOGO KQL: Entra ID (Advanced Hunting – Identity Governance) ---
-# Se carga dinámicamente desde GitHub (rama main) o archivo local como fallback.
-$EntraKqlCatalog = Import-KqlCatalogFromMarkdown `
-    -Url 'https://raw.githubusercontent.com/watchdogcode/gol2026/main/EntraID/Paquete%20KQL%20Queries%20EntraID%20Advanced%20Hunting.md' `
-    -LocalPath (Join-Path $PSScriptRoot "..\EntraID\Paquete KQL Queries EntraID Advanced Hunting.md") `
-    -Format EntraID
-
-if (-not $EntraKqlCatalog -or $EntraKqlCatalog.Count -eq 0) {
-Write-Log "Cargando catálogo EntraID desde fallback hardcoded..." -Level WARN
+# Fuente: https://github.com/watchdogcode/gol2026/blob/V2.1/EntraID/Paquete%20KQL%20Queries%20EntraID%20Advanced%20Hunting.md
 $EntraKqlCatalog = @(
     # ── A) Detección – Usuarios ──
     @{ Id=1; Category="Detección de Usuarios"; Title="Top Fallos de Inicio de Sesión por Usuario"; Query=@"
@@ -1796,9 +1423,7 @@ CloudAppEvents
 | order by Timestamp desc
 "@ }
 )
-} # fin fallback EntraID
-
-$SelectedEntraKql = if ($RunMDI) { $EntraKqlCatalog | Get-Random } else { $null }
+$SelectedEntraKql = $EntraKqlCatalog | Get-Random
 
 # --- CATÁLOGO KQL: MDA (Advanced Hunting – Cloud App Security) ---
 $MdaKqlCatalog = @(
@@ -1900,629 +1525,580 @@ CloudAppEvents
 | order by MaxTime desc
 "@ }
 )
-$SelectedMdaKql = if ($RunMDA) { $MdaKqlCatalog | Get-Random } else { $null }
+$SelectedMdaKql = $MdaKqlCatalog | Get-Random
 
-# 4. Generar HTML
-function ConvertTo-HtmlTable {
-    param($Rows, $Columns)
-    if (-not $Rows -or $Rows.Count -eq 0) { return "<tr><td colspan='$($Columns.Count)' style='text-align:center; color:#666;'>No se encontraron datos en el período</td></tr>" }
-    
-    $Html = ""
-    foreach ($Row in $Rows) {
-        $Html += "<tr>"
-        foreach ($Col in $Columns) {
-            $Val = $Row.$Col
-            if ($Val -is [DateTime]) { $Val = $Val.ToString("yyyy-MM-dd HH:mm") }
-            $Html += "<td>$Val</td>"
-        }
-        $Html += "</tr>"
+# 4. Generar HTML usando plantilla base
+function ConvertTo-HtmlSafe {
+    param([object]$Value)
+    if ($null -eq $Value) { return "" }
+    return [System.Net.WebUtility]::HtmlEncode([string]$Value)
+}
+
+function Get-SeverityClass {
+    param([string]$Severity)
+    $s = ([string]$Severity).ToLowerInvariant()
+    if ($s -match "critical|crit") { return "critical" }
+    if ($s -match "high|alto") { return "high" }
+    if ($s -match "medium|medio") { return "medium" }
+    if ($s -match "low|bajo") { return "low" }
+    return "info"
+}
+
+function Get-SeverityRank {
+    param([string]$Severity)
+    switch (Get-SeverityClass $Severity) {
+        "critical" { 4 }
+        "high" { 3 }
+        "medium" { 2 }
+        "low" { 1 }
+        default { 0 }
     }
-    return $Html
 }
 
-# --- ESTRUCTURA HOMOGÉNEA DE TAREAS OPERATIVAS POR WORKLOAD ---
-$OperativeTasks = @{
-    "MDO" = @(
-        @{ Task="Revisar alertas activas"; Portal="https://security.microsoft.com/alerts"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#monitoreo-de-alertas" },
-        @{ Task="Monitoreo de Incidentes"; Portal="https://security.microsoft.com/incidents"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#monitoreo-de-incidentes" },
-        @{ Task="Validar correos entregados con algún tipo de amenaza"; Portal="https://security.microsoft.com/v2/advanced-hunting"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#validar-correos-entregados-con-alg%C3%BAn-tipo-de-amenaza" },
-        @{ Task="Triage de Mensajes de Teams Reportados"; Portal="https://admin.teams.microsoft.com/policies/messaging?view=reportedsafety"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#triage-de-mensajes-de-teams-reportados-por-usuarios" },
-        @{ Task="Revisar y Actuar sobre los AIRs"; Portal="https://security.microsoft.com/action-center/pending"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-y-actuar-sobre-los-airs" },
-        @{ Task="Revisar Tendencias de Detección MDO"; Portal="https://security.microsoft.com/reports/TPSAggregateReportATP"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-las-tendencias-de-detecci%C3%B3n-de-correo-en-microsoft-defender-for-office-365" },
-        @{ Task="Revisar Campañas Entregadas"; Portal="https://security.microsoft.com/threatexplorerv3"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisar-campa%C3%B1as-de-phishing-y-malware-que-resultaron-en-correos-entregados" },
-        @{ Task="Revisión de Top Targeted Users"; Portal="https://security.microsoft.com/threatexplorerv3"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md#revisi%C3%B3n-de-top-targeted-users" }
-    );
-    "MDE" = @(
-        @{ Task="Monitoreo de Incidentes y Alertas"; Portal="https://security.microsoft.com/incidents"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md#monitoreo-de-incidentes-y-alertas" },
-        @{ Task="Gestión y Clasificación de Alertas"; Portal="https://security.microsoft.com/alerts"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md#gesti%C3%B3n-y-clasificaci%C3%B3n-de-alertas" },
-        @{ Task="Dispositivos en Riesgo"; Portal="https://security.microsoft.com/machines"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md#monitoreo-de-incidentes-y-alertas" },
-        @{ Task="Salud del Sensor y Cobertura EDR"; Portal="https://security.microsoft.com/machines"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md#monitoreo-de-incidentes-y-alertas" },
-        @{ Task="Acciones de Respuesta a Incidentes"; Portal="https://security.microsoft.com/action-center/pending"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md#monitoreo-de-incidentes-y-alertas" },
-        @{ Task="Revisión de Threat Analytics"; Portal="https://security.microsoft.com/threatanalytics3"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md#revisi%C3%B3n-de-threat-analytics" }
-    );
-    "MDI" = @(
-        @{ Task="Revisar ITDR Dashboard"; Portal="https://security.microsoft.com/identities/dashboard"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-itdr-dashboard-identities--dashboard" },
-        @{ Task="Triage de Incidentes por Prioridad"; Portal="https://security.microsoft.com/incidents"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#triage-de-incidentes-por-prioridad-incidents--alerts" },
-        @{ Task="Configurar Tuning para False Positives"; Portal="https://security.microsoft.com/advanced-hunting"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#configurar-tuning-para-benign--false-positives-advanced-hunting" },
-        @{ Task="Proactive hunting diario"; Portal="https://security.microsoft.com/v2/advanced-hunting"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#proactive-hunting-diario-o-semanal-seg%C3%BAn-madurez" },
-        @{ Task="Revisar Health Issues"; Portal="https://security.microsoft.com/identities/health-issues"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-health-issues-global-y-sensor" }
-    );
-    "ENTRA" = @(
-        @{ Task="Monitorear eventos de inicio de sesión"; Portal="https://entra.microsoft.com/#view/Microsoft_AAD_IAM/SignInLogsList.ReactView/timeRangeType/last24hours/showApplicationSignIns~/true"; Guide="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#monitorear-eventos-de-inicio-de-sesi%C3%B3n-y-autenticaci%C3%B3n" },
-        @{ Task="Revisión de Usuarios con Riesgo"; Portal="https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskyUsers"; Guide="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisi%C3%B3n-de-usuarios-con-riesgo-alto--medio" },
-        @{ Task="Revisión de Inicios de Sesión con Riesgo"; Portal="https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskySignIns"; Guide="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisi%C3%B3n-de-inicios-de-sesi%C3%B3n-con-riesgo" },
-        @{ Task="Revisar alertas de Entra Connect Health"; Portal="https://entra.microsoft.com/#view/Microsoft_AAD_Connect_Health/ConnectHealthMenuBlade/~/overview"; Guide="https://github.com/watchdogcode/gol2026/blob/main/EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md#revisar-alertas-de-microsoft-entra-connect-health-entornos-h%C3%ADbridos" }
-    );
-    "MDA" = @(
-        @{ Task="Review Alerts and Incidents"; Portal="https://security.microsoft.com/alerts"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#review-alerts-and-incidents" },
-        @{ Task="Triage desde Microsoft Defender XDR"; Portal="https://security.microsoft.com/incidents"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#triage-desde-microsoft-defender-xdr" },
-        @{ Task="Review Threat Detection Data"; Portal="https://security.microsoft.com/threatanalytics3"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#review-threat-detection-data" },
-        @{ Task="Application Governance - OAuth Risk"; Portal="https://security.microsoft.com/cloudapps/governance-log"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#application-governance--oauth-risk" },
-        @{ Task="App Governance - Overview"; Portal="https://security.microsoft.com/cloudapps/governance-log"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#app-governance--overview" },
-        @{ Task="Review OAuth App Data"; Portal="https://security.microsoft.com/cloudapps/oauth-apps"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#review-oauth-app-data" },
-        @{ Task="App Governance Policies"; Portal="https://security.microsoft.com/cloudapps/policies/management"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#review-alerts-and-incidents" },
-        @{ Task="Conditional Access App Control"; Portal="https://security.microsoft.com/cloudapps/policies/management?tab=conditionalAccessPolicies"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#conditional-access-app-control" },
-        @{ Task="Shadow IT - Cloud Discovery"; Portal="https://security.microsoft.com/cloudapps/discovery"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#shadow-it--cloud-discovery" },
-        @{ Task="Cloud Discovery Dashboard"; Portal="https://security.microsoft.com/cloudapps/discovery"; Guide="https://github.com/watchdogcode/gol2026/blob/main/MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md#cloud-discovery-dashboard" }
-    );
+function Get-SeverityTextEs {
+    param([string]$Severity)
+    switch (Get-SeverityClass $Severity) {
+        "critical" { "Crítico" }
+        "high" { "Alto" }
+        "medium" { "Medio" }
+        "low" { "Bajo" }
+        default { "Info" }
+    }
 }
 
-# --- SECCIONES CONDICIONALES (KPIs y Recomendaciones) ---
-Write-Log "Productos incluidos: $(if($RunMDO){'MDO '})$(if($RunMDE){'MDE '})$(if($RunMDI){'MDI '})$(if($RunMDA){'MDA'})"
+function Get-StateClass {
+    param([string]$Status)
+    $s = ([string]$Status).ToLowerInvariant()
+    if ($s -match "new|nuevo") { return "new" }
+    if ($s -match "active|investig|inprogress|ongoing") { return "investigating" }
+    if ($s -match "resolved|closed|mitigated|contained|resuelto") { return "contained" }
+    return "investigating"
+}
 
-function Build-WorkloadSection {
+function Get-StateTextEs {
+    param([string]$Status)
+    $s = ([string]$Status).ToLowerInvariant()
+    if ($s -match "new|nuevo") { return "Nuevo" }
+    if ($s -match "resolved|closed|mitigated|contained|resuelto") { return "Contenido" }
+    if ($s -match "active|inprogress|ongoing|investig") { return "En investigación" }
+    return "En investigación"
+}
+
+function Get-WorkloadFromServiceSource {
+    param([string]$ServiceSource)
+    $s = [string]$ServiceSource
+    if ($s -match "Office|Email|Exchange|Teams") { return "MDO" }
+    if ($s -match "Endpoint|Device") { return "MDE" }
+    if ($s -match "Identity|Defender for Identity|MDI") { return "MDI" }
+    if ($s -match "Entra|Azure Active Directory|AAD") { return "Entra" }
+    if ($s -match "Cloud App|MCAS|Defender for Cloud Apps") { return "MDA" }
+    return "Otros"
+}
+
+function Get-RelativeAgeText {
+    param([datetime]$When)
+    if (-not $When) { return "N/D" }
+    $ts = New-TimeSpan -Start $When -End (Get-Date)
+    if ($ts.TotalMinutes -lt 60) { return "hace $([math]::Max(1, [int]$ts.TotalMinutes)) min" }
+    if ($ts.TotalHours -lt 24) { return "hace $([math]::Max(1, [int]$ts.TotalHours)) h" }
+    return "hace $([math]::Max(1, [int]$ts.TotalDays)) d"
+}
+
+function Get-KpiTrend {
+    param([int]$Current, [int]$Previous)
+    $Delta = $Current - $Previous
+    if ($Delta -gt 0) {
+        return @{ Class = "up"; Text = "&#x25B2; +$Delta vs. ayer" }
+    }
+    if ($Delta -lt 0) {
+        return @{ Class = "down"; Text = "&#x25BC; $Delta vs. ayer" }
+    }
+    return @{ Class = "flat"; Text = "&#x2013; sin cambio" }
+}
+
+function Set-ContentBetweenMarkers {
     param(
-        [string]$WorkloadName,
-        [string]$WorkloadEmoji,
-        [string]$HeaderColor,
-        [array]$OperativeTasks,
-        [array]$ActiveAlerts,
-        [hashtable]$SelectedKql,
-        [string]$KqlCatalogUrl
+        [string]$Html,
+        [string]$StartMarker,
+        [string]$EndMarker,
+        [string]$InjectedHtml
     )
+    $startIx = $Html.IndexOf($StartMarker)
+    if ($startIx -lt 0) { return $Html }
+    $fromIx = $startIx + $StartMarker.Length
+    $endIx = $Html.IndexOf($EndMarker, $fromIx)
+    if ($endIx -lt 0) { return $Html }
+    return $Html.Substring(0, $fromIx) + "`r`n" + $InjectedHtml + "`r`n                        " + $Html.Substring($endIx)
+}
 
-    $TaskCount = $OperativeTasks.Count
-    $TaskRows = ""
-    foreach ($Task in $OperativeTasks) {
-        $TaskRows += @"
-                        <tr><td class="ops-task-name">$($Task.Task)</td><td><a class="ops-btn portal" href="$($Task.Portal)" target="_blank">&#x1f517; Abrir</a></td><td><a class="ops-btn doc" href="$($Task.Guide)" target="_blank">&#x1f4d6; Guía</a></td></tr>
-"@
+function Update-KpiCardByLabel {
+    param(
+        [string]$Html,
+        [string]$Label,
+        [int]$Value,
+        [string]$TrendClass,
+        [string]$TrendText,
+        [string]$CardClass
+    )
+    $escapedLabel = [regex]::Escape($Label)
+    $pattern = '(?s)(<a class="kpi-card\s+)([^"]+)("[^>]*>.*?<div class="kpi-val">)([^<]*)(</div>\s*<div class="kpi-label">\s*{0}\s*</div>\s*<span class="kpi-trend\s+)([^"]+)("[^>]*>)(.*?)(</span>)' -f $escapedLabel
+    return [regex]::Replace($Html, $pattern, {
+        param($m)
+        return $m.Groups[1].Value + $CardClass + $m.Groups[3].Value + $Value + $m.Groups[5].Value + $TrendClass + $m.Groups[7].Value + $TrendText + $m.Groups[9].Value
+    }, 1)
+}
+
+function Build-IncidentRows {
+    param([object[]]$Rows)
+    if (-not $Rows -or $Rows.Count -eq 0) {
+        return '<tr><td colspan="7" style="text-align:center; color:#666;">No se encontraron incidentes activos en el período.</td></tr>'
     }
 
-    # Procesar alertas activas de los últimos 7 días
-    $AlertRows = ""
-    if ($ActiveAlerts -and $ActiveAlerts.Count -gt 0) {
-        # Ordenar por severidad (crítica primero)
-        $SeverityMap = @{ "Critical" = 3; "High" = 2; "Medium" = 1; "Low" = 0; "Informational" = -1 }
-        $SortedAlerts = $ActiveAlerts | Sort-Object -Property @{ Expression = { if ($_.Severity) { $SeverityMap[$_.Severity] } else { 0 } }; Descending = $true } | Select-Object -First 5
+    $html = ""
+    foreach ($r in $Rows) {
+        $sevClass = Get-SeverityClass $r.Severity
+        $sevText = Get-SeverityTextEs $r.Severity
+        $stateClass = Get-StateClass $r.Status
+        $stateText = Get-StateTextEs $r.Status
+        $entity = if ($r.ServiceSource) { "$($r.ServiceSource): $($r.Category)" } else { "N/D" }
+        $id = if ($r.AlertId) { $r.AlertId } else { "N/D" }
+        $age = Get-RelativeAgeText ([datetime]$r.Timestamp)
+        $title = ConvertTo-HtmlSafe $r.Title
 
-        foreach ($Alert in $SortedAlerts) {
-            $AlertSeverity = if ($Alert.Severity) { $Alert.Severity } else { "Medium" }
-            $SeverityColor = switch ($AlertSeverity) {
-                "Critical" { "#7a0018" }
-                "High" { "#d13438" }
-                "Medium" { "#ff8c00" }
-                "Low" { "#8764b8" }
-                default { "#0078d4" }
-            }
-            $AlertTitle = if ($Alert.Title) { $Alert.Title } else { if ($Alert.AlertName) { $Alert.AlertName } else { "Alerta" } }
-            $AlertTime = if ($Alert.Timestamp) { ([datetime]$Alert.Timestamp).ToString("yyyy-MM-dd HH:mm") } else { "N/D" }
-            $AlertUrl = if ($Alert.AlertId) { "https://security.microsoft.com/alerts/$($Alert.AlertId)" } else { "https://security.microsoft.com/alerts" }
-            $AlertRows += @"
-                        <tr style="border-left: 4px solid $SeverityColor;">
-                            <td><strong>$AlertTitle</strong></td>
-                            <td><span style="background:$SeverityColor; color:#fff; padding:3px 8px; border-radius:3px; font-size:0.75em; font-weight:600;">$AlertSeverity</span></td>
-                            <td style="color:#666; font-size:0.9em;">$AlertTime</td>
-                            <td><a class="ops-btn portal" href="$AlertUrl" target="_blank">&#x1f517; Ver Alerta</a></td>
-                        </tr>
-"@
-        }
-    } else {
-        $AlertRows = @"
+        $html += @"
                         <tr>
-                            <td colspan="4" style="text-align:center; padding:30px; color:#666;">
-                                <strong>No existen Alertas</strong><br/>
-                                <span style="font-size:0.9em;">No se detectaron alertas activas en el período analizado</span>
-                            </td>
+                            <td class="id-cell">$(ConvertTo-HtmlSafe $id)</td>
+                            <td>$title</td>
+                            <td><span class="sev $sevClass">$sevText</span></td>
+                            <td><span class="state $stateClass">$stateText</span></td>
+                            <td>$age</td>
+                            <td class="entity">$(ConvertTo-HtmlSafe $entity)</td>
+                            <td><a class="btn portal" href="https://security.microsoft.com/incidents" target="_blank" rel="noopener noreferrer">Ver</a></td>
                         </tr>
 "@
     }
+    return $html.TrimEnd()
+}
 
-    $KqlSection = ""
-    if ($SelectedKql) {
-        $KqlCatalogButton = ""
-        if ($KqlCatalogUrl) {
-            $KqlCatalogButton = "<a class=`"ops-btn doc`" href=`"$KqlCatalogUrl`" target=`"_blank`">&#x1f4da; Ver catálogo KQL de $WorkloadName</a>"
-        }
+function Build-DetectionRows {
+    param([object[]]$Rows)
+    if (-not $Rows -or $Rows.Count -eq 0) {
+        return '<tr><td colspan="6" style="text-align:center; color:#666;">No se encontraron detecciones personalizadas con actividad.</td></tr>'
+    }
 
-        $KqlSection = @"
+    $html = ""
+    foreach ($r in $Rows) {
+        $sevClass = Get-SeverityClass $r.Severity
+        $sevText = Get-SeverityTextEs $r.Severity
+        $last = if ($r.LastSeen -is [datetime]) { Get-RelativeAgeText $r.LastSeen } else { "N/D" }
+        $html += @"
+                        <tr>
+                            <td>$(ConvertTo-HtmlSafe $r.Rule)</td>
+                            <td class="entity">$(ConvertTo-HtmlSafe $r.Workload)</td>
+                            <td><span class="sev $sevClass">$sevText</span></td>
+                            <td>$(ConvertTo-HtmlSafe $r.Matches)</td>
+                            <td class="entity">$last</td>
+                            <td><a class="btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank" rel="noopener noreferrer">Investigar</a></td>
+                        </tr>
+"@
+    }
+    return $html.TrimEnd()
+}
 
-        <!-- Recomendación de KQL diario – $WorkloadName -->
-        <div class="ops-group" style="margin-top: 20px;">
-            <div class="ops-group-header" style="background: $HeaderColor;">
-                <span class="icon">&#x1f50d;</span> Recomendación de KQL diario – $WorkloadName
-                <span class="ops-badge daily">#$($SelectedKql.Id)</span>
+function Build-TopAlertsBlock {
+    param([object[]]$Rows)
+    if (-not $Rows -or $Rows.Count -eq 0) {
+        return @"
+            <div class="empty-state">
+                <span class="ok-dot" aria-hidden="true"></span>
+                <div><strong>Sin alertas activas.</strong> No se detectaron alertas en el período analizado.</div>
             </div>
-            <div style="padding: 20px;">
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                    <span style="background:rgba(0,0,0,0.1); color:$HeaderColor; padding:3px 10px; border-radius:4px; font-size:0.78em; font-weight:600;">$($SelectedKql.Category)</span>
-                </div>
-                <h3 style="margin:0 0 12px 0; color:var(--secondary-color); font-size:1.05em;">$($SelectedKql.Title)</h3>
-                <div style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.82em; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">$($SelectedKql.Query)</div>
-                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-                    <a class="ops-btn portal" href="https://security.microsoft.com/v2/advanced-hunting" target="_blank">&#x1f517; Ejecutar en Advanced Hunting</a>
-                    $KqlCatalogButton
-                </div>
-            </div>
-        </div>
+"@
+    }
+
+    $body = ""
+    foreach ($r in ($Rows | Sort-Object @{Expression={ Get-SeverityRank $_.Severity }; Descending=$true}, @{Expression='Timestamp'; Descending=$true} | Select-Object -First 5)) {
+        $sevClass = Get-SeverityClass $r.Severity
+        $sevText = Get-SeverityTextEs $r.Severity
+        $stateClass = Get-StateClass $r.Status
+        $stateText = Get-StateTextEs $r.Status
+        $body += @"
+                            <tr>
+                                <td>$(Get-RelativeAgeText ([datetime]$r.Timestamp))</td>
+                                <td>$(ConvertTo-HtmlSafe $r.Title)</td>
+                                <td><span class="sev $sevClass">$sevText</span></td>
+                                <td><span class="state $stateClass">$stateText</span></td>
+                                <td><a class="btn portal" href="https://security.microsoft.com/alerts" target="_blank" rel="noopener noreferrer">Ver</a></td>
+                            </tr>
 "@
     }
 
     return @"
-
-        <!-- ═══════════════════════════════════════════════════════ -->
-        <!-- $WorkloadEmoji SECCIÓN $WorkloadName ═══ -->
-        <!-- ═══════════════════════════════════════════════════════ -->
-
-        <h2>$WorkloadName</h2>
-
-        <!-- Tareas Operativas $WorkloadName -->
-        <div class="ops-section">
-            <div class="ops-group">
-                <div class="ops-group-header" style="background: $HeaderColor;">
-                    $WorkloadEmoji Tareas Operativas - $WorkloadName
-                    <span class="ops-badge daily">$TaskCount Diarias</span>
-                </div>
-                <table class="ops-table">
-                    <thead><tr><th style="width:50%">Tarea</th><th style="width:25%">Portal</th><th style="width:25%">Documentación</th></tr></thead>
+            <div class="table-container">
+                <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th scope="col">Antigüedad</th>
+                            <th scope="col">Alerta</th>
+                            <th scope="col">Severidad</th>
+                            <th scope="col">Estado</th>
+                            <th scope="col">Acción</th>
+                        </tr>
+                    </thead>
                     <tbody>
-$TaskRows
+$body
                     </tbody>
                 </table>
-            </div>
-        </div>
-
-        <!-- Alertas del Workload -->
-        <div class="ops-section" style="margin-top: 30px;">
-            <div class="ops-group">
-                <div class="ops-group-header" style="background: $HeaderColor;">
-                    &#x26a0; Alertas del Workload - Top 5 por Criticidad
-                    <span class="ops-badge daily">Critical/High</span>
                 </div>
-                <table class="ops-table">
-                    <thead><tr><th style="width:35%">Alerta</th><th style="width:15%">Severidad</th><th style="width:20%">Portal</th><th style="width:30%">Acción</th></tr></thead>
-                    <tbody>
-$AlertRows
-                    </tbody>
-                </table>
             </div>
-        </div>
-$KqlSection
 "@
 }
 
-function Get-WorkloadAlerts {
-    param(
-        [string]$WorkloadType,
-        [array]$AllAlerts
-    )
+function Set-WorkloadAlertBlock {
+    param([string]$Html, [string]$SectionId, [string]$BlockHtml)
+    $pattern = '(?s)(<section id="{0}">.*?<h3 class="block-title">Alertas del workload &mdash; Top 5 por criticidad</h3>\s*)(<div class="empty-state">.*?</div>|<div class="table-container">.*?</div>\s*</div>)' -f $SectionId
+    return [regex]::Replace($Html, $pattern, { param($m) $m.Groups[1].Value + $BlockHtml }, 1)
+}
 
-    $ServicePatterns = @{
-        "MDO"   = 'Defender for Office 365|Office 365|Email'
-        "MDE"   = 'Defender for Endpoint|Endpoint'
-        "MDI"   = 'Defender for Identity|MicrosoftDefenderForIdentity|Identity'
-        "ENTRA" = 'Entra ID|Azure AD|Azure Active Directory'
-        "MDA"   = 'Defender for Cloud Apps|Cloud Apps|Microsoft Cloud App Security|MCAS'
+function Build-DonutWrap {
+    param([hashtable]$SeverityCounts)
+    $critical = [int]$SeverityCounts["critical"]
+    $high = [int]$SeverityCounts["high"]
+    $medium = [int]$SeverityCounts["medium"]
+    $low = [int]$SeverityCounts["low"]
+    $total = $critical + $high + $medium + $low
+    if ($total -le 0) { $total = 1 }
+
+    $circ = 2 * [math]::PI * 60
+    $c1 = ($critical / $total) * $circ
+    $c2 = ($high / $total) * $circ
+    $c3 = ($medium / $total) * $circ
+    $c4 = ($low / $total) * $circ
+
+    return @"
+                    <div class="donut-wrap">
+                        <svg width="150" height="150" viewBox="0 0 160 160" role="img" aria-label="Gráfica de dona de severidad de incidentes">
+                            <circle cx="80" cy="80" r="60" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="22"></circle>
+                            <g transform="rotate(-90 80 80)" fill="none" stroke-width="22">
+                                <circle cx="80" cy="80" r="60" stroke="#7a0018" stroke-dasharray="$([math]::Round($c1,2)) $([math]::Round($circ-$c1,2))" stroke-dashoffset="0"></circle>
+                                <circle cx="80" cy="80" r="60" stroke="#d13438" stroke-dasharray="$([math]::Round($c2,2)) $([math]::Round($circ-$c2,2))" stroke-dashoffset="-$([math]::Round($c1,2))"></circle>
+                                <circle cx="80" cy="80" r="60" stroke="#ff8c00" stroke-dasharray="$([math]::Round($c3,2)) $([math]::Round($circ-$c3,2))" stroke-dashoffset="-$([math]::Round($c1+$c2,2))"></circle>
+                                <circle cx="80" cy="80" r="60" stroke="#8764b8" stroke-dasharray="$([math]::Round($c4,2)) $([math]::Round($circ-$c4,2))" stroke-dashoffset="-$([math]::Round($c1+$c2+$c3,2))"></circle>
+                            </g>
+                            <text x="80" y="74" text-anchor="middle" font-size="30" font-weight="700" fill="currentColor">$($critical + $high + $medium + $low)</text>
+                            <text x="80" y="96" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.7">activos</text>
+                        </svg>
+                        <ul class="donut-legend">
+                            <li><span class="sw" style="background:#7a0018;"></span><span class="lv">Crítico</span><span class="ct">$critical</span></li>
+                            <li><span class="sw" style="background:#d13438;"></span><span class="lv">Alto</span><span class="ct">$high</span></li>
+                            <li><span class="sw" style="background:#ff8c00;"></span><span class="lv">Medio</span><span class="ct">$medium</span></li>
+                            <li><span class="sw" style="background:#8764b8;"></span><span class="lv">Bajo</span><span class="ct">$low</span></li>
+                        </ul>
+                    </div>
+"@
+}
+
+function Build-TrendSvg {
+    param([int[]]$Values)
+    if (-not $Values -or $Values.Count -eq 0) { $Values = @(0,0,0,0,0,0,0) }
+    $max = [math]::Max(1, ($Values | Measure-Object -Maximum).Maximum)
+    $points = @()
+    for ($i = 0; $i -lt $Values.Count; $i++) {
+        $x = 30 + ($i * (290 / [math]::Max(1, $Values.Count - 1)))
+        $y = 95 - (($Values[$i] / $max) * 70)
+        $points += "{0:N1},{1:N1}" -f $x, $y
+    }
+    $pointsText = ($points -join " ")
+    $today = $Values[-1]
+    return @"
+                    <div class="chart-note">Incidentes activos por día &middot; hoy: $today</div>
+                    <svg width="100%" height="130" viewBox="0 0 340 130" preserveAspectRatio="none" role="img" aria-label="Tendencia de incidentes de los últimos 7 días">
+                        <line x1="30" y1="95" x2="320" y2="95" stroke="rgba(0,0,0,0.12)" stroke-width="1"></line>
+                        <polygon points="$pointsText 320,95 30,95" fill="rgba(0,120,212,0.12)"></polygon>
+                        <polyline points="$pointsText" fill="none" stroke="#0078d4" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"></polyline>
+                    </svg>
+"@
+}
+
+function Build-WorkloadBars {
+    param([hashtable]$WorkloadCounts)
+    $ordered = @("MDE","MDO","MDI","MDA","Entra")
+    $max = 1
+    foreach ($k in $ordered) { if ([int]$WorkloadCounts[$k] -gt $max) { $max = [int]$WorkloadCounts[$k] } }
+
+    $colors = @{
+        "MDE" = "#d83b01"
+        "MDO" = "#0078d4"
+        "MDI" = "#e97a00"
+        "MDA" = "#8764b8"
+        "Entra" = "#107c10"
     }
 
-    $ServicePattern = $ServicePatterns[$WorkloadType]
-    
-    $WorkloadAlerts = @()
-    if ($AllAlerts -and $ServicePattern) {
-        $WorkloadAlerts = $AllAlerts | Where-Object { 
-            $AlertSource = @(
-                $_.ServiceSource,
-                $_.DetectionSource,
-                $_.ProviderName,
-                $_.Category,
-                $_.Title
-            ) -join ' '
-            $AlertSource -match $ServicePattern
-        } | Sort-Object -Property @{ Expression = { 
-            $SeverityMap = @{ "Critical" = 3; "High" = 2; "Medium" = 1; "Low" = 0 }
-            $SeverityMap[$_.Severity]
-        }; Descending = $true } | Select-Object -First 5
+    $rows = ""
+    foreach ($k in $ordered) {
+        $v = [int]$WorkloadCounts[$k]
+        $w = [math]::Round((100 * $v) / $max, 1)
+        $label = if ($k -eq "Entra") { "Entra ID" } else { $k }
+        $rows += '<div class="bar-row"><span class="bar-label">{0}</span><span class="bar-track"><span class="bar-fill" style="width:{1}%; background:{2};"></span></span><span class="bar-val">{3}</span></div>' -f $label, $w, $colors[$k], $v
     }
-    
-    return $WorkloadAlerts
+    return '<div class="bars">{0}</div>' -f $rows
 }
 
-$HtmlMDOSection = if ($RunMDO) { 
-    $MdoAlerts = Get-WorkloadAlerts -WorkloadType "MDO" -AllAlerts $Data["AlertsByWorkload"]
-    Build-WorkloadSection -WorkloadName "MDO: Microsoft Defender for Office 365" -WorkloadEmoji "&#x1f4e7;" -HeaderColor "#0078d4" -OperativeTasks $OperativeTasks.MDO -ActiveAlerts $MdoAlerts -SelectedKql $SelectedMdoKql -KqlCatalogUrl "https://github.com/watchdogcode/gol2026/blob/main/MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md"
-} else { "" }
+function Build-MdoMetricChart {
+    param([Alias('M')][hashtable]$Metrics)
+    $phishing = [int]$Metrics["Phishing"]
+    $urlMaliciosa = [int]$Metrics["UrlMaliciosa"]
+    $suplantacion = [int]$Metrics["Suplantacion"]
+    $malware = [int]$Metrics["Malware"]
+    $total = $phishing + $urlMaliciosa + $suplantacion + $malware
+    if ($total -le 0) { $total = 1 }
+    $max = [math]::Max(1, [math]::Max([math]::Max($phishing, $urlMaliciosa), [math]::Max($suplantacion, $malware)))
 
-$HtmlMDESection = if ($RunMDE) { 
-    $MdeAlerts = Get-WorkloadAlerts -WorkloadType "MDE" -AllAlerts $Data["AlertsByWorkload"]
-    Build-WorkloadSection -WorkloadName "MDE: Microsoft Defender for Endpoint" -WorkloadEmoji "&#x1f5a5;" -HeaderColor "#d83b01" -OperativeTasks $OperativeTasks.MDE -ActiveAlerts $MdeAlerts -SelectedKql $SelectedMdeKql -KqlCatalogUrl "https://learn.microsoft.com/defender-xdr/advanced-hunting-query-samples"
-} else { "" }
+    $h1 = [math]::Round(($phishing / $max) * 130, 1)
+    $h2 = [math]::Round(($urlMaliciosa / $max) * 130, 1)
+    $h3 = [math]::Round(($suplantacion / $max) * 130, 1)
+    $h4 = [math]::Round(($malware / $max) * 130, 1)
 
-$HtmlMDISection = if ($RunMDI) { 
-    $MdiAlerts = Get-WorkloadAlerts -WorkloadType "MDI" -AllAlerts $Data["AlertsByWorkload"]
-    Build-WorkloadSection -WorkloadName "MDI: Microsoft Defender for Identity" -WorkloadEmoji "&#x1f6e1;" -HeaderColor "#e97a00" -OperativeTasks $OperativeTasks.MDI -ActiveAlerts $MdiAlerts -SelectedKql $SelectedMdiKql -KqlCatalogUrl "https://github.com/watchdogcode/gol2026/blob/main/MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md"
-} else { "" }
+    $y1 = 155 - $h1
+    $y2 = 155 - $h2
+    $y3 = 155 - $h3
+    $y4 = 155 - $h4
 
-$HtmlEntraSection = if ($RunMDI) { 
-    $EntraAlerts = Get-WorkloadAlerts -WorkloadType "ENTRA" -AllAlerts $Data["AlertsByWorkload"]
-    Build-WorkloadSection -WorkloadName "ENTRA: Microsoft Entra ID" -WorkloadEmoji "&#x1f510;" -HeaderColor "#107c10" -OperativeTasks $OperativeTasks.ENTRA -ActiveAlerts $EntraAlerts -SelectedKql $SelectedEntraKql -KqlCatalogUrl "https://github.com/watchdogcode/gol2026/blob/main/EntraID/Paquete%20KQL%20Queries%20EntraID%20Advanced%20Hunting.md"
-} else { "" }
-
-$HtmlMDASection = if ($RunMDA) { 
-    $MdaAlerts = Get-WorkloadAlerts -WorkloadType "MDA" -AllAlerts $Data["AlertsByWorkload"]
-    Build-WorkloadSection -WorkloadName "MDA: Microsoft Defender for Cloud Apps" -WorkloadEmoji "&#x2601;" -HeaderColor "#8764b8" -OperativeTasks $OperativeTasks.MDA -ActiveAlerts $MdaAlerts -SelectedKql $SelectedMdaKql -KqlCatalogUrl "https://github.com/watchdogcode/gol2026/blob/main/MDA/Paquete%20MDA%20KQL%20Advance%20Hunting.md"
-} else { "" }
-
-$HtmlKpiMDO = ""
-if ($RunMDO) {
-$HtmlKpiMDO = @"
-            <div class="kpi-card $Kpi_MdoSeverityClass">
-                <div class="kpi-val">$Kpi_MdoAlerts</div>
-                <div class="kpi-label">Alertas de Defender for Office</div>
-                <div class="kpi-severity">Máx: $Kpi_MdoSeverityLabel</div>
-            </div>
-"@
-}
-
-$HtmlKpiMDE = ""
-if ($RunMDE) {
-$HtmlKpiMDE = @"
-            <div class="kpi-card $Kpi_MdeSeverityClass">
-                <div class="kpi-val">$Kpi_MdeAlerts</div>
-                <div class="kpi-label">Alertas Defender for Endpoint</div>
-                <div class="kpi-severity">Máx: $Kpi_MdeSeverityLabel</div>
-            </div>
+    return @"
+                    <div class="chart-note">Correos con amenaza detectada en los últimos 7 días &middot; total: $($phishing + $urlMaliciosa + $suplantacion + $malware)</div>
+                    <svg width="100%" height="200" viewBox="0 0 360 200" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Métrica MDO por categoría">
+                        <line x1="20" y1="155" x2="340" y2="155" stroke="rgba(128,128,128,0.4)" stroke-width="1"></line>
+                        <rect x="34" y="$y1" width="52" height="$h1" rx="4" fill="#d13438"></rect>
+                        <text x="60" y="$([math]::Max(18,$y1-7))" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">$phishing</text>
+                        <text x="60" y="172" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.75">Phishing</text>
+                        <rect x="114" y="$y2" width="52" height="$h2" rx="4" fill="#ff8c00"></rect>
+                        <text x="140" y="$([math]::Max(18,$y2-7))" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">$urlMaliciosa</text>
+                        <text x="140" y="172" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.75">URL malic.</text>
+                        <rect x="194" y="$y3" width="52" height="$h3" rx="4" fill="#8764b8"></rect>
+                        <text x="220" y="$([math]::Max(18,$y3-7))" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">$suplantacion</text>
+                        <text x="220" y="172" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.75">Suplantación</text>
+                        <rect x="274" y="$y4" width="52" height="$h4" rx="4" fill="#7a0018"></rect>
+                        <text x="300" y="$([math]::Max(18,$y4-7))" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">$malware</text>
+                        <text x="300" y="172" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.75">Malware</text>
+                    </svg>
 "@
 }
 
-$HtmlKpiMDI = ""
-if ($RunMDI) {
-$HtmlKpiMDI = @"
-            <div class="kpi-card $Kpi_EntraSeverityClass">
-                <div class="kpi-val">$Kpi_HighRiskUsers</div>
-                <div class="kpi-label">Usuarios en Riesgos Entra ID</div>
-                <div class="kpi-severity">Máx: $Kpi_EntraSeverityLabel</div>
-            </div>
-            <div class="kpi-card $Kpi_MdiSeverityClass">
-                <div class="kpi-val">$Kpi_MdiAlerts</div>
-                <div class="kpi-label">Alertas Defender for Identity</div>
-                <div class="kpi-severity">Máx: $Kpi_MdiSeverityLabel</div>
-            </div>
+if (-not (Test-Path $TemplatePath)) {
+    throw "No se encontró la plantilla HTML: $TemplatePath"
+}
+
+# KPIs basados en datos ya consultados
+$Kpi_IncidentesActivos = [int]$Kpi_IncidentCount
+$Kpi_DeteccionesPersonalizadas = [int](
+    (($Data["MDO_Campaigns"] | Measure-Object -Property Events -Sum).Sum) +
+    (@($Data["MDE_Health"]).Count) +
+    (@($Data["MDI_BruteForce"]).Count) +
+    ((@($Data["MDI_HighRiskUsers"]) | Measure-Object -Property Events -Sum).Sum) +
+    (($Data["MDA_OAuth"] | Measure-Object -Property Consents -Sum).Sum)
+)
+
+if (-not $Kpi_DeteccionesPersonalizadas) { $Kpi_DeteccionesPersonalizadas = 0 }
+
+$AllAlertsTop = @($Data["XDR_AlertsTop"])
+$AllAlertsAgg = @($Data["XDR_AllAlerts"])
+
+$WorkloadCounts = @{ MDO = 0; MDE = 0; MDI = 0; Entra = 0; MDA = 0 }
+foreach ($r in $AllAlertsAgg) {
+    $wl = Get-WorkloadFromServiceSource $r.ServiceSource
+    if ($WorkloadCounts.ContainsKey($wl)) {
+        $WorkloadCounts[$wl] += [int]$r.Count
+    }
+}
+
+$Kpi_MdoAlerts = [int]$WorkloadCounts["MDO"]
+$Kpi_MdeAlerts = [int]$WorkloadCounts["MDE"]
+$Kpi_EntraRisk = [int]$Kpi_HighRiskUsers
+$Kpi_MdiAlerts = [int]$WorkloadCounts["MDI"]
+$Kpi_MdaOauth = [int]$Kpi_NewOAuth
+
+$KpiDeltaQueries = @{
+    "Incidentes Activos" = @"
+let t0 = startofday(now());
+let y0 = t0 - 1d;
+let c = toscalar(AlertInfo | where Timestamp between (t0 .. now()) | summarize d=dcount(AlertId));
+let p = toscalar(AlertInfo | where Timestamp between (y0 .. t0) | summarize d=dcount(AlertId));
+print Current=c, Previous=p
+"@;
+    "Detecciones Personalizadas" = @"
+let t0 = startofday(now());
+let y0 = t0 - 1d;
+let c1 = toscalar(EmailEvents | where Timestamp between (t0 .. now()) and ThreatTypes has "Phish" | summarize c=count());
+let c2 = toscalar(DeviceInfo | where Timestamp between (t0 .. now()) and ExposureLevel in ("High","Medium") | summarize c=dcount(DeviceId));
+let c3 = toscalar(IdentityLogonEvents | where Timestamp between (t0 .. now()) | summarize c=dcount(AccountUpn));
+let c4 = toscalar(EntraIdSignInEvents | where Timestamp between (t0 .. now()) and RiskLevelAggregated in (50, 100) | summarize c=dcount(AccountUpn));
+let c5 = toscalar(CloudAppEvents | where Timestamp between (t0 .. now()) and ActionType in ("Consent to application","Grant consent") | summarize c=count());
+let p1 = toscalar(EmailEvents | where Timestamp between (y0 .. t0) and ThreatTypes has "Phish" | summarize c=count());
+let p2 = toscalar(DeviceInfo | where Timestamp between (y0 .. t0) and ExposureLevel in ("High","Medium") | summarize c=dcount(DeviceId));
+let p3 = toscalar(IdentityLogonEvents | where Timestamp between (y0 .. t0) | summarize c=dcount(AccountUpn));
+let p4 = toscalar(EntraIdSignInEvents | where Timestamp between (y0 .. t0) and RiskLevelAggregated in (50, 100) | summarize c=dcount(AccountUpn));
+let p5 = toscalar(CloudAppEvents | where Timestamp between (y0 .. t0) and ActionType in ("Consent to application","Grant consent") | summarize c=count());
+print Current=(c1+c2+c3+c4+c5), Previous=(p1+p2+p3+p4+p5)
+"@;
+    "Alertas Defender for Office" = @"
+let t0 = startofday(now());
+let y0 = t0 - 1d;
+let c = toscalar(AlertInfo | where Timestamp between (t0 .. now()) and ServiceSource has_any ("Office", "Email", "Exchange", "Teams") | summarize c=count());
+let p = toscalar(AlertInfo | where Timestamp between (y0 .. t0) and ServiceSource has_any ("Office", "Email", "Exchange", "Teams") | summarize c=count());
+print Current=c, Previous=p
+"@;
+    "Alertas Defender for Endpoint" = @"
+let t0 = startofday(now());
+let y0 = t0 - 1d;
+let c = toscalar(AlertInfo | where Timestamp between (t0 .. now()) and ServiceSource has_any ("Endpoint", "Device") | summarize c=count());
+let p = toscalar(AlertInfo | where Timestamp between (y0 .. t0) and ServiceSource has_any ("Endpoint", "Device") | summarize c=count());
+print Current=c, Previous=p
+"@;
+    "Usuarios en Riesgo Entra ID" = @"
+let t0 = startofday(now());
+let y0 = t0 - 1d;
+let c = toscalar(EntraIdSignInEvents | where Timestamp between (t0 .. now()) and RiskLevelAggregated in (50,100) | summarize c=dcount(AccountUpn));
+let p = toscalar(EntraIdSignInEvents | where Timestamp between (y0 .. t0) and RiskLevelAggregated in (50,100) | summarize c=dcount(AccountUpn));
+print Current=c, Previous=p
+"@;
+    "Alertas Defender for Identity" = @"
+let t0 = startofday(now());
+let y0 = t0 - 1d;
+let c = toscalar(AlertInfo | where Timestamp between (t0 .. now()) and ServiceSource has_any ("Identity", "Defender for Identity", "MDI") | summarize c=count());
+let p = toscalar(AlertInfo | where Timestamp between (y0 .. t0) and ServiceSource has_any ("Identity", "Defender for Identity", "MDI") | summarize c=count());
+print Current=c, Previous=p
+"@;
+    "Consentimientos OAuth (Cloud Apps)" = @"
+let t0 = startofday(now());
+let y0 = t0 - 1d;
+let c = toscalar(CloudAppEvents | where Timestamp between (t0 .. now()) and ActionType in ("Consent to application","Grant consent") | summarize c=count());
+let p = toscalar(CloudAppEvents | where Timestamp between (y0 .. t0) and ActionType in ("Consent to application","Grant consent") | summarize c=count());
+print Current=c, Previous=p
 "@
 }
 
-$HtmlKpiMDA = ""
-if ($RunMDA) {
-$HtmlKpiMDA = @"
-            <div class="kpi-card $Kpi_MdaSeverityClass">
-                <div class="kpi-val">$Kpi_NewOAuth</div>
-                <div class="kpi-label">Consentimientos OAuth Defender for Cloud Apps</div>
-                <div class="kpi-severity">Máx: $Kpi_MdaSeverityLabel</div>
-            </div>
-"@
+$KpiDelta = @{}
+foreach ($k in $KpiDeltaQueries.Keys) {
+    $res = Invoke-HuntingQuery -Token $Token -Query $KpiDeltaQueries[$k] -Name "KPI_$k"
+    $row = @($res.Results | Select-Object -First 1)
+    $cur = if ($row -and $row[0].Current -ne $null) { [int]$row[0].Current } else { 0 }
+    $prev = if ($row -and $row[0].Previous -ne $null) { [int]$row[0].Previous } else { 0 }
+    $KpiDelta[$k] = Get-KpiTrend -Current $cur -Previous $prev
 }
 
-$HtmlKpiCustomDetections = @"
-            <div class="kpi-card $Kpi_CustomDetectionsSeverityClass">
-                <div class="kpi-val">$Kpi_CustomDetections</div>
-                <div class="kpi-label">Detecciones Personalizadas</div>
-                <div class="kpi-severity">Máx: $Kpi_CustomDetectionsSeverityLabel</div>
-            </div>
-"@
+$Detections = @(
+    [pscustomobject]@{ Rule = "Campañas de phishing entregadas"; Workload = "MDO"; Severity = "High"; Matches = [int]$Kpi_PhishDelivered; LastSeen = $ReportDate },
+    [pscustomobject]@{ Rule = "Dispositivos con exposición alta o media"; Workload = "MDE"; Severity = "Medium"; Matches = @($Data["MDE_Health"]).Count; LastSeen = (@($Data["MDE_Health"]) | Sort-Object Timestamp -Descending | Select-Object -First 1).Timestamp },
+    [pscustomobject]@{ Rule = "Fuerza bruta con éxito"; Workload = "MDI"; Severity = "High"; Matches = @($Data["MDI_BruteForce"]).Count; LastSeen = (@($Data["MDI_BruteForce"]) | Sort-Object LastSeen -Descending | Select-Object -First 1).LastSeen },
+    [pscustomobject]@{ Rule = "Inicios de sesión de alto riesgo"; Workload = "Entra ID"; Severity = "High"; Matches = @($Data["MDI_HighRiskUsers"]).Count; LastSeen = $ReportDate },
+    [pscustomobject]@{ Rule = "Nuevos consentimientos OAuth"; Workload = "MDA"; Severity = "Medium"; Matches = [int]$Kpi_NewOAuth; LastSeen = $ReportDate }
+) | Where-Object { $_.Matches -gt 0 }
 
-$HtmlContent = @"
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reporte Diario de Seguridad</title>
-    <style>
-        :root {
-            --primary-color: #0078d4;
-            --secondary-color: #2b2b2b;
-            --bg-color: #f0f2f5;
-            --card-bg: #ffffff;
-            --text-color: #323130;
-            --border-color: #e1dfdd;
-            --danger-color: #a80000;
-            --critical-color: #7a0018;
-            --high-color: #d13438;
-            --medium-color: #ff8c00;
-            --low-color: #8764b8;
-            --info-color: #0078d4;
-            --none-color: #107c10;
-        }
-        body { 
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; 
-            background-color: var(--bg-color); 
-            color: var(--text-color); 
-            margin: 0; 
-            padding: 0; 
-            line-height: 1.5;
-        }
-        .header {
-            background-color: var(--primary-color);
-            color: white;
-            padding: 20px 40px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
-        .header .subtitle { margin-top: 6px; font-size: 0.92em; opacity: 0.95; }
-        .header .meta { font-size: 0.9em; opacity: 0.9; text-align: right; }
-        
-        .container { 
-            max-width: 1200px; 
-            margin: 30px auto; 
-            padding: 0 20px; 
-        }
-        
-        h2 { 
-            color: var(--secondary-color); 
-            margin-top: 40px; 
-            margin-bottom: 15px; 
-            font-size: 18px; 
-            border-left: 4px solid var(--primary-color); 
-            padding-left: 12px; 
-            display: flex;
-            align-items: center;
-        }
+$SeverityCounts = @{ critical = 0; high = 0; medium = 0; low = 0 }
+foreach ($a in $AllAlertsAgg) {
+    $cls = Get-SeverityClass $a.Severity
+    if ($SeverityCounts.ContainsKey($cls)) {
+        $SeverityCounts[$cls] += [int]$a.Count
+    }
+}
 
-        /* Cuadrícula de KPIs */
-        .kpi-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(220px, 250px)); 
-            justify-content: center;
-            align-items: stretch;
-            gap: 20px; 
-            margin: 0 auto 30px auto;
-        }
-        .kpi-card { 
-            background: var(--card-bg); 
-            min-height: 150px;
-            padding: 24px 18px; 
-            border-radius: 10px; 
-            text-align: center; 
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05); 
-            transition: transform 0.2s ease;
-            border-top: 4px solid transparent;
-        }
-        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .kpi-card.critical { border-top-color: var(--critical-color); }
-        .kpi-card.high { border-top-color: var(--high-color); }
-        .kpi-card.medium { border-top-color: var(--medium-color); }
-        .kpi-card.low { border-top-color: var(--low-color); }
-        .kpi-card.info { border-top-color: var(--info-color); }
-        .kpi-card.none { border-top-color: var(--none-color); }
-        
-        .kpi-val { font-size: 3em; font-weight: 700; color: var(--secondary-color); line-height: 1; margin-bottom: 10px; }
-        .kpi-label {
-            font-size: 0.85em;
-            color: #605e5c;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-weight: 600;
-            line-height: 1.35;
-            text-align: center;
-            max-width: 190px;
-            min-height: 2.8em;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .kpi-severity {
-            margin-top: 10px;
-            padding: 4px 10px;
-            border-radius: 999px;
-            font-size: 0.72em;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-            color: #ffffff;
-        }
-        .kpi-card.critical .kpi-severity { background: var(--critical-color); }
-        .kpi-card.high .kpi-severity { background: var(--high-color); }
-        .kpi-card.medium .kpi-severity { background: var(--medium-color); }
-        .kpi-card.low .kpi-severity { background: var(--low-color); }
-        .kpi-card.info .kpi-severity { background: var(--info-color); }
-        .kpi-card.none .kpi-severity { background: var(--none-color); }
-        
-        /* Tablas */
-        .table-container {
-            background: var(--card-bg);
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            overflow: hidden;
-            margin-bottom: 30px;
-        }
-        table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
-        th { background-color: #f8f9fa; color: #605e5c; text-align: left; padding: 12px 15px; font-weight: 600; border-bottom: 2px solid var(--border-color); }
-        td { border-bottom: 1px solid var(--border-color); padding: 12px 15px; color: var(--text-color); }
-        tr:last-child td { border-bottom: none; }
-        tr:hover { background-color: #f8f9fa; }
-        
-        /* Recomendaciones */
-        .recs { 
-            background-color: #e6f2ff; 
-            padding: 20px; 
-            border-radius: 8px; 
-            border: 1px solid #cce4ff;
-        }
-        .recs ul { margin: 0; padding-left: 20px; }
-        .recs li { margin-bottom: 8px; line-height: 1.6; }
-        
-        /* Actividades Diarias */
-        .activities { 
-            background-color: var(--card-bg); 
-            border-radius: 8px; 
-            padding: 20px; 
-            margin-bottom: 30px; 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            border-left: 5px solid var(--primary-color);
-        }
-        .activities h4 { margin-top: 0; margin-bottom: 15px; color: var(--secondary-color); font-size: 1.1em; }
-        .activities ul { margin: 0; padding-left: 20px; }
-        .activities li { margin-bottom: 8px; font-size: 1em; color: var(--text-color); }
-        .activities li a { color: var(--primary-color); text-decoration: none; font-weight: 500; }
-        .activities li a:hover { text-decoration: underline; }
-        
-        .footer { text-align: center; margin-top: 50px; color: #8a8886; font-size: 0.85em; padding-bottom: 20px; }
+$trendLookup = @{}
+foreach ($t in @($Data["XDR_Trend7d"])) {
+    $dayKey = ([datetime]$t.Day).ToString("yyyy-MM-dd")
+    $trendLookup[$dayKey] = [int]$t.Count
+}
 
-        /* Tareas Operativas */
-        .ops-section { margin-bottom: 30px; }
-        .ops-group {
-            background: var(--card-bg);
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            overflow: hidden;
-            margin-bottom: 20px;
-        }
-        .ops-group-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 14px 20px;
-            font-weight: 600;
-            font-size: 1em;
-            color: #fff;
-            letter-spacing: 0.3px;
-        }
-        .ops-group-header.mdo  { background: linear-gradient(135deg, #0078d4, #005a9e); }
-        .ops-group-header.mde  { background: linear-gradient(135deg, #d83b01, #a52a00); }
-        .ops-group-header.mdi  { background: linear-gradient(135deg, #e97a00, #c25e00); }
-        .ops-group-header.entra { background: linear-gradient(135deg, #107c10, #0b5e0b); }
-        .ops-group-header.mda  { background: linear-gradient(135deg, #8764b8, #6b4fa0); }
-        .ops-group-header .icon { font-size: 1.2em; }
-        .ops-badge {
-            display: inline-block;
-            padding: 2px 10px;
-            border-radius: 12px;
-            font-size: 0.7em;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            line-height: 1.6;
-        }
-        .ops-badge.daily   { background: rgba(255,255,255,0.25); color: #fff; }
-        .ops-table { width: 100%; border-collapse: collapse; font-size: 0.92em; }
-        .ops-table th {
-            background-color: #f8f9fa;
-            color: #605e5c;
-            text-align: left;
-            padding: 10px 16px;
-            font-weight: 600;
-            font-size: 0.8em;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 2px solid var(--border-color);
-        }
-        .ops-table td {
-            padding: 11px 16px;
-            border-bottom: 1px solid #f0f0f0;
-            vertical-align: middle;
-        }
-        .ops-table tr:last-child td { border-bottom: none; }
-        .ops-table tr:hover { background-color: #fafbfc; }
-        .ops-task-name {
-            font-family: 'Segoe UI Semibold', 'Segoe UI', sans-serif;
-            font-weight: 600;
-            color: var(--text-color);
-            font-size: 0.93em;
-        }
-        .ops-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 5px 14px;
-            border-radius: 5px;
-            font-size: 0.82em;
-            font-weight: 600;
-            text-decoration: none;
-            transition: all 0.15s ease;
-        }
-        .ops-btn.portal {
-            background: #0078d4;
-            color: #fff;
-        }
-        .ops-btn.portal:hover { background: #005a9e; }
-        .ops-btn.doc {
-            background: #f3f2f1;
-            color: #323130;
-            border: 1px solid #d2d0ce;
-        }
-        .ops-btn.doc:hover { background: #e1dfdd; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <div>
-            <h1>Reporte Diario de Operaciones de Seguridad</h1>
-            <div class="subtitle">La tecnología habilita la seguridad, pero la disciplina la hace efectiva</div>
-        </div>
-        <div class="meta">
-            <div><strong>Período:</strong> $($StartDate.ToString("yyyy-MM-dd HH:mm")) - $($ReportDate.ToString("yyyy-MM-dd HH:mm"))</div>
-            <div style="font-size: 0.85em; margin-top: 4px;">Tenant ID: $MaskedTenantId</div>
-        </div>
-    </div>
+$trendValues = @()
+for ($i = 6; $i -ge 0; $i--) {
+    $d = (Get-Date).Date.AddDays(-$i).ToString("yyyy-MM-dd")
+    if ($trendLookup.ContainsKey($d)) {
+        $trendValues += [int]$trendLookup[$d]
+    }
+    else {
+        $trendValues += 0
+    }
+}
 
-    <div class="container">
-        <!-- KPIs -->
-        <div class="kpi-grid">
-            <div class="kpi-card $Kpi_XdrSeverityClass">
-                <div class="kpi-val">$Kpi_IncidentCount</div>
-                <div class="kpi-label">Incidentes Activos</div>
-                <div class="kpi-severity">Máx: $Kpi_XdrSeverityLabel</div>
-            </div>
-$HtmlKpiMDO$HtmlKpiMDE$HtmlKpiMDI$HtmlKpiMDA$HtmlKpiCustomDetections
-        </div>
-"@
+$mdoMetricRow = @($Data["MDO_ThreatMetrics7d"] | Select-Object -First 1)
+$MdoMetric = @{
+    Phishing = if ($mdoMetricRow) { [int]$mdoMetricRow.Phishing } else { 0 }
+    UrlMaliciosa = if ($mdoMetricRow) { [int]$mdoMetricRow.UrlMaliciosa } else { 0 }
+    Suplantacion = if ($mdoMetricRow) { [int]$mdoMetricRow.Suplantacion } else { 0 }
+    Malware = if ($mdoMetricRow) { [int]$mdoMetricRow.Malware } else { 0 }
+}
 
-$HtmlContent += @"
-$HtmlMDOSection$HtmlMDESection$HtmlMDISection$HtmlEntraSection$HtmlMDASection
+$MdoTop = @($AllAlertsTop | Where-Object { (Get-WorkloadFromServiceSource $_.ServiceSource) -eq "MDO" })
+$MdeTop = @($AllAlertsTop | Where-Object { (Get-WorkloadFromServiceSource $_.ServiceSource) -eq "MDE" })
+$MdiTop = @($AllAlertsTop | Where-Object { (Get-WorkloadFromServiceSource $_.ServiceSource) -eq "MDI" })
+$EntraTop = @($AllAlertsTop | Where-Object { (Get-WorkloadFromServiceSource $_.ServiceSource) -eq "Entra" })
+$MdaTop = @($AllAlertsTop | Where-Object { (Get-WorkloadFromServiceSource $_.ServiceSource) -eq "MDA" })
 
-        <!-- ═══════════════════════════════════════════════════════ -->
-        <!-- ═══ SECCIÓN XDR: Alertas e Incidentes Consolidados ═══ -->
-        <!-- ═══════════════════════════════════════════════════════ -->
+$IncidentRows = Build-IncidentRows (@($Data["XDR_Incidents"] | Sort-Object @{Expression={ Get-SeverityRank $_.Severity }; Descending=$true}, @{Expression='Timestamp'; Descending=$true} | Select-Object -First 5))
+$DetectionRows = Build-DetectionRows (@($Detections | Sort-Object @{Expression={ Get-SeverityRank $_.Severity }; Descending=$true}, @{Expression='Matches'; Descending=$true} | Select-Object -First 6))
 
-        <h2>XDR: Alertas e Incidentes Consolidados</h2>
+$HtmlContent = Get-Content -Raw -Path $TemplatePath -Encoding UTF8
 
-        <h3>Alertas por Servicio y Severidad</h3>
-        <div style="margin-bottom:10px;">
-            <a href="https://security.microsoft.com/alerts" target="_blank" rel="noopener noreferrer"
-               style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;background:#0078d4;color:#fff;text-decoration:none;border-radius:4px;font-size:0.85em;font-weight:600;">
-                &#x1F6E1; Ver Alertas en Microsoft Defender XDR
-            </a>
-        </div>
-        <div class="table-container">
-            <table>
-                <thead><tr><th>Servicio</th><th>Severidad</th><th>Cantidad</th></tr></thead>
-                <tbody>$(ConvertTo-HtmlTable $Data["XDR_AllAlerts"] @("ServiceSource","Severity","Count"))</tbody>
-            </table>
-        </div>
+# Encabezado
+$HtmlContent = [regex]::Replace($HtmlContent, '(?s)(<div><strong>Período:</strong>).*?(</div>)', "$1 $($StartDate.ToString('yyyy-MM-dd HH:mm')) &rarr; $($ReportDate.ToString('yyyy-MM-dd HH:mm'))$2", 1)
+$HtmlContent = [regex]::Replace($HtmlContent, '(?s)(<div><strong>Generado:</strong>).*?(</div>)', "$1 $((Get-Date).ToString('yyyy-MM-dd HH:mm')) (CST)$2", 1)
+$HtmlContent = [regex]::Replace($HtmlContent, '(?s)<div style="opacity:0.85;">Tenant ID:.*?</div>', ('<div style="opacity:0.85;">Tenant ID: {0}</div>' -f (ConvertTo-HtmlSafe $MaskedTenantId)), 1)
 
-        <div class="footer">
-            Generado por Operaciones de Seguridad Automatizadas | Microsoft 365 Defender XDR
-        </div>
-    </div>
-</body>
-</html>
-"@
+# Banner de estado
+$risk = if ($Kpi_IncidentesActivos -gt 0 -or $SeverityCounts["critical"] -gt 0) { "Alto" } elseif ($Kpi_DeteccionesPersonalizadas -gt 0) { "Medio" } else { "Bajo" }
+$title = if ($risk -eq "Alto") { "Atención requerida" } elseif ($risk -eq "Medio") { "Seguimiento activo" } else { "Operación estable" }
+$statusSub = "$Kpi_IncidentesActivos incidentes activos y $Kpi_DeteccionesPersonalizadas detecciones personalizadas en el período."
+$HtmlContent = [regex]::Replace($HtmlContent, '(?s)<div class="status-title">.*?</div>', ('<div class="status-title">{0}</div>' -f $title), 1)
+$HtmlContent = [regex]::Replace($HtmlContent, '(?s)<div class="status-sub">.*?</div>', ('<div class="status-sub">{0}</div>' -f $statusSub), 1)
+$HtmlContent = [regex]::Replace($HtmlContent, '(?s)<span class="status-chip">.*?</span>', ('<span class="status-chip">Riesgo: {0}</span>' -f $risk), 1)
+
+# KPIs
+$CardClassIncidentes = if ($Kpi_IncidentesActivos -gt 0) { "high" } else { "none" }
+$CardClassDetecciones = if ($Kpi_DeteccionesPersonalizadas -gt 0) { "high" } else { "none" }
+$CardClassMdo = if ($Kpi_MdoAlerts -gt 0) { "high" } else { "none" }
+$CardClassMde = if ($Kpi_MdeAlerts -gt 0) { "high" } else { "none" }
+$CardClassEntra = if ($Kpi_EntraRisk -gt 0) { "high" } else { "none" }
+$CardClassMdi = if ($Kpi_MdiAlerts -gt 0) { "high" } else { "none" }
+$CardClassMda = if ($Kpi_MdaOauth -gt 0) { "medium" } else { "none" }
+
+$HtmlContent = Update-KpiCardByLabel -Html $HtmlContent -Label "Incidentes Activos" -Value $Kpi_IncidentesActivos -TrendClass $KpiDelta["Incidentes Activos"].Class -TrendText $KpiDelta["Incidentes Activos"].Text -CardClass $CardClassIncidentes
+$HtmlContent = Update-KpiCardByLabel -Html $HtmlContent -Label "Detecciones Personalizadas" -Value $Kpi_DeteccionesPersonalizadas -TrendClass $KpiDelta["Detecciones Personalizadas"].Class -TrendText $KpiDelta["Detecciones Personalizadas"].Text -CardClass $CardClassDetecciones
+$HtmlContent = Update-KpiCardByLabel -Html $HtmlContent -Label "Alertas Defender for Office" -Value $Kpi_MdoAlerts -TrendClass $KpiDelta["Alertas Defender for Office"].Class -TrendText $KpiDelta["Alertas Defender for Office"].Text -CardClass $CardClassMdo
+$HtmlContent = Update-KpiCardByLabel -Html $HtmlContent -Label "Alertas Defender for Endpoint" -Value $Kpi_MdeAlerts -TrendClass $KpiDelta["Alertas Defender for Endpoint"].Class -TrendText $KpiDelta["Alertas Defender for Endpoint"].Text -CardClass $CardClassMde
+$HtmlContent = Update-KpiCardByLabel -Html $HtmlContent -Label "Usuarios en Riesgo Entra ID" -Value $Kpi_EntraRisk -TrendClass $KpiDelta["Usuarios en Riesgo Entra ID"].Class -TrendText $KpiDelta["Usuarios en Riesgo Entra ID"].Text -CardClass $CardClassEntra
+$HtmlContent = Update-KpiCardByLabel -Html $HtmlContent -Label "Alertas Defender for Identity" -Value $Kpi_MdiAlerts -TrendClass $KpiDelta["Alertas Defender for Identity"].Class -TrendText $KpiDelta["Alertas Defender for Identity"].Text -CardClass $CardClassMdi
+$HtmlContent = Update-KpiCardByLabel -Html $HtmlContent -Label "Consentimientos OAuth (Cloud Apps)" -Value $Kpi_MdaOauth -TrendClass $KpiDelta["Consentimientos OAuth (Cloud Apps)"].Class -TrendText $KpiDelta["Consentimientos OAuth (Cloud Apps)"].Text -CardClass $CardClassMda
+
+# Tablas: incidentes y detecciones
+$HtmlContent = Set-ContentBetweenMarkers -Html $HtmlContent -StartMarker "<!-- ⇩⇩⇩ INYECCIÓN AUTOMÁTICA: filas de incidentes reales (una por incidente) ⇩⇩⇩ -->" -EndMarker "<!-- ⇧⇧⇧ FIN INYECCIÓN AUTOMÁTICA ⇧⇧⇧ -->" -InjectedHtml $IncidentRows
+$HtmlContent = Set-ContentBetweenMarkers -Html $HtmlContent -StartMarker "<!-- ⇩⇩⇩ INYECCIÓN AUTOMÁTICA: filas de detecciones reales ⇩⇩⇩ -->" -EndMarker "<!-- ⇧⇧⇧ FIN INYECCIÓN AUTOMÁTICA ⇧⇧⇧ -->" -InjectedHtml $DetectionRows
+
+$HtmlContent = [regex]::Replace($HtmlContent, '(?s)<caption>Mostrando .*? incidentes activos, ordenados por severidad y antigüedad\.</caption>', "<caption>Mostrando $([math]::Min(5, @($Data['XDR_Incidents']).Count)) de $(@($Data['XDR_Incidents']).Count) incidentes activos, ordenados por severidad y antigüedad.</caption>", 1)
+$HtmlContent = [regex]::Replace($HtmlContent, '(?s)<caption>Mostrando .*? reglas de detección personalizada con coincidencias en el período\.</caption>', "<caption>Mostrando $([math]::Min(6, @($Detections).Count)) de $(@($Detections).Count) reglas de detección personalizada con coincidencias en el período.</caption>", 1)
+
+$remainingInc = [math]::Max(0, @($Data["XDR_Incidents"]).Count - [math]::Min(5, @($Data["XDR_Incidents"]).Count))
+$remainingDet = [math]::Max(0, @($Detections).Count - [math]::Min(6, @($Detections).Count))
+$HtmlContent = [regex]::Replace($HtmlContent, '(?s)<tr class="row-more"><td colspan="7">\+ .*?</td></tr>', ('<tr class="row-more"><td colspan="7">+ {0} incidentes adicionales &middot; <a href="https://security.microsoft.com/incidents" target="_blank" rel="noopener noreferrer">Ver los {1} en el portal &rarr;</a></td></tr>' -f $remainingInc, @($Data['XDR_Incidents']).Count), 1)
+$HtmlContent = [regex]::Replace($HtmlContent, '(?s)<tr class="row-more"><td colspan="6">\+ .*?</td></tr>', ('<tr class="row-more"><td colspan="6">+ {0} detecciones adicionales &middot; <a href="https://security.microsoft.com/v2/custom-detection" target="_blank" rel="noopener noreferrer">Ver las {1} en el portal &rarr;</a></td></tr>' -f $remainingDet, @($Detections).Count), 1)
+
+# Gráficas
+$HtmlContent = [regex]::Replace($HtmlContent, '(?s)<div class="donut-wrap">.*?</div>\s*</div>', (Build-DonutWrap -SeverityCounts $SeverityCounts) + "`r`n                </div>", 1)
+$HtmlContent = [regex]::Replace($HtmlContent, '(?s)<div class="chart-note">Incidentes activos por día.*?</svg>', (Build-TrendSvg -Values $trendValues), 1)
+$HtmlContent = [regex]::Replace($HtmlContent, '(?s)<div class="bars">.*?</div>', (Build-WorkloadBars -WorkloadCounts $WorkloadCounts), 1)
+$HtmlContent = [regex]::Replace($HtmlContent, '(?s)<div class="chart-note">Correos con amenaza detectada.*?</svg>', (Build-MdoMetricChart -M $MdoMetric), 1)
+
+# Top 5 por workload
+$HtmlContent = Set-WorkloadAlertBlock -Html $HtmlContent -SectionId "mdo" -BlockHtml (Build-TopAlertsBlock -Rows $MdoTop)
+$HtmlContent = Set-WorkloadAlertBlock -Html $HtmlContent -SectionId "mde" -BlockHtml (Build-TopAlertsBlock -Rows $MdeTop)
+$HtmlContent = Set-WorkloadAlertBlock -Html $HtmlContent -SectionId "mdi" -BlockHtml (Build-TopAlertsBlock -Rows $MdiTop)
+$HtmlContent = Set-WorkloadAlertBlock -Html $HtmlContent -SectionId "entra" -BlockHtml (Build-TopAlertsBlock -Rows $EntraTop)
+$HtmlContent = Set-WorkloadAlertBlock -Html $HtmlContent -SectionId "mda" -BlockHtml (Build-TopAlertsBlock -Rows $MdaTop)
+
+# El reporte final es operacional: ocultar etiquetas de ejemplo/actualización.
+$HtmlContent = $HtmlContent -replace '\s*<span class="demo-tag">Tendencias de ejemplo</span>', ''
+$HtmlContent = $HtmlContent -replace '\s*<span class="demo-tag">Actualizado</span>', ''
+$HtmlContent = $HtmlContent -replace '\s*<span class="demo-tag">Datos de ejemplo</span>', ''
+$HtmlContent = $HtmlContent -replace '\s*<span class="demo-tag">Ejemplo</span>', ''
 
 # 5. Guardar Resultado
 try {
