@@ -105,9 +105,9 @@ $DHCSPFRecordLength = $DHC.SPFRecordLength
 $DHCSPFRecordDnsLookupCount = $DHC.SPFRecordDnsLookupCount
 $DHCDmarcRecord = $DHC.DmarcRecord
 $DHCDmarcAdvisory = $DHC.DmarcAdvisory
-$DHCDkimRecord = $DHC.DkimRecord-1
-$DHCDkimSelector = $DHC.DkimSelector-1
-$DHCDkimAdvisory = $DHC.DkimAdvisory-1
+$DHCDkimRecord = $DHC.DkimRecord
+$DHCDkimSelector = $DHC.DkimSelector
+$DHCDkimAdvisory = $DHC.DkimAdvisory
 $DHCMtaRecord = $DHC.MtaRecord
 $DHCMtaAdvisory = $DHC.MtaAdvisory 
 
