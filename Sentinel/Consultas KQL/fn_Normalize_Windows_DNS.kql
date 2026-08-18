@@ -1,0 +1,86 @@
+// Funcion: fn_Normalize_Windows_DNS
+// Objetivo: normalizar logs de DNS Windows Server en un esquema reutilizable.
+// Uso: guardar como funcion de Log Analytics y ejecutar fn_Normalize_Windows_DNS(7d).
+//
+// Notas de portabilidad:
+// - Esta funcion esta disenada como plantilla generica para Microsoft Sentinel.
+// - Ajustar nombres de tablas y columnas si el area de trabajo usa un origen distinto.
+// - Usar esta funcion como base para busquedas, reglas analiticas, libros de trabajo y notebooks.
+
+let fn_Normalize_Windows_DNS = (Lookback:timespan = 30d)
+{
+    union isfuzzy=true
+    (
+        DnsEvents
+        | where TimeGenerated >= ago(Lookback)
+        | extend RawMessage = trim(" ", strcat(
+            tostring(column_ifexists("Message", "")), " ",
+            tostring(column_ifexists("RenderedDescription", "")), " ",
+            tostring(column_ifexists("EventData", ""))
+        ))
+        | extend QueryName = tostring(coalesce(
+            column_ifexists("QueryName", ""),
+            column_ifexists("Name", ""),
+            column_ifexists("DomainName", ""),
+            extract(@"(?i)(?:query|name|qname)[:=\s]+([A-Za-z0-9_.-]+)", 1, RawMessage)
+        ))
+        | extend ClientIp = tostring(coalesce(
+            column_ifexists("ClientIP", ""),
+            column_ifexists("ClientIp", ""),
+            column_ifexists("ClientIp_s", ""),
+            column_ifexists("SourceIp", ""),
+            extract(@"(?i)(?:client|source|src)[^0-9]+([0-9]{1,3}(?:\.[0-9]{1,3}){3})", 1, RawMessage)
+        ))
+        | project
+            TimeGenerated,
+            SourceSystem = "DnsEvents",
+            DeviceName = tostring(column_ifexists("Computer", "")),
+            EventId = toint(column_ifexists("EventID", int(null))),
+            ClientIp,
+            QueryName,
+            QueryType = tostring(coalesce(column_ifexists("QueryType", ""), column_ifexists("RecordType", ""))),
+            ResponseCode = tostring(coalesce(column_ifexists("ResponseCode", ""), column_ifexists("QueryStatus", ""), column_ifexists("ResultCode", ""))),
+            Answers = tostring(coalesce(column_ifexists("IPAddresses", ""), column_ifexists("Answers", ""), column_ifexists("Response", ""))),
+            RawMessage
+    ),
+    (
+        Event
+        | where TimeGenerated >= ago(Lookback)
+        | where Source has_any ("DNS", "Dns") or EventLog has_any ("DNS", "Dns")
+        | extend RawMessage = trim(" ", strcat(
+            tostring(column_ifexists("RenderedDescription", "")), " ",
+            tostring(column_ifexists("EventData", "")), " ",
+            tostring(column_ifexists("ParameterXml", ""))
+        ))
+        | extend QueryName = extract(@"(?i)(?:query|name|qname|domain)[:=\s]+([A-Za-z0-9_.-]+)", 1, RawMessage)
+        | extend ClientIp = coalesce(
+            extract(@"(?i)(?:client|source|src)[^0-9]+([0-9]{1,3}(?:\.[0-9]{1,3}){3})", 1, RawMessage),
+            extract(@"([0-9]{1,3}(?:\.[0-9]{1,3}){3})", 1, RawMessage)
+        )
+        | project
+            TimeGenerated,
+            SourceSystem = "WindowsEvent",
+            DeviceName = tostring(column_ifexists("Computer", "")),
+            EventId = toint(column_ifexists("EventID", int(null))),
+            ClientIp,
+            QueryName,
+            QueryType = tostring(extract(@"(?i)(?:type|qtype)[:=\s]+([A-Z0-9]+)", 1, RawMessage)),
+            ResponseCode = tostring(extract(@"(?i)(?:rcode|status|response)[:=\s]+([A-Z0-9_-]+)", 1, RawMessage)),
+            Answers = tostring(extract(@"(?i)(?:answer|response\s+data)[:=\s]+([^;]+)", 1, RawMessage)),
+            RawMessage
+    )
+    | extend QueryName = tolower(trim(" .", tostring(QueryName)))
+    | extend Labels = split(QueryName, ".")
+    | extend LabelCount = array_length(Labels)
+    | extend QueryRootDomain = iff(
+        LabelCount >= 2,
+        strcat(tostring(Labels[LabelCount - 2]), ".", tostring(Labels[LabelCount - 1])),
+        QueryName
+    )
+    | extend QueryLength = strlen(QueryName)
+    | mv-apply Label = Labels on (summarize MaxLabelLength = max(strlen(tostring(Label))))
+    | project-away Labels
+    | extend IsReverseLookup = QueryName endswith ".in-addr.arpa" or QueryName endswith ".ip6.arpa"
+    | extend IsInternalName = QueryName endswith ".local" or QueryName endswith ".corp" or QueryName !has "."
+    | where isnotempty(QueryName) or isnotempty(ClientIp)
+};

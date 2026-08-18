@@ -1,0 +1,51 @@
+id: 54f3369c-48bd-4787-9f67-9cfaf4c30e03
+name: DHCP - Direccion MAC asociada a multiples IPs
+description: |
+  Detecta una direccion MAC asociada a multiples IPs en un periodo corto.
+  Puede indicar movilidad anomala, cambios frecuentes de lease, comportamiento evasivo o problemas de red.
+severity: Low
+requiredDataConnectors:
+  - connectorId: WindowsSecurityEvents
+    dataTypes:
+      - Event
+      - WindowsEvent
+  - connectorId: CustomLogs
+    dataTypes:
+      - DHCP_CL
+queryFrequency: 1h
+queryPeriod: 7d
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - Discovery
+relevantTechniques:
+  - T1018
+query: |
+  let Lookback = 7d;
+  let MinIpsPerMac = 5;
+  fn_Normalize_Windows_DHCP(Lookback)
+  | where isnotempty(ClientIp) and isnotempty(ClientMac)
+  | summarize
+      IpCount = dcount(ClientIp),
+      Ips = make_set(ClientIp, 50),
+      Hosts = make_set(HostName, 50),
+      DhcpServers = make_set(DeviceName, 10),
+      FirstSeen = min(TimeGenerated),
+      LastSeen = max(TimeGenerated)
+      by ClientMac
+  | where IpCount >= MinIpsPerMac
+  | extend Finding = "Direccion MAC observada con multiples IPs"
+customDetails:
+  ClientMac: ClientMac
+  IpCount: IpCount
+  Ips: Ips
+  Hosts: Hosts
+  DhcpServers: DhcpServers
+  FirstSeen: FirstSeen
+  LastSeen: LastSeen
+alertDetailsOverride:
+  alertDisplayNameFormat: "DHCP - Direccion MAC con multiples IPs"
+  alertDescriptionFormat: "La direccion MAC {{ClientMac}} fue asociada con {{IpCount}} IPs en la ventana analizada."
+version: 1.0.0
+kind: Scheduled
+

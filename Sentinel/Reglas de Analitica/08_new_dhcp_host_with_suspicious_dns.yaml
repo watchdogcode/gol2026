@@ -1,0 +1,77 @@
+id: d3f4f946-1e91-44d0-a6a3-a8da00b97b08
+name: DHCP y DNS - Host nuevo con comportamiento DNS anomalo
+description: |
+  Correlaciona hosts nuevos observados por DHCP con comportamiento DNS anomalo reciente.
+  Util para priorizar dispositivos nuevos que generan NXDOMAIN, consultas largas o dominios raros.
+severity: High
+requiredDataConnectors:
+  - connectorId: DNS
+    dataTypes:
+      - DnsEvents
+  - connectorId: WindowsSecurityEvents
+    dataTypes:
+      - Event
+      - WindowsEvent
+  - connectorId: CustomLogs
+    dataTypes:
+      - DHCP_CL
+queryFrequency: 1d
+queryPeriod: 31d
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - Discovery
+  - CommandAndControl
+relevantTechniques:
+  - T1018
+  - T1071.004
+query: |
+  let BaselineWindow = 30d;
+  let DetectionWindow = 1d;
+  let baseline =
+      fn_Normalize_Windows_DHCP(BaselineWindow + DetectionWindow)
+      | where TimeGenerated between (ago(BaselineWindow + DetectionWindow) .. ago(DetectionWindow))
+      | summarize by ClientMac, HostName;
+  let new_hosts =
+      fn_Normalize_Windows_DHCP(DetectionWindow)
+      | where isnotempty(ClientIp)
+      | join kind=leftanti baseline on ClientMac, HostName
+      | summarize FirstDhcpSeen = min(TimeGenerated), ClientIps = make_set(ClientIp, 20) by ClientMac, HostName;
+  fn_Correlate_DHCP_DNS(DetectionWindow)
+  | where IsReverseLookup == false
+  | where ClientMac in (new_hosts | project ClientMac) or HostName in (new_hosts | project HostName)
+  | extend Response = toupper(tostring(ResponseCode))
+  | summarize
+      TotalDnsQueries = count(),
+      NxdomainCount = countif(Response has_any ("NXDOMAIN", "NAME_ERROR", "3") or RawMessage has_any ("NXDOMAIN", "Name Error")),
+      MaxQueryLength = max(QueryLength),
+      MaxLabelLength = max(MaxLabelLength),
+      DistinctDomains = dcount(QueryRootDomain),
+      SampleQueries = make_set(QueryName, 20),
+      DnsServers = make_set(DnsServer, 10)
+      by ClientIp, HostName, ClientMac
+  | where NxdomainCount >= 20 or MaxQueryLength >= 100 or MaxLabelLength >= 50 or DistinctDomains >= 30
+entityMappings:
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: ClientIp
+  - entityType: Host
+    fieldMappings:
+      - identifier: HostName
+        columnName: HostName
+customDetails:
+  ClientMac: ClientMac
+  TotalDnsQueries: TotalDnsQueries
+  NxdomainCount: NxdomainCount
+  MaxQueryLength: MaxQueryLength
+  MaxLabelLength: MaxLabelLength
+  DistinctDomains: DistinctDomains
+  SampleQueries: SampleQueries
+  DnsServers: DnsServers
+alertDetailsOverride:
+  alertDisplayNameFormat: "DHCP/DNS - Host nuevo con DNS anomalo: {{HostName}}"
+  alertDescriptionFormat: "Host nuevo por DHCP con senales DNS anomalas. IP: {{ClientIp}}, MAC: {{ClientMac}}."
+version: 1.0.0
+kind: Scheduled
+

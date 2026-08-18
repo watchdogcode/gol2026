@@ -1,0 +1,33 @@
+// Busqueda DNS: dominios raros por host.
+// Objetivo: encontrar dominios de baja prevalencia consultados por endpoints especificos.
+//
+// Ajustes recomendados:
+// - Lookback: ventana de analisis.
+// - MinOrgClients y MaxOrgClients: rango de prevalencia para considerar un dominio como raro.
+
+let Lookback = 14d;
+let MinOrgClients = 1;
+let MaxOrgClients = 3;
+let dns = fn_Correlate_DHCP_DNS(Lookback)
+| where IsReverseLookup == false
+| where IsInternalName == false
+| where isnotempty(QueryRootDomain);
+let prevalence =
+    dns
+    | summarize
+        OrgClientCount = dcount(ClientIp),
+        OrgHosts = make_set(HostName, 20),
+        FirstSeen = min(TimeGenerated),
+        LastSeen = max(TimeGenerated)
+        by QueryRootDomain
+    | where OrgClientCount between (MinOrgClients .. MaxOrgClients);
+dns
+| join kind=inner prevalence on QueryRootDomain
+| summarize
+    Queries = count(),
+    SampleQueries = make_set(QueryName, 20),
+    FirstSeen = min(TimeGenerated),
+    LastSeen = max(TimeGenerated),
+    QueryTypes = make_set(QueryType, 10)
+    by ClientIp, HostName, ClientMac, QueryRootDomain, OrgClientCount
+| order by OrgClientCount asc, Queries desc

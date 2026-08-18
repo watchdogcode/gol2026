@@ -1,0 +1,104 @@
+// Funcion: fn_Normalize_Windows_DHCP
+// Objetivo: normalizar logs de DHCP Windows Server en un esquema reutilizable.
+// Uso: guardar como funcion de Log Analytics y ejecutar fn_Normalize_Windows_DHCP(7d).
+//
+// Notas de portabilidad:
+// - Esta funcion esta disenada como plantilla generica para Microsoft Sentinel.
+// - Ajustar nombres de tablas y columnas si el area de trabajo usa un origen distinto.
+// - Mantener estable el esquema de salida para no modificar las consultas de busqueda.
+
+let fn_Normalize_Windows_DHCP = (Lookback:timespan = 30d)
+{
+    union isfuzzy=true
+    (
+        Event
+        | where TimeGenerated >= ago(Lookback)
+        | where Source has_any ("DHCP", "Dhcp") or EventLog has_any ("DHCP", "Dhcp")
+        | extend RawMessage = trim(" ", strcat(
+            tostring(column_ifexists("RenderedDescription", "")), " ",
+            tostring(column_ifexists("EventData", "")), " ",
+            tostring(column_ifexists("ParameterXml", ""))
+        ))
+        | extend EventId = toint(column_ifexists("EventID", int(null)))
+        | extend ClientIp = coalesce(
+            extract(@"(?i)(?:client\s+ip|ip\s+address|address|ip)[:=\s]+([0-9]{1,3}(?:\.[0-9]{1,3}){3})", 1, RawMessage),
+            extract(@"([0-9]{1,3}(?:\.[0-9]{1,3}){3})", 1, RawMessage)
+        )
+        | extend ClientMac = coalesce(
+            extract(@"(?i)(?:mac|hardware\s+address|client\s+id)[:=\s]+([0-9a-f]{2}(?:[:-][0-9a-f]{2}){5})", 1, RawMessage),
+            extract(@"(?i)\b([0-9a-f]{12})\b", 1, RawMessage)
+        )
+        | extend HostName = coalesce(
+            extract(@"(?i)(?:hostname|host\s+name|client\s+name)[:=\s]+([A-Za-z0-9_.-]+)", 1, RawMessage),
+            tostring(column_ifexists("Computer", ""))
+        )
+        | extend ScopeId = extract(@"(?i)(?:scope|scopeid|scope\s+id)[:=\s]+([0-9]{1,3}(?:\.[0-9]{1,3}){3})", 1, RawMessage)
+        | project
+            TimeGenerated,
+            SourceSystem = "WindowsEvent",
+            DeviceName = tostring(column_ifexists("Computer", "")),
+            EventId,
+            EventAction = case(
+                RawMessage has_any ("renew", "renewed"), "LeaseRenewed",
+                RawMessage has_any ("release", "released"), "LeaseReleased",
+                RawMessage has_any ("decline", "declined"), "LeaseDeclined",
+                RawMessage has_any ("assign", "assigned", "lease", "leased"), "LeaseAssigned",
+                RawMessage has_any ("deny", "denied", "reject", "rejected"), "LeaseDenied",
+                isempty(EventId), "DhcpEvent",
+                strcat("DhcpEvent", tostring(EventId))
+            ),
+            ClientIp,
+            ClientMac,
+            HostName,
+            ScopeId,
+            RawMessage
+    ),
+    (
+        DHCP_CL
+        | where TimeGenerated >= ago(Lookback)
+        | extend RawMessage = trim(" ", strcat(
+            tostring(column_ifexists("Message", "")), " ",
+            tostring(column_ifexists("RawData", "")), " ",
+            tostring(column_ifexists("RenderedDescription", ""))
+        ))
+        | extend EventId = toint(coalesce(
+            column_ifexists("EventId_d", real(null)),
+            column_ifexists("EventID", int(null))
+        ))
+        | extend ClientIp = tostring(coalesce(
+            column_ifexists("IPAddress_s", ""),
+            column_ifexists("ClientIp_s", ""),
+            column_ifexists("ClientIP_s", ""),
+            extract(@"([0-9]{1,3}(?:\.[0-9]{1,3}){3})", 1, RawMessage)
+        ))
+        | extend ClientMac = tostring(coalesce(
+            column_ifexists("MACAddress_s", ""),
+            column_ifexists("ClientMac_s", ""),
+            column_ifexists("MacAddress_s", ""),
+            extract(@"(?i)\b([0-9a-f]{2}(?:[:-][0-9a-f]{2}){5}|[0-9a-f]{12})\b", 1, RawMessage)
+        ))
+        | project
+            TimeGenerated,
+            SourceSystem = "CustomDHCP",
+            DeviceName = tostring(coalesce(column_ifexists("ServerName_s", ""), column_ifexists("Computer", ""))),
+            EventId,
+            EventAction = tostring(coalesce(column_ifexists("Action_s", ""), column_ifexists("EventAction_s", ""), "DhcpEvent")),
+            ClientIp,
+            ClientMac,
+            HostName = tostring(coalesce(column_ifexists("HostName_s", ""), column_ifexists("ClientHostName_s", ""))),
+            ScopeId = tostring(coalesce(column_ifexists("ScopeId_s", ""), column_ifexists("ScopeID_s", ""))),
+            RawMessage
+    )
+    | extend ClientMac = toupper(replace_regex(tostring(ClientMac), @"[^0-9A-Fa-f]", ""))
+    | extend ClientMac = iff(strlen(ClientMac) == 12, strcat(
+        substring(ClientMac, 0, 2), ":",
+        substring(ClientMac, 2, 2), ":",
+        substring(ClientMac, 4, 2), ":",
+        substring(ClientMac, 6, 2), ":",
+        substring(ClientMac, 8, 2), ":",
+        substring(ClientMac, 10, 2)
+    ), ClientMac)
+    | extend HostName = tolower(trim(" .", tostring(HostName)))
+    | extend ClientIp = tostring(ClientIp)
+    | where isnotempty(ClientIp) or isnotempty(ClientMac) or isnotempty(HostName)
+};

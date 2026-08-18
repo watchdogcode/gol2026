@@ -1,0 +1,22 @@
+// Busqueda DNS: picos de NXDOMAIN o fallas por cliente.
+// Objetivo: detectar DGA, malware, errores de configuracion o exploracion automatizada.
+//
+// Ajustes recomendados:
+// - Lookback: ventana de analisis.
+// - BinSize: granularidad temporal.
+// - NxdomainCount y DistinctDomains: ajustar segun el volumen normal del ambiente.
+
+let Lookback = 7d;
+let BinSize = 1h;
+fn_Correlate_DHCP_DNS(Lookback)
+| extend Response = toupper(tostring(ResponseCode))
+| where Response has_any ("NXDOMAIN", "NAME_ERROR", "3") or RawMessage has_any ("NXDOMAIN", "Name Error")
+| summarize
+    NxdomainCount = count(),
+    DistinctDomains = dcount(QueryName),
+    SampleDomains = make_set(QueryName, 20),
+    Hosts = make_set(HostName, 20),
+    Macs = make_set(ClientMac, 20)
+    by bin(TimeGenerated, BinSize), ClientIp
+| where NxdomainCount >= 50 or DistinctDomains >= 25
+| order by NxdomainCount desc, DistinctDomains desc

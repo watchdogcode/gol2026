@@ -1,0 +1,66 @@
+// Funcion: fn_Correlate_DHCP_DNS
+// Objetivo: enriquecer actividad DNS con la identidad DHCP mas cercana para la misma IP.
+// Dependencias: fn_Normalize_Windows_DHCP y fn_Normalize_Windows_DNS.
+//
+// Notas de uso:
+// - Lookback define la ventana de investigacion DNS.
+// - LeaseWindow define cuanto tiempo hacia atras se busca una identidad DHCP relacionada.
+// - Ajustar LeaseWindow segun la duracion normal de leases DHCP en la organizacion.
+
+let fn_Correlate_DHCP_DNS = (Lookback:timespan = 7d, LeaseWindow:timespan = 24h)
+{
+    let dhcp =
+        fn_Normalize_Windows_DHCP(Lookback + LeaseWindow)
+        | where isnotempty(ClientIp)
+        | project
+            DhcpTime = TimeGenerated,
+            ClientIp,
+            DhcpServer = DeviceName,
+            DhcpAction = EventAction,
+            ClientMac,
+            HostName,
+            ScopeId;
+    let dns =
+        fn_Normalize_Windows_DNS(Lookback)
+        | where isnotempty(ClientIp)
+        | project
+            DnsTime = TimeGenerated,
+            ClientIp,
+            DnsServer = DeviceName,
+            QueryName,
+            QueryRootDomain,
+            QueryType,
+            ResponseCode,
+            Answers,
+            QueryLength,
+            LabelCount,
+            MaxLabelLength,
+            IsReverseLookup,
+            IsInternalName,
+            RawMessage;
+    dns
+    | join kind=leftouter dhcp on ClientIp
+    | where isnull(DhcpTime) or DhcpTime between ((DnsTime - LeaseWindow) .. (DnsTime + 5m))
+    | summarize arg_max(DhcpTime, *) by DnsTime, ClientIp, DnsServer, QueryName, QueryType, ResponseCode
+    | project
+        TimeGenerated = DnsTime,
+        ClientIp,
+        HostName,
+        ClientMac,
+        ScopeId,
+        DhcpServer,
+        DhcpAction,
+        DnsServer,
+        QueryName,
+        QueryRootDomain,
+        QueryType,
+        ResponseCode,
+        Answers,
+        QueryLength,
+        LabelCount,
+        MaxLabelLength,
+        IsReverseLookup,
+        IsInternalName,
+        RawMessage
+};
+

@@ -1,0 +1,34 @@
+// Busqueda DNS: posible tunelizacion o exfiltracion por DNS.
+// Objetivo: identificar consultas largas, muchos subdominios, consultas TXT y alta cardinalidad.
+//
+// Ajustes recomendados:
+// - Lookback: ventana de analisis.
+// - TotalQueries, MaxQueryLength, AvgQueryLength, MaxLabelLength, TxtRatio y DistinctQueries:
+//   ajustar umbrales con base en el comportamiento normal de cada organizacion.
+
+let Lookback = 7d;
+fn_Correlate_DHCP_DNS(Lookback)
+| where IsReverseLookup == false
+| summarize
+    TotalQueries = count(),
+    DistinctQueries = dcount(QueryName),
+    AvgQueryLength = avg(QueryLength),
+    MaxQueryLength = max(QueryLength),
+    AvgLabelCount = avg(LabelCount),
+    MaxLabelLength = max(MaxLabelLength),
+    TxtQueries = countif(toupper(QueryType) == "TXT"),
+    SampleQueries = make_set(QueryName, 20),
+    Hosts = make_set(HostName, 20),
+    Macs = make_set(ClientMac, 20)
+    by ClientIp, QueryRootDomain
+| extend TxtRatio = todouble(TxtQueries) / todouble(TotalQueries)
+| where
+    TotalQueries >= 100
+    and (
+        MaxQueryLength >= 120
+        or AvgQueryLength >= 70
+        or MaxLabelLength >= 50
+        or TxtRatio >= 0.20
+        or DistinctQueries >= 80
+    )
+| order by MaxQueryLength desc, DistinctQueries desc

@@ -1,0 +1,35 @@
+// Investigacion: linea de tiempo DHCP + DNS para una IP especifica.
+// Objetivo: reconstruir actividad de red combinando identidad DHCP y consultas DNS.
+//
+// Antes de ejecutar:
+// - Reemplazar TargetIp por la IP investigada.
+// - Ajustar Lookback segun la ventana requerida.
+
+let TargetIp = "REEMPLAZAR_CON_IP";
+let Lookback = 7d;
+let dhcp_timeline =
+    fn_Normalize_Windows_DHCP(Lookback)
+    | where ClientIp == TargetIp
+    | project
+        TimeGenerated,
+        Source = "DHCP",
+        DeviceName,
+        ClientIp,
+        HostName,
+        ClientMac,
+        Detail = strcat(EventAction, " scope=", ScopeId),
+        RawMessage;
+let dns_timeline =
+    fn_Correlate_DHCP_DNS(Lookback)
+    | where ClientIp == TargetIp
+    | project
+        TimeGenerated,
+        Source = "DNS",
+        DeviceName = DnsServer,
+        ClientIp,
+        HostName,
+        ClientMac,
+        Detail = strcat(QueryType, " ", QueryName, " respuesta=", ResponseCode),
+        RawMessage;
+union dhcp_timeline, dns_timeline
+| order by TimeGenerated asc
