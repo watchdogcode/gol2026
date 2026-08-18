@@ -17,6 +17,7 @@ La guia busca cubrir:
 - Uso de fuentes de datos de alto valor.
 - Ciclo de vida de contenido KQL.
 - Integracion de artefactos versionados en GitHub.
+- Respaldo y restauracion de artefactos de Microsoft Sentinel.
 
 ## Audiencia
 
@@ -307,6 +308,106 @@ docs/
 5. **Medicion**
    - Medir ruido, falsos positivos, tiempos de respuesta y cobertura.
 
+## Respaldo y restauracion de artefactos de Sentinel
+
+### Objetivo
+
+Mantener una copia versionada, verificable y recuperable de la configuracion y el contenido desarrollado para Microsoft Sentinel. El respaldo permite recuperar artefactos eliminados o modificados por error, comparar cambios entre el portal y el repositorio, y reconstruir la capacidad de deteccion en otro workspace autorizado.
+
+Este proceso respalda artefactos de configuracion. No sustituye la retencion de logs de Log Analytics ni constituye un respaldo de incidentes, alertas o evidencias historicas.
+
+### Alcance del respaldo
+
+| Artefacto | Formato recomendado | Ubicacion en este proyecto | Consideracion |
+| --- | --- | --- | --- |
+| Reglas analiticas personalizadas | YAML, JSON, ARM o Bicep | `Sentinel/Reglas de Analitica/` | Conservar identificador, estado, consulta, frecuencia, entidades, tacticas, tecnicas, version y dependencias. |
+| Funciones de Log Analytics | KQL y definicion de parametros | `Sentinel/Funciones/` | Restaurarlas antes de las reglas que las consumen. |
+| Consultas de hunting y busqueda | KQL | `Sentinel/Hunting/` y `Sentinel/Consultas KQL/` | Registrar tablas, funciones y parametros requeridos. |
+| Workbooks | JSON, ARM o Bicep | `Sentinel/Workbook/` | Sustituir referencias de workspace o suscripcion al restaurar en otro entorno. |
+| Notebooks | `.ipynb`, configuracion de ejemplo y dependencias | `Sentinel/notebooks/` | No guardar salidas, tokens, identificadores reales ni datos sensibles. |
+| Reglas de automatizacion | JSON, ARM o Bicep | Crear directorio versionado cuando se incorporen | Conservar orden, condiciones, acciones y referencias a playbooks. |
+| Playbooks de Logic Apps | ARM o Bicep | Crear directorio versionado cuando se incorporen | No exportar secretos; documentar conexiones, identidades y permisos requeridos. |
+| Watchlists | Definicion, esquema y archivo sin datos sensibles | Crear directorio versionado cuando se incorporen | Separar la configuracion del contenido sensible y aplicar su politica de retencion. |
+| Conectores y Content hub | Inventario de conectores, soluciones y versiones | Documentacion de operacion | Respaldar configuracion y dependencias; nunca credenciales, claves o tokens. |
+
+Los artefactos administrados por Content hub deben registrarse con nombre y version de la solucion. Las personalizaciones deben guardarse por separado, porque una actualizacion de la solucion puede reemplazar o cambiar la plantilla original.
+
+### Frecuencia y responsables
+
+| Momento | Actividad | Responsable |
+| --- | --- | --- |
+| Antes de un cambio | Exportar la version activa y crear un punto de restauracion identificable. | Ingeniero SOC |
+| Despues de un cambio aprobado | Exportar el resultado, validar diferencias y actualizar el repositorio. | Ingeniero SOC |
+| Semanal | Comparar los artefactos activos con la ultima version respaldada y registrar desviaciones. | Ingeniero SOC |
+| Mensual | Confirmar que el inventario, dependencias, versiones y propietarios esten actualizados. | Ingeniero SOC / Lider SOC |
+| Trimestral | Ejecutar una restauracion de prueba en un workspace no productivo. | Ingeniero SOC / Arquitecto |
+| Ante un incidente o cambio urgente | Crear un respaldo inmediatamente despues de estabilizar la operacion y documentar el cambio de emergencia. | Responsable del cambio |
+
+Como objetivo inicial, usar un RPO de siete dias para cambios no planificados. Los cambios planificados deben tener respaldo anterior y posterior en la misma ventana de cambio. El RTO debe definirse segun la criticidad de las reglas y automatizaciones de cada organizacion.
+
+### Proceso de respaldo
+
+1. **Inventariar.** Obtener la lista de reglas analiticas, funciones, consultas, workbooks, reglas de automatizacion, playbooks, watchlists, conectores y soluciones instaladas.
+2. **Identificar dependencias.** Registrar tablas, funciones, watchlists, conectores, identidades administradas, conexiones de API y permisos utilizados por cada artefacto.
+3. **Exportar.** Descargar o generar la definicion del artefacto en un formato legible y desplegable. Para las reglas de este proyecto se conserva YAML; para el workbook se conserva JSON.
+4. **Sanitizar.** Eliminar secretos, tokens, identificadores sensibles, correos, IP, dominios, resultados de consultas y datos de incidentes. Reemplazar valores de entorno por parametros o placeholders.
+5. **Validar.** Comprobar sintaxis, identificadores unicos, referencias, consultas KQL, entidades, frecuencia, severidad y dependencias. Un archivo exportado pero no validado no se considera respaldo util.
+6. **Comparar.** Revisar el diff contra la version anterior y explicar cambios de logica, umbrales, permisos, estado o automatizacion.
+7. **Aprobar y versionar.** Crear una revision por pares antes de integrar el cambio. Registrar fecha, autor, ticket, workspace de origen y version del artefacto en el commit o solicitud de cambio.
+8. **Proteger la copia.** Mantener el repositorio privado cuando contenga informacion del entorno, aplicar minimo privilegio, proteccion de rama y una copia independiente conforme a la politica corporativa de Git.
+9. **Registrar resultado.** Actualizar el inventario con fecha del respaldo, version, estado de validacion y ubicacion de la copia.
+
+Estructura minima sugerida para el registro:
+
+| Campo | Descripcion |
+| --- | --- |
+| `ArtifactId` | Identificador estable del artefacto en Sentinel. |
+| `ArtifactType` | Regla, funcion, hunting, workbook, automatizacion, playbook o watchlist. |
+| `DisplayName` | Nombre visible en el portal. |
+| `Version` | Version declarada en el archivo o etiqueta del repositorio. |
+| `SourceWorkspace` | Alias no sensible del workspace de origen. |
+| `Dependencies` | Tablas, conectores, funciones, watchlists y playbooks requeridos. |
+| `BackupDate` | Fecha y hora del respaldo en UTC. |
+| `ValidatedBy` | Responsable de la validacion. |
+| `ChangeTicket` | Solicitud o incidente que justifica el cambio. |
+| `RestorePriority` | Critica, alta, media o baja. |
+
+### Controles de seguridad
+
+- No guardar secretos, claves, certificados, cadenas de conexion ni tokens en Git.
+- Usar Key Vault o el mecanismo corporativo autorizado para secretos y documentar solo su referencia.
+- No respaldar resultados de notebooks, exportaciones de incidentes ni watchlists sensibles en este repositorio.
+- Revisar que los archivos no contengan identificadores de tenant, suscripcion, workspace o recurso que deban parametrizarse.
+- Limitar la aprobacion y despliegue de reglas y playbooks a roles autorizados.
+- Mantener trazabilidad entre el cambio en Sentinel, el ticket y la version del repositorio.
+
+### Proceso de restauracion
+
+1. Declarar el incidente de recuperacion, alcance, workspace destino y responsable.
+2. Seleccionar una version aprobada y comprobar su integridad, historial y dependencias.
+3. Confirmar que el workspace, conectores, tablas, RBAC e identidades requeridas esten disponibles.
+4. Restaurar primero funciones y watchlists; despues consultas y reglas analiticas; luego playbooks y reglas de automatizacion; finalmente workbooks y notebooks.
+5. Importar inicialmente las reglas analiticas deshabilitadas cuando el mecanismo de despliegue lo permita.
+6. Ejecutar las consultas KQL manualmente y validar esquema, volumen, entidades y falsos positivos.
+7. Probar playbooks sin acciones destructivas y confirmar conexiones, identidad administrada y permisos.
+8. Habilitar los artefactos por prioridad, observar su funcionamiento y evitar alertas duplicadas.
+9. Documentar elementos restaurados, versiones, errores, excepciones y hora de recuperacion.
+10. Actualizar el repositorio si la restauracion requirio ajustes autorizados para el entorno destino.
+
+### Prueba trimestral de recuperacion
+
+La prueba debe restaurar como minimo una funcion KQL, una regla analitica dependiente y un workbook en un workspace no productivo. Se considera satisfactoria cuando:
+
+- Los archivos pueden importarse sin errores de sintaxis.
+- Las dependencias se identifican y se restauran en el orden correcto.
+- La consulta de la regla produce el resultado esperado con datos de prueba autorizados.
+- Las entidades, severidad, frecuencia y tacticas coinciden con el respaldo.
+- El workbook carga sin referencias rotas.
+- El tiempo de recuperacion se registra y cumple el RTO definido.
+- Los hallazgos generan acciones de mejora con propietario y fecha objetivo.
+
+> La integracion de repositorios de Microsoft Sentinel o una canalizacion CI/CD puede automatizar el despliegue, pero no corrige cambios realizados directamente en el portal que nunca fueron exportados. La comparacion periodica contra el estado activo sigue siendo obligatoria.
+
 ## Cadencias operativas
 
 ### Tareas diarias
@@ -329,6 +430,7 @@ docs/
 | Revision de metricas | Revisar volumen de incidentes, MTTA, MTTR y cierres por falso positivo. | Lider SOC |
 | Revision de busquedas | Promover consultas utiles a reglas analiticas candidatas. | Tier 3 / Ingeniero SOC |
 | Revision de costos | Validar ingesta por tabla y crecimiento anomalo. | Arquitecto / Lider |
+| Verificacion de respaldos | Comparar artefactos activos con la ultima version del repositorio. | Ingeniero SOC |
 
 ### Tareas mensuales
 
@@ -339,6 +441,7 @@ docs/
 | Cobertura MITRE ATT&CK | Identificar tecnicas cubiertas y brechas de deteccion. | Tier 3 / Ingeniero SOC |
 | Revision de backlog | Priorizar nuevas reglas, notebooks, playbooks y mejoras. | Lider SOC |
 | Actualizacion del repositorio | Versionar cambios de KQL, documentacion y artefactos. | Ingeniero SOC |
+| Revision del inventario de respaldo | Confirmar versiones, dependencias, propietarios y estado de validacion. | Ingeniero SOC / Lider SOC |
 
 ### Tareas trimestrales
 
@@ -346,6 +449,7 @@ docs/
 - Revision de madurez del SOC.
 - Revision de arquitectura y costos.
 - Revision de convenciones del repositorio.
+- Prueba de restauracion de artefactos en un workspace no productivo.
 - Depuracion de contenido obsoleto.
 - Actualizacion formal de esta guia.
 
@@ -452,6 +556,7 @@ Buenas practicas:
 | 10 | Configurar playbooks de notificacion y enriquecimiento. | Ingeniero SOC |
 | 11 | Configurar workbooks de metricas y costos. | Ingeniero SOC |
 | 12 | Establecer cadencias diaria, semanal y mensual. | Lider SOC |
+| 13 | Crear el inventario, respaldo inicial y prueba de restauracion de artefactos. | Ingeniero SOC / Arquitecto |
 
 ## Aplicacion especifica a este paquete DHCP/DNS
 
