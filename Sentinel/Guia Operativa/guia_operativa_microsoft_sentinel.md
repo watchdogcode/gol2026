@@ -21,7 +21,7 @@ La guia busca cubrir:
 ## Audiencia
 
 | Rol | Responsabilidad principal |
-|---|---|
+| --- | --- |
 | Analista SOC Tier 1 | Monitoreo, triaje inicial y clasificacion de incidentes. |
 | Analista SOC Tier 2 | Investigacion, correlacion y contencion. |
 | Analista SOC Tier 3 / Threat Hunter | Caza proactiva, respuesta avanzada y mejora de detecciones. |
@@ -37,7 +37,7 @@ Habilitar primero fuentes de alto valor y bajo costo, estabilizar la operacion c
 ## Componentes operativos clave
 
 | Componente | Uso operativo |
-|---|---|
+| --- | --- |
 | Log Analytics workspace | Repositorio donde se almacenan e indexan los datos. Define acceso, retencion y costos. |
 | Conectores de datos | Integran fuentes Microsoft y de terceros. Su salud debe revisarse de forma recurrente. |
 | Funciones KQL | Normalizan datos y permiten reutilizar logica comun. |
@@ -53,18 +53,158 @@ Habilitar primero fuentes de alto valor y bajo costo, estabilizar la operacion c
 
 Priorizar fuentes que entregan valor de seguridad sin iniciar con una explosion de costos.
 
-| Fuente | Tablas comunes | Valor operativo |
-|---|---|---|
-| Microsoft Defender XDR | `SecurityIncident`, `SecurityAlert` | Incidentes y alertas unificadas. |
-| Azure Activity | `AzureActivity` | Actividad del plano de control de Azure. |
-| Microsoft 365 / Office 365 | `OfficeActivity` | Actividad de Exchange, SharePoint y Teams. |
-| Microsoft Defender for Cloud | `SecurityAlert` | Alertas de cargas de trabajo cloud. |
-| Microsoft Entra ID Protection | `SecurityAlert` | Alertas de riesgo de identidad. |
-| Microsoft Sentinel Health | `SentinelHealth` | Estado de conectores, reglas y automatizacion. |
-| Windows Server DHCP | `Event`, `WindowsEvent` o tabla personalizada | Identidad de red: IP, MAC, hostname, scope y leases. |
-| Windows Server DNS | `DnsEvents`, `Event`, `WindowsEvent` o tabla personalizada | Resolucion DNS, dominios consultados y comportamiento de clientes. |
+| Fuente | Informacion administrada | Tablas comunes en Sentinel | Prioridad |
+| --- | --- | --- | --- |
+| Microsoft Defender XDR | Incidentes y alertas correlacionadas de MDE, MDI, MDO y MDA. | `SecurityIncident`, `SecurityAlert` | Critica |
+| Microsoft Entra ID | Inicios de sesion, auditoria, aprovisionamiento y riesgo. | `SigninLogs`, `AuditLogs`, `ProvisioningLogs` y tablas AAD segun configuracion | Critica |
+| Microsoft 365 / Office 365 | Actividad de Exchange, SharePoint, OneDrive y Teams. | `OfficeActivity` | Alta |
+| Azure Activity | Cambios administrativos sobre recursos y suscripciones. | `AzureActivity` | Alta |
+| Microsoft Defender for Cloud | Alertas de cargas de trabajo cloud. | `SecurityAlert` | Alta cuando aplique |
+| Microsoft Sentinel Health | Salud de reglas, conectores y automatizacion. | `SentinelHealth`, `SentinelAudit` | Critica |
+| Windows Server DHCP | Asignaciones IP, MAC, hostname, scope y leases. | `Event`, `WindowsEvent` o tabla personalizada | Segun caso de uso |
+| Windows Server DNS | Consultas, respuestas y resolucion de dominios. | `DnsEvents`, `Event`, `WindowsEvent` o tabla personalizada | Segun caso de uso |
 
 > Nota: Las tablas y costos dependen del tipo de conector, licencia y configuracion. Validar siempre la facturacion esperada antes de habilitar telemetria cruda de alto volumen.
+
+## Manejo operativo de fuentes de datos
+
+### Sentinel y Advanced Hunting son planos diferentes
+
+| Plano | Proposito | Ejemplos | Uso operativo |
+| --- | --- | --- | --- |
+| Microsoft Sentinel / Log Analytics | Centralizar eventos, alertas e incidentes para correlacion, retencion y automatizacion. | `SecurityIncident`, `SecurityAlert`, `SigninLogs`, `AuditLogs`, `OfficeActivity`, `AzureActivity` | Triaje, reglas analiticas, workbooks, playbooks y cumplimiento. |
+| Microsoft Defender XDR Advanced Hunting | Consultar telemetria detallada de los productos Defender licenciados y habilitados. | `DeviceProcessEvents`, `EmailEvents`, `IdentityLogonEvents`, `CloudAppEvents`, `EntraIdSignInEvents` | Investigacion profunda, hunting y detecciones personalizadas. |
+
+Las consultas de los paquetes KQL de MDE, MDI, MDO, MDA y Entra ID de este repositorio estan disenadas para Advanced Hunting. No deben copiarse a Sentinel sin comprobar que sus tablas y columnas existan en el area de trabajo.
+
+Flujo de investigacion esperado:
+
+1. Recibir y priorizar el incidente en Sentinel.
+2. Identificar usuario, dispositivo, IP, URL, dominio, hash, aplicacion o buzon.
+3. Pivotar a Advanced Hunting cuando se requiera telemetria detallada.
+4. Registrar en el incidente la consulta, ventana temporal, evidencia y resultado.
+5. Ejecutar el playbook correspondiente y verificar la contencion.
+
+### Inventario por tipo de informacion
+
+| Dominio | Informacion administrada | Tablas de Advanced Hunting | Cobertura esperada en Sentinel |
+| --- | --- | --- | --- |
+| MDE | Procesos, archivos, red, registro, inicios de sesion, dispositivos y vulnerabilidades. | `DeviceProcessEvents`, `DeviceFileEvents`, `DeviceNetworkEvents`, `DeviceRegistryEvents`, `DeviceLogonEvents`, `DeviceEvents`, tablas `DeviceTvm*` | Alertas e incidentes mediante Microsoft Defender XDR; la telemetria detallada permanece en Advanced Hunting salvo integracion adicional. |
+| MDI | Autenticacion on-premises, consultas y cambios de Active Directory. | `IdentityLogonEvents`, `IdentityQueryEvents`, `IdentityDirectoryEvents` | Alertas e incidentes mediante Microsoft Defender XDR. |
+| MDO | Flujo de correo, adjuntos, URLs, clics, acciones post-entrega y campanas. | `EmailEvents`, `EmailAttachmentInfo`, `EmailUrlInfo`, `EmailPostDeliveryEvents`, `UrlClickEvents` | Alertas e incidentes mediante Microsoft Defender XDR; auditoria de cargas de trabajo mediante `OfficeActivity`. |
+| MDA | Actividad SaaS, aplicaciones OAuth, App Governance y posibles exfiltraciones. | `CloudAppEvents` y tablas relacionadas disponibles en el tenant | Alertas e incidentes mediante Microsoft Defender XDR; otros datos dependen del conector habilitado. |
+| Entra ID | Inicios de sesion, aplicaciones, Microsoft Graph, auditoria, aprovisionamiento y riesgo. | `EntraIdSignInEvents`, `EntraIdSpnSignInEvents`, `GraphApiAuditEvents` cuando esten disponibles | `SigninLogs`, `AADNonInteractiveUserSignInLogs`, `AADServicePrincipalSignInLogs`, `AuditLogs`, `ProvisioningLogs` y tablas de riesgo segun licencia. |
+| Defender XDR / IR | Alertas, incidentes, entidades y evidencia correlacionada. | `AlertInfo`, `AlertEvidence` y tablas de cada producto | `SecurityIncident`, `SecurityAlert` como cola central del SOC. |
+| Azure y Defender for Cloud | Operaciones sobre recursos, cambios de configuracion y alertas cloud. | No aplica como plano principal para este paquete. | `AzureActivity`, `SecurityAlert` y tablas especificas habilitadas. |
+| DHCP y DNS | Identidad de red y resolucion de nombres. | No aplica. | `Event`, `WindowsEvent`, `DnsEvents` o tablas personalizadas. |
+
+La licencia no sustituye el onboarding de activos ni la configuracion del conector. Una fuente solo se considera operativa cuando supera validaciones de cobertura, frescura, esquema y volumen.
+
+### Ciclo de vida de una fuente
+
+#### Alta
+
+Registrar antes de habilitarla:
+
+- Propietario tecnico y operativo.
+- Caso de uso, amenazas y entidades cubiertas.
+- Conector, licencia, permisos y activos incluidos.
+- Tablas y columnas requeridas.
+- Volumen estimado, retencion y presupuesto.
+- Frecuencia esperada y umbral de frescura.
+- Reglas, funciones, workbooks y playbooks dependientes.
+- Clasificacion de datos y requisitos de acceso.
+
+#### Criterios de aceptacion
+
+1. El conector aparece conectado y sin errores.
+2. Las tablas esperadas reciben datos del alcance aprobado.
+3. `TimeGenerated` cumple el umbral de frescura acordado.
+4. El esquema contiene las entidades requeridas por las detecciones.
+5. El volumen corresponde con la poblacion cubierta y no presenta duplicados evidentes.
+6. Una prueba recorre el flujo hasta el incidente sin contencion destructiva.
+7. RBAC, retencion y costo estan aprobados.
+8. La fuente esta incluida en el workbook y la rutina de salud.
+
+Consulta base de frescura y volumen:
+
+```kql
+union withsource=Tabla isfuzzy=true
+   SecurityIncident,
+   SecurityAlert,
+   SigninLogs,
+   AuditLogs,
+   OfficeActivity,
+   AzureActivity,
+   SentinelHealth
+| where TimeGenerated > ago(24h)
+| summarize UltimoEvento=max(TimeGenerated), Eventos=count() by Tabla
+| extend MinutosSinDatos=datetime_diff("minute", now(), UltimoEvento)
+| order by MinutosSinDatos desc
+```
+
+`isfuzzy=true` permite ejecutar la consulta cuando alguna tabla no existe. Una tabla esperada ausente debe investigarse, no ignorarse.
+
+#### Operacion y evidencia
+
+| Cadencia | Control | Evidencia minima |
+| --- | --- | --- |
+| Diaria | Revisar errores, ultima recepcion, caidas de volumen, activos sin telemetria y sincronizacion de incidentes XDR. | Resultado KQL o workbook y ticket de desviaciones. |
+| Semanal | Comparar activos esperados contra observados; revisar reglas sin datos, campos nulos, sensores y conectores degradados. | Porcentaje de cobertura y backlog de correccion. |
+| Semanal | Revisar consumo por tabla y cambios de esquema. | Tendencia de ingesta y acciones asignadas. |
+| Mensual | Revalidar caso de uso, retencion, RBAC, licencias, dependencias y SLA. | Registro de revision y decision de mantener, ajustar o retirar. |
+| Trimestral | Probar continuidad, escalamiento y una deteccion de extremo a extremo. | Resultado del ejercicio y plan de mejora. |
+
+#### Degradacion o ausencia de datos
+
+1. Confirmar tabla, tenant, conector, producto, sensor, activos y ventana afectados.
+2. Consultar `SentinelHealth`, `SentinelAudit`, estado del conector y Service Health.
+3. Verificar licencias, permisos, credenciales, configuracion y cambios recientes.
+4. Comparar el portal de origen con Sentinel para ubicar la falla en generacion o ingesta.
+5. Crear ticket con inicio estimado, fuentes, reglas ciegas, riesgo y propietario.
+6. Informar al SOC y aplicar monitoreo compensatorio desde el portal de origen.
+7. Confirmar recuperacion por frescura, volumen y eventos de muestra; registrar causa raiz.
+
+| Severidad | Condicion | Respuesta |
+| --- | --- | --- |
+| Critica | Sin incidentes/alertas de Defender XDR o sin identidad para todo el alcance. | Escalamiento inmediato y monitoreo compensatorio. |
+| Alta | Un dominio completo o varios activos criticos sin telemetria. | Atender en el turno y notificar al lider SOC. |
+| Media | Degradacion parcial, retraso o campos esenciales ausentes. | Crear ticket y corregir segun SLA. |
+| Baja | Desviacion menor sin perdida de deteccion. | Mantenimiento planificado. |
+
+#### Cambio y retiro
+
+- Probar cambios de conector, transformacion, retencion o esquema antes de produccion.
+- Revisar todos los consumidores: reglas, funciones, workbooks, hunting y playbooks.
+- Mantener plan de reversa y ventana de cambio.
+- No retirar una fuente mientras existan detecciones o requisitos de cumplimiento dependientes.
+- Registrar fecha, aprobador, motivo, impacto de cobertura y destino de datos retenidos.
+
+### Procesos operativos por dominio
+
+| Dominio | Diario | Semanal | Mensual / ad-hoc |
+| --- | --- | --- | --- |
+| Defender XDR / IR | Validar sincronizacion, priorizar incidentes y asignar propietario. | Revisar volumen por producto, duplicados y automatizaciones fallidas. | Medir cobertura cross-domain, MTTA, MTTC y MTTR. |
+| MDE | Revisar alertas, dispositivos en riesgo y salud del sensor; investigar procesos, archivos, red y hashes. | Revisar vulnerabilidades, exposicion, reincidencia y onboarding. | Hunting de persistencia, lineas base y Device Discovery. |
+| MDI | Revisar ITDR, incidentes y salud de sensores. | Revisar reconocimiento, ataques de credenciales, movimiento lateral y Secure Score. | Revisar Service Health, alta de sensores y `Test-MDIConfiguration`. |
+| MDO | Revisar amenazas entregadas, clics, adjuntos y acciones post-entrega. | Analizar campanas, ZAP, tendencias, latencia y reglas post-compromiso. | Hunting por IoC, BEC, malware y validacion de lineas base. |
+| MDA | Revisar alertas, OAuth, actividad anomala y App Governance. | Revisar postura SaaS, conectores, politicas y aplicaciones no sancionadas. | Revisar privilegios OAuth, Shadow IT, retencion y cobertura. |
+| Entra ID | Revisar riesgo, fallos de inicio de sesion, cambios sensibles y Entra Connect Health. | Revisar MFA, Conditional Access, privilegios y service principals. | Auditar roles, cuentas de emergencia, metodos de autenticacion y excepciones. |
+| Office 365 / Azure | Revisar actividad administrativa y cambios sobre recursos criticos. | Revisar patrones anomalos, cobertura y alertas cloud. | Revalidar auditoria, retencion y casos de uso. |
+| DHCP / DNS | Revisar continuidad, hosts nuevos, conflictos, NXDOMAIN y dominios raros. | Comparar cobertura y ajustar normalizacion. | Revisar retencion, volumen y calidad de correlacion. |
+
+Procedimientos detallados del repositorio:
+
+- **MDE:** [diario](../../MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md), [semanal](../../MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20semanales.md), [mensual/ad-hoc](../../MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20mensuales%20ad-hoc.md) y [KQL](../../MDE/Paquete%20MDE%20KQL%20Advance%20Hunting.md).
+- **MDI:** [diario](../../MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md), [semanal](../../MDI/Gu%C3%ADa%20operativa%20semanal%20de%20Microsoft%20Defender%20for%20Identity.md), [mensual/ad-hoc](../../MDI/Gu%C3%ADa%20opertiva%20mensualad-hoc%20de%20Microsoft%20Defender%20for%20Identity.md) y [KQL](../../MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md).
+- **MDO:** [diario](../../MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md), [semanal](../../MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md), [mensual/ad-hoc](../../MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md) y [KQL](../../MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md).
+- **MDA:** [diario](../../MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md), [semanal](../../MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20semanales.md), [mensual](../../MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20mensuales.md) y [KQL](../../MDA/Paquete%20MDA%20KQL%20Advance%20Hunting.md).
+- **Entra ID:** [diario](../../EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md), [semanal](../../EntraID/Gu%C3%ADa%20Operacional%20EntraID%20Tareas%20Semanales.md), [mensual/ad-hoc](../../EntraID/Gu%C3%ADa%20Operacional%20EntraID%20Tareas%20Mensuales%20AdHoc.md) y [KQL](../../EntraID/Paquete%20KQL%20Queries%20EntraID%20Advanced%20Hunting.md).
+- **IR:** [Plan de Respuesta a Incidentes CSIRT](../../IR/Plan%20de%20Respuesta%20a%20Incidentes%20CSIRT.md) y playbooks por dominio en `IR/Playbooks/`.
+
+### Registro minimo de fuentes
+
+Mantener un inventario versionado o una watchlist con `SourceId`, dominio, propietarios, conector, tablas esperadas, alcance, SLA de frescura, retencion, estado, ultima revision y dependencias.
 
 ## Consideraciones para logs DHCP y DNS
 
@@ -172,7 +312,7 @@ docs/
 ### Tareas diarias
 
 | Tarea | Descripcion | Responsable |
-|---|---|---|
+| --- | --- | --- |
 | Triaje de incidentes | Revisar nuevos incidentes, priorizar severidad y clasificar. | Tier 1 / Tier 2 |
 | Investigacion | Correlacionar entidades, revisar evidencia y determinar alcance. | Tier 2 |
 | Busqueda proactiva | Ejecutar consultas de hunting y registrar hallazgos relevantes. | Tier 3 |
@@ -183,7 +323,7 @@ docs/
 ### Tareas semanales
 
 | Tarea | Descripcion | Responsable |
-|---|---|---|
+| --- | --- | --- |
 | Revision de contenido | Evaluar nuevas soluciones, reglas, workbooks y playbooks. | Ingeniero SOC |
 | Ajuste de reglas ruidosas | Reducir falsos positivos y documentar excepciones. | Ingeniero SOC |
 | Revision de metricas | Revisar volumen de incidentes, MTTA, MTTR y cierres por falso positivo. | Lider SOC |
@@ -193,7 +333,7 @@ docs/
 ### Tareas mensuales
 
 | Tarea | Descripcion | Responsable |
-|---|---|---|
+| --- | --- | --- |
 | Revision de permisos | Validar RBAC, usuarios inactivos y minimo privilegio. | Arquitecto / Lider |
 | Revision de retencion | Confirmar que la retencion cumple requisitos operativos y regulatorios. | Ingeniero SOC |
 | Cobertura MITRE ATT&CK | Identificar tecnicas cubiertas y brechas de deteccion. | Tier 3 / Ingeniero SOC |
@@ -252,7 +392,7 @@ Antes de convertir una busqueda en regla:
 ### Campos minimos recomendados para reglas
 
 | Campo | Recomendacion |
-|---|---|
+| --- | --- |
 | Nombre | Claro, accionable y consistente. |
 | Descripcion | Explicar que detecta y por que importa. |
 | Severidad | Basada en impacto y confianza. |
@@ -284,7 +424,7 @@ Buenas practicas:
 ## KPIs operativos
 
 | KPI | Que mide |
-|---|---|
+| --- | --- |
 | MTTD | Tiempo medio de deteccion. |
 | MTTA | Tiempo medio de reconocimiento. |
 | MTTR | Tiempo medio de respuesta o resolucion. |
@@ -299,7 +439,7 @@ Buenas practicas:
 ## Checklist inicial de implementacion
 
 | # | Actividad | Responsable |
-|---|---|---|
+| --- | --- | --- |
 | 1 | Habilitar Microsoft Sentinel sobre el area de trabajo. | Ingeniero SOC |
 | 2 | Activar salud y auditoria de Sentinel. | Ingeniero SOC |
 | 3 | Conectar fuentes base de alto valor. | Ingeniero SOC |
@@ -337,4 +477,3 @@ Incluir enlaces oficiales al publicar el repositorio:
 - Repositorio oficial Azure-Sentinel.
 - Documentacion de reglas analiticas.
 - Documentacion de playbooks y reglas de automatizacion.
-
