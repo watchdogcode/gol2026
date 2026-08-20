@@ -1,0 +1,438 @@
+{
+  "version": "Notebook/1.0",
+  "isLocked": false,
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "# Reporte Diario de Operaciones de Seguridad - Proyecto GOL\n**Estructura funcional alineada con el reporte operativo en HTML.**\n\n**Portales de Microsoft Defender XDR:** [Portal](https://security.microsoft.com) · [Incidentes](https://security.microsoft.com/incidents) · [Alertas](https://security.microsoft.com/alerts) · [Advanced Hunting](https://security.microsoft.com/v2/advanced-hunting)"
+      },
+      "name": "text-header"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "a1000000-0000-0000-0000-000000000001",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "label": "Rango de tiempo",
+            "type": 4,
+            "isRequired": true,
+            "value": {
+              "durationMs": 86400000
+            },
+            "typeSettings": {
+              "selectableValues": [
+                {
+                  "durationMs": 86400000
+                },
+                {
+                  "durationMs": 172800000
+                },
+                {
+                  "durationMs": 604800000
+                },
+                {
+                  "durationMs": 2592000000
+                }
+              ],
+              "allowCustom": true
+            }
+          }
+        ],
+        "style": "pills",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces"
+      },
+      "name": "params-time"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Estado general de riesgo"
+      },
+      "name": "text-risk"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let IncActivos = toscalar(SecurityIncident | summarize arg_max(TimeGenerated, *) by IncidentNumber | where Status !~ 'Closed' | count);\nlet AlertasAltas = toscalar(SecurityAlert | where AlertSeverity in ('High','Medium') | count);\nlet Score = IncActivos * 3 + AlertasAltas;\nprint Riesgo = case(Score >= 50, 'Alto', Score >= 20, 'Medio', 'Bajo'), Score = Score, IncidentesActivos = IncActivos, AlertasHighMedium = AlertasAltas",
+        "size": 0,
+        "title": "Riesgo general del día",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "name": "query-risk-summary"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Indicadores clave de desempeño (7 métricas equivalentes)"
+      },
+      "name": "text-kpis-7"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let IncidentesActivos = toscalar(SecurityIncident | summarize arg_max(TimeGenerated, *) by IncidentNumber | where Status !~ 'Closed' | count);\nlet DeteccionesPersonalizadas = toscalar(SecurityAlert | where tostring(AlertName) has_any ('Custom', 'Personalizada', 'Deteccion personalizada') or tostring(ProviderName) has 'Custom' | count);\nlet AlertasMDO = toscalar(SecurityAlert | where ProductName has_any ('Office', 'Exchange', 'Defender for Office', 'MDO') | count);\nlet AlertasMDE = toscalar(SecurityAlert | where ProductName has_any ('Endpoint', 'MDE', 'Defender for Endpoint') | count);\nlet UsuariosRiesgoEntra = toscalar(AADUserRiskEvents | summarize dcount(UserPrincipalName));\nlet AlertasMDI = toscalar(SecurityAlert | where ProductName has_any ('Identity', 'MDI', 'Defender for Identity') | count);\nlet ConsentimientosOAuth = toscalar(CloudAppEvents | where ActionType has_any ('Consent', 'OAuth') | count);\nunion\n(print KPI='Incidentes Activos', Valor=IncidentesActivos),\n(print KPI='Detecciones Personalizadas', Valor=DeteccionesPersonalizadas),\n(print KPI='Alertas Defender for Office', Valor=AlertasMDO),\n(print KPI='Alertas Defender for Endpoint', Valor=AlertasMDE),\n(print KPI='Usuarios en Riesgo Entra ID', Valor=UsuariosRiesgoEntra),\n(print KPI='Alertas Defender for Identity', Valor=AlertasMDI),\n(print KPI='Consentimientos OAuth (Cloud Apps)', Valor=ConsentimientosOAuth)",
+        "size": 0,
+        "title": "KPIs equivalentes al HTML",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": {
+            "columnMatch": "KPI",
+            "formatter": 1
+          },
+          "leftContent": {
+            "columnMatch": "Valor",
+            "formatter": 12,
+            "numberFormat": {
+              "unit": 17,
+              "options": {
+                "maximumFractionDigits": 0
+              }
+            }
+          },
+          "showBorder": true
+        }
+      },
+      "name": "query-kpis-7-tiles"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Análisis comparativo diario"
+      },
+      "name": "text-trend-vs-yesterday"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let StartToday = startofday(now());\nlet StartYesterday = startofday(ago(1d));\nlet EndYesterday = StartToday;\nlet IncHoy = toscalar(SecurityIncident | where TimeGenerated >= StartToday | summarize dcount(IncidentNumber));\nlet IncAyer = toscalar(SecurityIncident | where TimeGenerated between (StartYesterday .. EndYesterday) | summarize dcount(IncidentNumber));\nlet AltHoy = toscalar(SecurityAlert | where TimeGenerated >= StartToday | count);\nlet AltAyer = toscalar(SecurityAlert | where TimeGenerated between (StartYesterday .. EndYesterday) | count);\nunion\n(print Indicador='Incidentes', Hoy=IncHoy, Ayer=IncAyer, Delta=IncHoy-IncAyer),\n(print Indicador='Alertas', Hoy=AltHoy, Ayer=AltAyer, Delta=AltHoy-AltAyer)",
+        "size": 0,
+        "title": "Comparativo diario de incidentes y alertas",
+        "timeContext": {
+          "durationMs": 172800000
+        },
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "customWidth": "50",
+      "name": "query-hoy-vs-ayer-table"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "SecurityIncident\n| where TimeGenerated > ago(7d)\n| summarize arg_max(TimeGenerated, *) by IncidentNumber\n| summarize Incidentes=count() by Dia=bin(CreatedTime, 1d)\n| sort by Dia asc",
+        "size": 0,
+        "title": "Tendencia de incidentes (7 días)",
+        "timeContext": {
+          "durationMs": 604800000
+        },
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "timechart"
+      },
+      "customWidth": "50",
+      "name": "query-trend-7d"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Detecciones personalizadas"
+      },
+      "name": "text-custom-detections"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "SecurityAlert\n| where tostring(AlertName) has_any ('Custom', 'Personalizada', 'Deteccion personalizada') or tostring(ProviderName) has 'Custom'\n| summarize Coincidencias=count(), Ultima=max(TimeGenerated) by Regla=AlertName, Workload=ProductName, Severidad=AlertSeverity\n| order by Coincidencias desc\n| take 50",
+        "size": 0,
+        "title": "Detecciones personalizadas con actividad registrada",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table",
+        "gridSettings": {
+          "filter": true,
+          "rowLimit": 50
+        }
+      },
+      "name": "query-custom-detections-table"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## MDO - Microsoft Defender for Office 365"
+      },
+      "name": "text-mdo"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "SecurityAlert\n| where ProductName has_any ('Office', 'Exchange', 'Defender for Office', 'MDO')\n| summarize Total=count() by AlertName, Severidad=AlertSeverity\n| top 5 by Total desc",
+        "size": 0,
+        "title": "MDO - Principales 5 alertas por nivel de severidad",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "customWidth": "50",
+      "name": "query-mdo-top5"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "| Tarea | Portal | Documentación |\n|---|---|---|\n| Revisar alertas activas | [Abrir](https://security.microsoft.com/alerts) | [Guía](https://github.com/watchdogcode/gol2026/tree/main/MDO) |\n| Monitoreo de incidentes | [Abrir](https://security.microsoft.com/incidents) | [Guía](https://github.com/watchdogcode/gol2026/tree/main/MDO) |"
+      },
+      "customWidth": "50",
+      "name": "text-mdo-ops"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## MDE - Microsoft Defender for Endpoint"
+      },
+      "name": "text-mde"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "SecurityAlert\n| where ProductName has_any ('Endpoint', 'MDE', 'Defender for Endpoint')\n| summarize Total=count() by AlertName, Severidad=AlertSeverity\n| top 5 by Total desc",
+        "size": 0,
+        "title": "MDE - Principales 5 alertas por nivel de severidad",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "customWidth": "50",
+      "name": "query-mde-top5"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "| Tarea | Portal | Documentación |\n|---|---|---|\n| Dispositivos en riesgo | [Abrir](https://security.microsoft.com/machines) | [Guía](https://github.com/watchdogcode/gol2026/tree/main/MDE) |\n| Threat Analytics | [Abrir](https://security.microsoft.com/threatanalytics3) | [Guía](https://github.com/watchdogcode/gol2026/tree/main/MDE) |"
+      },
+      "customWidth": "50",
+      "name": "text-mde-ops"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## MDI - Microsoft Defender for Identity"
+      },
+      "name": "text-mdi"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "SecurityAlert\n| where ProductName has_any ('Identity', 'MDI', 'Defender for Identity')\n| summarize Total=count() by AlertName, Severidad=AlertSeverity\n| top 5 by Total desc",
+        "size": 0,
+        "title": "MDI - Principales 5 alertas por nivel de severidad",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "customWidth": "50",
+      "name": "query-mdi-top5"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "| Tarea | Portal | Documentación |\n|---|---|---|\n| Revisar ITDR Dashboard | [Abrir](https://security.microsoft.com/identities/dashboard) | [Guía](https://github.com/watchdogcode/gol2026/tree/main/MDI) |\n| Revisar Health Issues | [Abrir](https://security.microsoft.com/identities/health-issues) | [Guía](https://github.com/watchdogcode/gol2026/tree/main/MDI) |"
+      },
+      "customWidth": "50",
+      "name": "text-mdi-ops"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Microsoft Entra ID"
+      },
+      "name": "text-entra"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "SecurityAlert\n| where ProductName has_any ('Entra', 'Azure AD', 'Identity Protection', 'AAD')\n| summarize Total=count() by AlertName, Severidad=AlertSeverity\n| top 5 by Total desc",
+        "size": 0,
+        "title": "Microsoft Entra ID - Principales 5 alertas por nivel de severidad",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "customWidth": "50",
+      "name": "query-entra-top5"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "| Tarea | Portal | Documentación |\n|---|---|---|\n| Usuarios en riesgo | [Abrir](https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskyUsers) | [Guía](https://github.com/watchdogcode/gol2026/tree/main/EntraID) |\n| Inicios de sesión con riesgo | [Abrir](https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskySignIns) | [Guía](https://github.com/watchdogcode/gol2026/tree/main/EntraID) |"
+      },
+      "customWidth": "50",
+      "name": "text-entra-ops"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## MDA - Microsoft Defender for Cloud Apps"
+      },
+      "name": "text-mda"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "SecurityAlert\n| where ProductName has_any ('Cloud App', 'MDA', 'Cloud Apps')\n| summarize Total=count() by AlertName, Severidad=AlertSeverity\n| top 5 by Total desc",
+        "size": 0,
+        "title": "MDA - Principales 5 alertas por nivel de severidad",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "customWidth": "50",
+      "name": "query-mda-top5"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "| Tarea | Portal | Documentación |\n|---|---|---|\n| Revisar OAuth apps | [Abrir](https://security.microsoft.com/cloudapps/oauth-apps) | [Guía](https://github.com/watchdogcode/gol2026/tree/main/MDA) |\n| Revisar Cloud Discovery | [Abrir](https://security.microsoft.com/cloudapps/discovery) | [Guía](https://github.com/watchdogcode/gol2026/tree/main/MDA) |"
+      },
+      "customWidth": "50",
+      "name": "text-mda-ops"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Microsoft Defender for Cloud"
+      },
+      "name": "text-mdc"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "SecurityAlert\n| where ProductName has_any ('Defender for Cloud', 'Azure Defender', 'Azure Security Center', 'ASC')\n| summarize Total=count() by Alerta=AlertName, Severidad=AlertSeverity\n| top 10 by Total desc",
+        "size": 0,
+        "title": "Defender for Cloud - Principales alertas",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "customWidth": "50",
+      "name": "query-mdc-top-alerts"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "SecurityAlert\n| where ProductName has_any ('Defender for Cloud', 'Azure Defender', 'Azure Security Center', 'ASC')\n| summarize Total=count() by Severidad=AlertSeverity",
+        "size": 0,
+        "title": "Defender for Cloud - Distribución por severidad",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "piechart"
+      },
+      "customWidth": "50",
+      "name": "query-mdc-severity-pie"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Paneles analíticos complementarios para monitoreo organizacional"
+      },
+      "name": "text-extra-dashboards"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "SecurityAlert\n| summarize Alertas=count() by Dia=bin(TimeGenerated, 1d), Producto=ProductName\n| order by Dia asc",
+        "size": 0,
+        "title": "Evolución diaria de alertas por producto",
+        "timeContext": {
+          "durationMs": 604800000
+        },
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "timechart"
+      },
+      "customWidth": "50",
+      "name": "query-alerts-trend-product"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "SecurityIncident\n| summarize arg_max(TimeGenerated, *) by IncidentNumber\n| summarize Total=count() by Estado=Status, Severidad=Severity\n| order by Total desc",
+        "size": 0,
+        "title": "Incidentes por estado y severidad",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "barchart"
+      },
+      "customWidth": "50",
+      "name": "query-incidents-state-severity"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "SecurityAlert\n| summarize Alertas=count() by Tactica=tostring(column_ifexists('Tactics', 'Sin clasificar'))\n| order by Alertas desc\n| take 15",
+        "size": 0,
+        "title": "Tácticas detectadas según MITRE ATT&CK",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "barchart"
+      },
+      "customWidth": "50",
+      "name": "query-top-mitre-tactics"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "SecurityIncident\n| summarize arg_max(TimeGenerated, *) by IncidentNumber\n| extend EntitiesDyn = todynamic(column_ifexists('Entities', dynamic([])))\n| mv-expand Entity = EntitiesDyn\n| extend Tipo=tostring(Entity.Type), Nombre=coalesce(tostring(Entity.Name), tostring(Entity.Address), tostring(Entity.HostName), tostring(Entity.AccountName), tostring(Entity.UPNSuffix), 'N/A')\n| where Nombre != 'N/A'\n| summarize Eventos=count() by Tipo, Nombre\n| order by Eventos desc\n| take 25",
+        "size": 0,
+        "title": "Entidades con mayor nivel de impacto (usuarios, equipos e IP)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table",
+        "gridSettings": {
+          "filter": true,
+          "rowLimit": 25
+        }
+      },
+      "name": "query-top-entities"
+    }
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}

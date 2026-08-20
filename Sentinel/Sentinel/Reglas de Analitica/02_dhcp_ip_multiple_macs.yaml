@@ -1,0 +1,57 @@
+id: a0c4e2cb-6e2e-4e7f-9b75-31bb2c117d02
+name: DHCP - IP asociada a multiples direcciones MAC
+description: |
+  Detecta una misma IP asociada a varias direcciones MAC dentro de la ventana de analisis.
+  Puede indicar conflicto DHCP, spoofing, reutilizacion anomala de IP o problemas de asignacion.
+severity: Medium
+requiredDataConnectors:
+  - connectorId: WindowsSecurityEvents
+    dataTypes:
+      - Event
+      - WindowsEvent
+  - connectorId: CustomLogs
+    dataTypes:
+      - DHCP_CL
+queryFrequency: 1h
+queryPeriod: 7d
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - DefenseEvasion
+  - Discovery
+relevantTechniques:
+  - T1036
+  - T1018
+query: |
+  let Lookback = 7d;
+  let MinMacsPerIp = 3;
+  fn_Normalize_Windows_DHCP(Lookback)
+  | where isnotempty(ClientIp) and isnotempty(ClientMac)
+  | summarize
+      MacCount = dcount(ClientMac),
+      Macs = make_set(ClientMac, 50),
+      Hosts = make_set(HostName, 50),
+      DhcpServers = make_set(DeviceName, 10),
+      FirstSeen = min(TimeGenerated),
+      LastSeen = max(TimeGenerated)
+      by ClientIp
+  | where MacCount >= MinMacsPerIp
+  | extend Finding = "IP observada con multiples direcciones MAC"
+entityMappings:
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: ClientIp
+customDetails:
+  MacCount: MacCount
+  Macs: Macs
+  Hosts: Hosts
+  DhcpServers: DhcpServers
+  FirstSeen: FirstSeen
+  LastSeen: LastSeen
+alertDetailsOverride:
+  alertDisplayNameFormat: "DHCP - IP con multiples direcciones MAC: {{ClientIp}}"
+  alertDescriptionFormat: "La IP {{ClientIp}} fue asociada con {{MacCount}} direcciones MAC en la ventana analizada."
+version: 1.0.0
+kind: Scheduled
+

@@ -1,0 +1,59 @@
+id: 7d7b9d88-0e21-4a7f-8b9e-3d7ddf5df101
+name: DHCP - Host o direccion MAC nueva observada
+description: |
+  Detecta hosts o direcciones MAC observadas recientemente por DHCP que no aparecen en la linea base historica.
+  Util para identificar equipos nuevos, dispositivos no inventariados o endpoints potencialmente no autorizados.
+severity: Medium
+requiredDataConnectors:
+  - connectorId: WindowsSecurityEvents
+    dataTypes:
+      - Event
+      - WindowsEvent
+  - connectorId: CustomLogs
+    dataTypes:
+      - DHCP_CL
+queryFrequency: 1d
+queryPeriod: 31d
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - Discovery
+relevantTechniques:
+  - T1018
+query: |
+  let BaselineWindow = 30d;
+  let DetectionWindow = 1d;
+  let baseline =
+      fn_Normalize_Windows_DHCP(BaselineWindow + DetectionWindow)
+      | where TimeGenerated between (ago(BaselineWindow + DetectionWindow) .. ago(DetectionWindow))
+      | where isnotempty(ClientMac) or isnotempty(HostName)
+      | summarize by ClientMac, HostName;
+  fn_Normalize_Windows_DHCP(DetectionWindow)
+  | where isnotempty(ClientMac) or isnotempty(HostName)
+  | join kind=leftanti baseline on ClientMac, HostName
+  | summarize
+      FirstSeen = min(TimeGenerated),
+      LastSeen = max(TimeGenerated),
+      Ips = make_set(ClientIp, 20),
+      DhcpServers = make_set(DeviceName, 10),
+      Actions = make_set(EventAction, 10)
+      by ClientMac, HostName
+  | extend AccountCustomEntity = HostName
+entityMappings:
+  - entityType: Host
+    fieldMappings:
+      - identifier: HostName
+        columnName: HostName
+customDetails:
+  ClientMac: ClientMac
+  Ips: Ips
+  DhcpServers: DhcpServers
+  Actions: Actions
+  FirstSeen: FirstSeen
+  LastSeen: LastSeen
+alertDetailsOverride:
+  alertDisplayNameFormat: "DHCP - Host nuevo observado: {{HostName}}"
+  alertDescriptionFormat: "Se observo un host o direccion MAC no vista en la linea base DHCP. MAC: {{ClientMac}}"
+version: 1.0.0
+kind: Scheduled
+

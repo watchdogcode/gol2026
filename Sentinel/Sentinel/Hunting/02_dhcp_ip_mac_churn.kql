@@ -1,0 +1,34 @@
+// Busqueda DHCP: IPs con multiples MAC o direcciones MAC con multiples IPs.
+// Objetivo: detectar conflictos DHCP, spoofing, cambios rapidos de lease o comportamiento anomalo.
+//
+// Ajustes recomendados:
+// - Lookback: ventana de analisis.
+// - MacCount e IpCount: ajustar umbrales segun el volumen normal de la red.
+
+let Lookback = 7d;
+let dhcp = fn_Normalize_Windows_DHCP(Lookback)
+| where isnotempty(ClientIp) and isnotempty(ClientMac);
+let ip_to_many_macs =
+    dhcp
+    | summarize
+        MacCount = dcount(ClientMac),
+        Macs = make_set(ClientMac, 50),
+        Hosts = make_set(HostName, 50),
+        FirstSeen = min(TimeGenerated),
+        LastSeen = max(TimeGenerated)
+        by ClientIp
+    | where MacCount >= 3
+    | extend Finding = "IP observada con multiples direcciones MAC";
+let mac_to_many_ips =
+    dhcp
+    | summarize
+        IpCount = dcount(ClientIp),
+        Ips = make_set(ClientIp, 50),
+        Hosts = make_set(HostName, 50),
+        FirstSeen = min(TimeGenerated),
+        LastSeen = max(TimeGenerated)
+        by ClientMac
+    | where IpCount >= 5
+    | extend Finding = "MAC address observada con multiples IPs";
+union ip_to_many_macs, mac_to_many_ips
+| order by LastSeen desc

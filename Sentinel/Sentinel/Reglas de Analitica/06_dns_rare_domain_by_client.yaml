@@ -1,0 +1,77 @@
+id: 3dc17e0f-a67d-4ad2-a8e7-8c4ae8c3c506
+name: DNS - Dominio raro consultado por pocos clientes
+description: |
+  Detecta dominios de baja prevalencia consultados por pocos clientes en la organizacion.
+  Util para encontrar infraestructura nueva, dominios sospechosos o actividad poco comun.
+severity: Low
+requiredDataConnectors:
+  - connectorId: DNS
+    dataTypes:
+      - DnsEvents
+  - connectorId: WindowsSecurityEvents
+    dataTypes:
+      - Event
+      - WindowsEvent
+queryFrequency: 1d
+queryPeriod: 14d
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - CommandAndControl
+relevantTechniques:
+  - T1071.004
+query: |
+  let Lookback = 14d;
+  let MinOrgClients = 1;
+  let MaxOrgClients = 3;
+  let MinQueriesPerClient = 5;
+  let dns = fn_Correlate_DHCP_DNS(Lookback)
+  | where IsReverseLookup == false
+  | where IsInternalName == false
+  | where isnotempty(QueryRootDomain);
+  let prevalence =
+      dns
+      | summarize
+          OrgClientCount = dcount(ClientIp),
+          OrgHosts = make_set(HostName, 20),
+          FirstSeen = min(TimeGenerated),
+          LastSeen = max(TimeGenerated)
+          by QueryRootDomain
+      | where OrgClientCount between (MinOrgClients .. MaxOrgClients);
+  dns
+  | join kind=inner prevalence on QueryRootDomain
+  | summarize
+      Queries = count(),
+      SampleQueries = make_set(QueryName, 20),
+      FirstSeen = min(TimeGenerated),
+      LastSeen = max(TimeGenerated),
+      QueryTypes = make_set(QueryType, 10)
+      by ClientIp, HostName, ClientMac, QueryRootDomain, OrgClientCount
+  | where Queries >= MinQueriesPerClient
+entityMappings:
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: ClientIp
+  - entityType: Host
+    fieldMappings:
+      - identifier: HostName
+        columnName: HostName
+  - entityType: DNS
+    fieldMappings:
+      - identifier: DomainName
+        columnName: QueryRootDomain
+customDetails:
+  ClientMac: ClientMac
+  OrgClientCount: OrgClientCount
+  Queries: Queries
+  SampleQueries: SampleQueries
+  QueryTypes: QueryTypes
+  FirstSeen: FirstSeen
+  LastSeen: LastSeen
+alertDetailsOverride:
+  alertDisplayNameFormat: "DNS - Dominio raro consultado: {{QueryRootDomain}}"
+  alertDescriptionFormat: "El dominio {{QueryRootDomain}} fue consultado por pocos clientes. Cliente: {{ClientIp}}, host: {{HostName}}."
+version: 1.0.0
+kind: Scheduled
+

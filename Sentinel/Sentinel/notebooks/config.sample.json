@@ -1,0 +1,6 @@
+{
+  "workspace_id": "REEMPLAZAR_CON_WORKSPACE_ID",
+  "tenant_id": "REEMPLAZAR_CON_TENANT_ID",
+  "default_lookback_days": 7,
+  "notes": "No guardar secretos ni datos sensibles en este archivo. Usar variables de entorno o metodos seguros de autenticacion."
+}

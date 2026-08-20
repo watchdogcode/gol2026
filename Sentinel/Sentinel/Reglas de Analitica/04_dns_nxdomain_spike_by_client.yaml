@@ -1,0 +1,57 @@
+id: e7ac57dd-5a1b-4e47-a32f-2f4e21fe5d04
+name: DNS - Pico de NXDOMAIN por cliente
+description: |
+  Detecta clientes con volumen elevado de respuestas NXDOMAIN o dominios fallidos distintos.
+  Puede indicar DGA, malware, errores de configuracion, busqueda automatizada o resolucion hacia dominios inexistentes.
+severity: Medium
+requiredDataConnectors:
+  - connectorId: DNS
+    dataTypes:
+      - DnsEvents
+  - connectorId: WindowsSecurityEvents
+    dataTypes:
+      - Event
+      - WindowsEvent
+queryFrequency: 1h
+queryPeriod: 7d
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - CommandAndControl
+  - Discovery
+relevantTechniques:
+  - T1568
+  - T1016
+query: |
+  let Lookback = 7d;
+  let BinSize = 1h;
+  let MinNxdomainCount = 50;
+  let MinDistinctDomains = 25;
+  fn_Correlate_DHCP_DNS(Lookback)
+  | extend Response = toupper(tostring(ResponseCode))
+  | where Response has_any ("NXDOMAIN", "NAME_ERROR", "3") or RawMessage has_any ("NXDOMAIN", "Name Error")
+  | summarize
+      NxdomainCount = count(),
+      DistinctDomains = dcount(QueryName),
+      SampleDomains = make_set(QueryName, 20),
+      Hosts = make_set(HostName, 20),
+      Macs = make_set(ClientMac, 20)
+      by bin(TimeGenerated, BinSize), ClientIp
+  | where NxdomainCount >= MinNxdomainCount or DistinctDomains >= MinDistinctDomains
+entityMappings:
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: ClientIp
+customDetails:
+  NxdomainCount: NxdomainCount
+  DistinctDomains: DistinctDomains
+  SampleDomains: SampleDomains
+  Hosts: Hosts
+  Macs: Macs
+alertDetailsOverride:
+  alertDisplayNameFormat: "DNS - Pico de NXDOMAIN desde {{ClientIp}}"
+  alertDescriptionFormat: "El cliente {{ClientIp}} genero {{NxdomainCount}} respuestas NXDOMAIN y {{DistinctDomains}} dominios distintos."
+version: 1.0.0
+kind: Scheduled
+

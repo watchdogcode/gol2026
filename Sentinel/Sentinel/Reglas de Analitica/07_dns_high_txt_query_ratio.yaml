@@ -1,0 +1,61 @@
+id: 25d91d87-c690-4301-a1ad-11365c5be407
+name: DNS - Alta proporcion de consultas TXT
+description: |
+  Detecta clientes con proporcion elevada de consultas TXT hacia un dominio.
+  Puede ser indicio de tunelizacion DNS, validaciones automatizadas anormales o abuso de registros TXT.
+severity: Medium
+requiredDataConnectors:
+  - connectorId: DNS
+    dataTypes:
+      - DnsEvents
+  - connectorId: WindowsSecurityEvents
+    dataTypes:
+      - Event
+      - WindowsEvent
+queryFrequency: 1h
+queryPeriod: 24h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - CommandAndControl
+  - Exfiltration
+relevantTechniques:
+  - T1071.004
+query: |
+  let Lookback = 24h;
+  let MinTotalQueries = 30;
+  let MinTxtQueries = 10;
+  let MinTxtRatio = 0.40;
+  fn_Correlate_DHCP_DNS(Lookback)
+  | where IsReverseLookup == false
+  | summarize
+      TotalQueries = count(),
+      TxtQueries = countif(toupper(QueryType) == "TXT"),
+      SampleQueries = make_set(QueryName, 20),
+      Hosts = make_set(HostName, 20),
+      Macs = make_set(ClientMac, 20)
+      by ClientIp, QueryRootDomain
+  | extend TxtRatio = todouble(TxtQueries) / todouble(TotalQueries)
+  | where TotalQueries >= MinTotalQueries and TxtQueries >= MinTxtQueries and TxtRatio >= MinTxtRatio
+entityMappings:
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: ClientIp
+  - entityType: DNS
+    fieldMappings:
+      - identifier: DomainName
+        columnName: QueryRootDomain
+customDetails:
+  TotalQueries: TotalQueries
+  TxtQueries: TxtQueries
+  TxtRatio: TxtRatio
+  SampleQueries: SampleQueries
+  Hosts: Hosts
+  Macs: Macs
+alertDetailsOverride:
+  alertDisplayNameFormat: "DNS - Alta proporcion de consultas TXT desde {{ClientIp}}"
+  alertDescriptionFormat: "El cliente {{ClientIp}} genero una proporcion elevada de consultas TXT hacia {{QueryRootDomain}}."
+version: 1.0.0
+kind: Scheduled
+

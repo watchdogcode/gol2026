@@ -1,0 +1,24 @@
+// Busqueda DHCP: hosts o direcciones MAC no observadas en la linea base.
+// Objetivo: detectar endpoints nuevos, equipos no inventariados o dispositivos potencialmente no autorizados.
+//
+// Ajustes recomendados:
+// - BaselineWindow: ventana historica usada como comportamiento conocido.
+// - HuntWindow: ventana reciente donde se buscan observaciones nuevas.
+
+let BaselineWindow = 30d;
+let HuntWindow = 1d;
+let baseline =
+    fn_Normalize_Windows_DHCP(BaselineWindow + HuntWindow)
+    | where TimeGenerated between (ago(BaselineWindow + HuntWindow) .. ago(HuntWindow))
+    | summarize by ClientMac, HostName;
+fn_Normalize_Windows_DHCP(HuntWindow)
+| where isnotempty(ClientMac) or isnotempty(HostName)
+| join kind=leftanti baseline on ClientMac, HostName
+| summarize
+    FirstSeen = min(TimeGenerated),
+    LastSeen = max(TimeGenerated),
+    Ips = make_set(ClientIp, 20),
+    DhcpServers = make_set(DeviceName, 10),
+    Actions = make_set(EventAction, 10)
+    by ClientMac, HostName
+| order by FirstSeen desc
