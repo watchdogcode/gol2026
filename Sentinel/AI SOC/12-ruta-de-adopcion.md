@@ -1,0 +1,24 @@
+<!-- AI-SOC Playbook v2.0 · Arturo Mandujano (Cloud Solution Architect) · 28 de septiembre de 2026 -->
+[← 11. Reportes, KPIs y guía operativa de cadencias](11-reportes-kpis-cadencias.md) | [Índice](README.md) | [13. Casos de uso priorizados →](13-casos-de-uso.md)
+
+---
+
+# 12. Ruta de adopción de referencia
+
+La ruta de adopción de referencia se organiza en cuatro fases con criterios de salida explícitos. Ninguna fase inicia si la anterior no cumplió sus criterios, porque cada una es prerequisito técnico de la siguiente: no hay agentes confiables sin base de datos unificada, y no hay autonomía sin evidencia medida de la calidad del agente. Las duraciones se expresan como rangos típicos observados en organizaciones medianas y grandes; no son un compromiso ni un plan de proyecto, y cada organización debe ajustarlas al tamaño de su entorno, a su madurez previa y a la disponibilidad de su equipo.
+
+| Fase | Duración | Actividades principales | Entregables | Criterios de salida |
+|----|----|----|----|----|
+| Fase 0 — Evaluación y readiness | 3 a 4 semanas (rango típico) | Inventario de licencias, conectores y reglas; medición de la línea base de MTTA, MTTR y tasa de falsos positivos; ejecución de la lista de verificación de la tabla 24; inventario de reglas de alert tuning; modelo de negocio con datos reales; definición del modelo de gobierno de agentes; creación del entorno de Power Platform y de la conexión delegada del conector de Security Copilot | Informe de readiness con estados Sí, No y Parcial; línea base medida; caso de negocio; política de gobierno de agentes | Lista de verificación completada; línea base aprobada; gobierno de agentes aprobado por el comité de seguridad |
+| Fase 1 — Fundación de datos y unificación SIEM+XDR | 6 a 10 semanas (rango típico) | Consolidación del espacio de trabajo de Sentinel; onboarding al data lake; conexión de los conectores mínimos; política de tiering y retención; normalización de autenticación, red y procesos; habilitación de SOC optimization; despliegue de Azure Arc donde aplique | Arquitectura de datos implementada; catálogo de fuentes con tier asignado; tablero de higiene de ingesta con las consultas 6.3.1 a 6.3.3 | Conectores mínimos con latido verificado; tiering aplicado; consultas de la sección 6 ejecutándose sobre datos reales |
+| Fase 2 — Habilitación de agentes y Security Copilot | 8 a 12 semanas (rango típico) | Aprovisionamiento de capacidad SCU; creación de roles URBAC e identidades agénticas; habilitación del Phishing Triage Agent, del Threat Hunting Agent y del Threat Intelligence Briefing Agent; habilitación del Sentinel MCP server; adopción de los runbooks 9.1 a 9.5; construcción de los tres agentes personalizados de la tabla 7; construcción de los tres primeros agentes de Copilot Studio (CS-1 asistente de triage en Teams, CS-4 reporte diario de exposición y CS-6 traspaso de turno, sección 5.6) con la guía de cadencias de la sección 11.3 | Agentes en operación con supervisión; runbooks adoptados; paquete de reportes de la tabla 29 en producción; muestreo de calidad en marcha; tres agentes de Copilot Studio publicados en Teams con presupuesto de SCU asignado | Tasa de reclasificación por debajo de la meta durante cuatro semanas consecutivas (ajustable); MTTR con reducción medible frente a la línea base |
+| Fase 3 — Autonomía y optimización continua | Continua | Ampliación del alcance de los agentes a más tipos de alerta; construcción de los siete agentes restantes de Copilot Studio (CS-2, CS-3, CS-5, CS-7 a CS-10) y del calendario operativo completo de la sección 11.4; evaluación de agentes de socios del Security Store; ajuste del nivel de autonomía por tipo de acción con el procedimiento mensual de la sección 11.7; optimización de costo con SOC optimization y tiering; ampliación de la cobertura MITRE ATT&CK; revisión trimestral de identidades agénticas | Modelo operativo estabilizado; reporte ejecutivo trimestral de postura y ROI; catálogo de agentes gobernado | KPIs de la tabla 28 dentro de meta; gobierno ejecutándose con cadencia; caso de negocio validado con datos reales |
+
+*Tabla 35. Ruta de adopción de referencia en cuatro fases, con rangos típicos de duración.*
+
+Dos advertencias de secuencia merecen énfasis. La primera: el inventario de reglas de alert tuning debe completarse en la Fase 0, porque el despliegue del Phishing Triage Agent las deshabilita automáticamente. La segunda: el Dynamic Threat Detection Agent está habilitado automáticamente y en ejecución continua, y es gratuito durante la versión preliminar, pero consumirá SCUs al alcanzar disponibilidad general; el presupuesto de la Fase 3 debe contemplarlo.
+
+
+---
+
+[← 11. Reportes, KPIs y guía operativa de cadencias](11-reportes-kpis-cadencias.md) | [Índice](README.md) | [13. Casos de uso priorizados →](13-casos-de-uso.md)
