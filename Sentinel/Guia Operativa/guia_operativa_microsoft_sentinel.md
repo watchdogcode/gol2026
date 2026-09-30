@@ -196,11 +196,11 @@ union withsource=Tabla isfuzzy=true
 
 Procedimientos detallados del repositorio:
 
-- **MDE:** [diario](../../MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md), [semanal](../../MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20semanales.md), [mensual/ad-hoc](../../MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20mensuales%20ad-hoc.md) y [KQL](../../MDE/Paquete%20MDE%20KQL%20Advance%20Hunting.md).
-- **MDI:** [diario](../../MDI/Gu%C3%ADa%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md), [semanal](../../MDI/Gu%C3%ADa%20operativa%20semanal%20de%20Microsoft%20Defender%20for%20Identity.md), [mensual/ad-hoc](../../MDI/Gu%C3%ADa%20opertiva%20mensualad-hoc%20de%20Microsoft%20Defender%20for%20Identity.md) y [KQL](../../MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md).
-- **MDO:** [diario](../../MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md), [semanal](../../MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md), [mensual/ad-hoc](../../MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md) y [KQL](../../MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md).
-- **MDA:** [diario](../../MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20diarias.md), [semanal](../../MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20semanales.md), [mensual](../../MDA/Gu%C3%ADa%20de%20Seguridad%20Operacional%20MDA%20tareas%20mensuales.md) y [KQL](../../MDA/Paquete%20MDA%20KQL%20Advance%20Hunting.md).
-- **Entra ID:** [diario](../../EntraID/Gu%C3%ADa%20Operacional%20Microsoft%20EntraID%20Diaria.md), [semanal](../../EntraID/Gu%C3%ADa%20Operacional%20EntraID%20Tareas%20Semanales.md), [mensual/ad-hoc](../../EntraID/Gu%C3%ADa%20Operacional%20EntraID%20Tareas%20Mensuales%20AdHoc.md) y [KQL](../../EntraID/Paquete%20KQL%20Queries%20EntraID%20Advanced%20Hunting.md).
+- **MDE:** [diario](../../MDE/Guia%20Operativa%20MDE%20-%20Diaria.md), [semanal](../../MDE/Guia%20Operativa%20MDE%20-%20Semanal.md), [mensual/ad-hoc](../../MDE/Guia%20Operativa%20MDE%20-%20Mensual%20Ad-Hoc.md) y [KQL](../../MDE/Paquete%20KQL%20MDE%20-%20Advanced%20Hunting.md).
+- **MDI:** [diario](../../MDI/Guia%20Operativa%20MDI%20-%20Diaria.md), [semanal](../../MDI/Guia%20Operativa%20MDI%20-%20Semanal.md), [mensual/ad-hoc](../../MDI/Guia%20Operativa%20MDI%20-%20Mensual%20Ad-Hoc.md) y [KQL](../../MDI/Paquete%20KQL%20MDI%20-%20Advanced%20Hunting.md).
+- **MDO:** [diario](../../MDO/Guia%20Operativa%20MDO%20-%20Diaria.md), [semanal](../../MDO/Guia%20Operativa%20MDO%20-%20Semanal.md), [mensual/ad-hoc](../../MDO/Guia%20Operativa%20MDO%20-%20Mensual%20Ad-Hoc.md) y [KQL](../../MDO/Paquete%20KQL%20MDO%20-%20Advanced%20Hunting.md).
+- **MDA:** [diario](../../MDA/Guia%20Operativa%20MDA%20-%20Diaria.md), [semanal](../../MDA/Guia%20Operativa%20MDA%20-%20Semanal.md), [mensual](../../MDA/Guia%20Operativa%20MDA%20-%20Mensual%20Ad-Hoc.md) y [KQL](../../MDA/Paquete%20KQL%20MDA%20-%20Advanced%20Hunting.md).
+- **Entra ID:** [diario](../../EntraID/Guia%20Operativa%20EntraID%20-%20Diaria.md), [semanal](../../EntraID/Guia%20Operativa%20EntraID%20-%20Semanal.md), [mensual/ad-hoc](../../EntraID/Guia%20Operativa%20EntraID%20-%20Mensual%20Ad-Hoc.md) y [KQL](../../EntraID/Paquete%20KQL%20EntraID%20-%20Advanced%20Hunting.md).
 - **IR:** [Plan de Respuesta a Incidentes CSIRT](../../IR/Plan%20de%20Respuesta%20a%20Incidentes%20CSIRT.md) y playbooks por dominio en `IR/Playbooks/`.
 
 ### Registro minimo de fuentes
@@ -268,7 +268,7 @@ kql/
   hunting/
   analytics-rules/
   workbooks/
-notebooks/
+Notebooks/
 docs/
   guia_operativa_microsoft_sentinel.md
   source_mapping.md
@@ -324,7 +324,7 @@ Este proceso respalda artefactos de configuracion. No sustituye la retencion de 
 | Funciones de Log Analytics | KQL y definicion de parametros | `Sentinel/Funciones/` | Restaurarlas antes de las reglas que las consumen. |
 | Consultas de hunting y busqueda | KQL | `Sentinel/Hunting/` | Registrar tablas, funciones y parametros requeridos. |
 | Workbooks | JSON, ARM o Bicep | `Sentinel/Workbook/` | Sustituir referencias de workspace o suscripcion al restaurar en otro entorno. |
-| Notebooks | `.ipynb`, configuracion de ejemplo y dependencias | `Sentinel/notebooks/` | No guardar salidas, tokens, identificadores reales ni datos sensibles. |
+| Notebooks | `.ipynb`, configuracion de ejemplo y dependencias | `Sentinel/Notebooks/` | No guardar salidas, tokens, identificadores reales ni datos sensibles. |
 | Reglas de automatizacion | JSON, ARM o Bicep | Crear directorio versionado cuando se incorporen | Conservar orden, condiciones, acciones y referencias a playbooks. |
 | Playbooks de Logic Apps | ARM o Bicep | Crear directorio versionado cuando se incorporen | No exportar secretos; documentar conexiones, identidades y permisos requeridos. |
 | Watchlists | Definicion, esquema y archivo sin datos sensibles | Crear directorio versionado cuando se incorporen | Separar la configuracion del contenido sensible y aplicar su politica de retencion. |

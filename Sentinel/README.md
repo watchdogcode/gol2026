@@ -45,10 +45,10 @@ Si el espacio de trabajo usa otras tablas o columnas (`Event`, `WindowsEvent`, `
 |---|---|---|
 | [`Hunting/`](Hunting/) | 6 consultas de cacería manual: equipos nuevos por DHCP, churn IP/MAC, picos de NXDOMAIN, posible tunelización DNS, dominios raros y línea de tiempo por IP | Exploración y validación de señal |
 | [`Reglas de Analitica/`](Reglas%20de%20Analitica/) | 8 reglas analíticas YAML derivadas de las consultas anteriores | Detección continua, tras validar falsos positivos |
-| [`notebooks/`](notebooks/) | 8 notebooks Jupyter de investigación guiada a partir de una IP, hostname, MAC o dominio, más un grafo de relaciones | Investigación profunda de un incidente ya abierto |
+| [`Notebooks/`](Notebooks/) | 8 notebooks Jupyter de investigación guiada a partir de una IP, hostname, MAC o dominio, más un grafo de relaciones | Investigación profunda de un incidente ya abierto |
 | [`Documentacion DHCP-DNS/`](Documentacion%20DHCP-DNS/) | Documentación del paquete: mapeo de tablas y columnas reales ([`source_mapping.md`](Documentacion%20DHCP-DNS/source_mapping.md)) y ruta de adopción en cuatro fases ([`next_steps.md`](Documentacion%20DHCP-DNS/next_steps.md)) | Antes de desplegar y al adaptar el esquema |
 
-El flujo previsto es: **normalizar → cazar en `Hunting/` → promover lo que da señal a `Reglas de Analitica/` → investigar los disparos con `notebooks/`**.
+El flujo previsto es: **normalizar → cazar en `Hunting/` → promover lo que da señal a `Reglas de Analitica/` → investigar los disparos con `Notebooks/`**.
 
 ---
 

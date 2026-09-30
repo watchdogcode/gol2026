@@ -29,11 +29,11 @@ Sentinel/
 │   ├── 05_dns_rare_domains_by_host.kql
 │   └── 06_investigation_ip_timeline.kql
 ├── Reglas de Analitica/              8 reglas YAML derivadas de las consultas
-├── notebooks/                        8 notebooks de investigación guiada
+├── Notebooks/                        8 notebooks de investigación guiada
 └── Documentacion DHCP-DNS/           esta carpeta
 ```
 
-Enlaces: [`Funciones/`](../Funciones/) · [`Hunting/`](../Hunting/) · [`Reglas de Analitica/`](../Reglas%20de%20Analitica/) · [`notebooks/`](../notebooks/)
+Enlaces: [`Funciones/`](../Funciones/) · [`Hunting/`](../Hunting/) · [`Reglas de Analitica/`](../Reglas%20de%20Analitica/) · [`Notebooks/`](../Notebooks/)
 
 ## Orden recomendado de despliegue
 

@@ -42,7 +42,10 @@ También puedes encontrar más información en nuestro [Canal de YouTube Zero Tr
 - [Microsoft Defender for Identity (MDI)](#microsoft-defender-for-identity-mdi)
 - [Microsoft Defender for Cloud Apps (MDA)](#microsoft-defender-for-cloud-apps-mda)
 - [Microsoft Defender XDR (Reportes Cross-Domain)](#microsoft-defender-xdr-reportes-cross-domain)
+- [Respuesta a Incidentes (IR)](#respuesta-a-incidentes-ir)
+- [Microsoft Sentinel](#microsoft-sentinel)
 - [Estructura del Repositorio](#estructura-del-repositorio)
+- [Convenciones del Repositorio](#convenciones-del-repositorio)
 
 ---
 
@@ -65,21 +68,21 @@ Guías operativas y herramientas para la gestión de seguridad de identidades.
 
 | Cadencia | Documento |
 |---|---|
-| Diaria | [Guía Operacional Microsoft EntraID Diaria](EntraID/Guía%20Operacional%20Microsoft%20EntraID%20Diaria.md) |
-| Semanal | [Guía Operacional EntraID Tareas Semanales](EntraID/Guía%20Operacional%20EntraID%20Tareas%20Semanales.md) |
-| Mensual / Ad-hoc | [Guía Operacional EntraID Tareas Mensuales AdHoc](EntraID/Guía%20Operacional%20EntraID%20Tareas%20Mensuales%20AdHoc.md) |
+| Diaria | [Guía Operativa EntraID - Diaria](EntraID/Guia%20Operativa%20EntraID%20-%20Diaria.md) |
+| Semanal | [Guía Operativa EntraID - Semanal](EntraID/Guia%20Operativa%20EntraID%20-%20Semanal.md) |
+| Mensual / Ad-hoc | [Guía Operativa EntraID - Mensual/Ad-Hoc](EntraID/Guia%20Operativa%20EntraID%20-%20Mensual%20Ad-Hoc.md) |
 
 ### Líneas Base
 
 | Documento | Descripción |
 |---|---|
-| [Línea base Conditional Access Policies](EntraID/Linea%20base%20Conditional%20Access%20Policies.md) | Plantillas de políticas de Conditional Access (MFA para todos los usuarios, exclusiones break-glass, Report-only) |
+| [Línea base Conditional Access Policies](EntraID/Politicas/Politica%20de%20Acceso%20Condicional.md) | Plantillas de políticas de Conditional Access (MFA para todos los usuarios, exclusiones break-glass, Report-only) |
 
 ### Consultas KQL
 
 | Documento | Descripción |
 |---|---|
-| [Paquete KQL Queries EntraID](EntraID/Paquete%20KQL%20Queries%20EntraID%20Advanced%20Hunting.md) | Consultas de Advanced Hunting enfocadas en detección e investigación de amenazas de identidad |
+| [Paquete KQL EntraID - Advanced Hunting](EntraID/Paquete%20KQL%20EntraID%20-%20Advanced%20Hunting.md) | Consultas de Advanced Hunting enfocadas en detección e investigación de amenazas de identidad |
 
 ### Scripts
 
@@ -88,7 +91,6 @@ Guías operativas y herramientas para la gestión de seguridad de identidades.
 | [Get-ConditionalAccessPolicies.ps1](EntraID/Scripts/Get-ConditionalAccessPolicies.ps1) | Exporta reporte detallado de todas las Conditional Access Policies (consola + CSV + HTML) |
 | [Get-InactiveUsers.ps1](EntraID/Scripts/Get-InactiveUsers.ps1) | Lista usuarios sin actividad de inicio de sesión en los últimos N días vía Microsoft Graph |
 | [Get-M365RoleReport.ps1](EntraID/Scripts/Get-M365RoleReport.ps1) | Enumera miembros de roles administrativos en Entra ID, Security & Compliance y Exchange Online |
-| [Get-MFAAuthenticationMethodsReport.ps1](EntraID/Scripts/Get-MFAAuthenticationMethodsReport.ps1) | Audita métodos de autenticación MFA de todos los usuarios — [Documentación](EntraID/Scripts/Reporte%20MFA%20con%20Microsoft%20Graph.md) |
 
 ---
 
@@ -100,37 +102,35 @@ Guías, líneas base, políticas y scripts para la seguridad del correo electró
 
 | Cadencia | Documento |
 |---|---|
-| Diaria | [Guía de Seguridad Operacional MDO Diaria](MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20tareas%20diarias.md) |
-| Semanal | [Guía de Seguridad Operacional MDO Semanal](MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Semanal.md) |
-| Mensual / Ad-hoc | [Guía de Seguridad Operacional MDO Mensual Ad-Hoc](MDO/Guia%20de%20Seguridad%20Operacional%20MDO%20Mensual%20Ad-Hoc.md) |
+| Diaria | [Guía de Seguridad Operacional MDO Diaria](MDO/Guia%20Operativa%20MDO%20-%20Diaria.md) |
+| Semanal | [Guía de Seguridad Operacional MDO Semanal](MDO/Guia%20Operativa%20MDO%20-%20Semanal.md) |
+| Mensual / Ad-hoc | [Guía de Seguridad Operacional MDO Mensual Ad-Hoc](MDO/Guia%20Operativa%20MDO%20-%20Mensual%20Ad-Hoc.md) |
 
 ### Líneas Base
 
 | Documento | Descripción |
 |---|---|
-| [Protección contra BEC](MDO/Linea%20base%20de%20proteccion%20contra%20Business%20Email%20Compromise%20(BEC).md) | Estrategia de defensa en capas contra suplantación de identidad y compromiso de correo empresarial |
-| [Postura de seguridad Exchange Online](MDO/Línea%20base%20para%20mejorar%20la%20postura%20de%20seguridad%20en%20Exchange%20online.md) | Configuración de seguridad del flujo de correo bajo Zero Trust (SPF, DKIM, DMARC, MTA-STS) |
+| [Protección contra BEC](MDO/Linea%20Base/Linea%20base%20de%20proteccion%20contra%20BEC.md) | Estrategia de defensa en capas contra suplantación de identidad y compromiso de correo empresarial |
+| [Postura de seguridad Exchange Online](MDO/Linea%20Base/Linea%20base%20de%20seguridad%20en%20Exchange%20Online.md) | Configuración de seguridad del flujo de correo bajo Zero Trust (SPF, DKIM, DMARC, MTA-STS) |
 
 ### Políticas
 
 | Documento | Descripción |
 |---|---|
-| [Política Anti-Phishing MDO](MDO/Políticas/Política%20Anti-Phishing%20MDO.md) | Guía paso a paso para crear política Anti-Phishing con protección BEC para ejecutivos |
-| [Política de Safe Attachments](MDO/Políticas/Política%20de%20Safe%20Attachments.md) | Guía para crear política de Safe Attachments (detonación en sandbox) |
-| [Política Safe Links](MDO/Políticas/Politica%20Safe%20links.md) | Guía para crear política de Safe Links enfocada en protección BEC de URLs |
+| [Política Anti-Phishing](MDO/Politicas/Politica%20Anti-Phishing.md) | Guía paso a paso para crear política Anti-Phishing con protección BEC para ejecutivos |
+| [Política de Safe Attachments](MDO/Politicas/Politica%20de%20Safe%20Attachments.md) | Guía para crear política de Safe Attachments (detonación en sandbox) |
+| [Política de Safe Links](MDO/Politicas/Politica%20de%20Safe%20Links.md) | Guía para crear política de Safe Links enfocada en protección BEC de URLs |
 
 ### Consultas KQL
 
 | Documento | Descripción |
 |---|---|
-| [Paquete MDO KQL Advanced Hunting](MDO/Paquete%20MDO%20KQL%20Advance%20Hunting.md) | Consultas de detección, triaje e investigación de amenazas de correo electrónico |
+| [Paquete MDO KQL Advanced Hunting](MDO/Paquete%20KQL%20MDO%20-%20Advanced%20Hunting.md) | Consultas de detección, triaje e investigación de amenazas de correo electrónico |
 
 ### Scripts
 
 | Script | Descripción |
 |---|---|
-| [New-CustomAlertPolicies.ps1](MDO/Scripts/New-CustomAlertPolicies.ps1) | Crea 23 Alert Policies personalizadas (Threat Management, DLP, Access Governance, SharePoint) |
-| [New-MailboxAuditBypassAlert.ps1](MDO/Scripts/New-MailboxAuditBypassAlert.ps1) | Crea alerta para detectar ejecución de `Set-MailboxAuditBypassAssociation` |
 | [Validate-MDOPolicies.ps1](MDO/Scripts/Validate-MDOPolicies.ps1) | Valida todas las políticas MDO contra recomendaciones Microsoft Standard/Strict |
 | [Validate-EXOSecurityBaseline.ps1](MDO/Scripts/Validate-EXOSecurityBaseline.ps1) | Valida la línea base de seguridad de Exchange Online (transport rules, SPF/DKIM/DMARC/MTA-STS) |
 | [Validate-ZAPConfiguration.ps1](MDO/Scripts/Validate-ZAPConfiguration.ps1) | Valida configuración de Zero-hour Auto Purge (ZAP) y genera dashboard HTML |
@@ -148,14 +148,14 @@ Guías operativas y reportes de vulnerabilidades para la seguridad de endpoints.
 
 | Cadencia | Documento |
 |---|---|
-| Diaria | [Guía de Seguridad Operacional MDE Diaria](MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20diarias.md) |
-| Semanal | [Guía de Seguridad Operacional MDE Semanal](MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20semanales.md) |
+| Diaria | [Guía de Seguridad Operacional MDE Diaria](MDE/Guia%20Operativa%20MDE%20-%20Diaria.md) |
+| Semanal | [Guía de Seguridad Operacional MDE Semanal](MDE/Guia%20Operativa%20MDE%20-%20Semanal.md) |
 
 ### Scripts
 
 | Script | Descripción |
 |---|---|
-| [New-DefenderVulnerabilityReport.ps1](MDE/New-DefenderVulnerabilityReport.ps1) | Genera reporte ejecutivo HTML de vulnerabilidades vía API de M365 Defender (CVEs, distribución de severidad, explotabilidad) |
+| [New-DefenderVulnerabilityReport.ps1](MDE/Scripts/New-DefenderVulnerabilityReport.ps1) | Genera reporte ejecutivo HTML de vulnerabilidades vía API de M365 Defender (CVEs, distribución de severidad, explotabilidad) |
 
 ---
 
@@ -167,15 +167,15 @@ Guías operativas y consultas KQL para la protección de identidades on-premises
 
 | Cadencia | Documento |
 |---|---|
-| Diaria | [Guía operativa diaria MDI](MDI/Guía%20operativa%20diaria%20de%20Microsoft%20Defender%20for%20Identity.md) |
-| Semanal | [Guía operativa semanal MDI](MDI/Guía%20operativa%20semanal%20de%20Microsoft%20Defender%20for%20Identity.md) |
-| Mensual / Ad-hoc | [Guía operativa mensual/ad-hoc MDI](MDI/Guía%20opertiva%20mensualad-hoc%20de%20Microsoft%20Defender%20for%20Identity.md) |
+| Diaria | [Guía Operativa MDI - Diaria](MDI/Guia%20Operativa%20MDI%20-%20Diaria.md) |
+| Semanal | [Guía Operativa MDI - Semanal](MDI/Guia%20Operativa%20MDI%20-%20Semanal.md) |
+| Mensual / Ad-hoc | [Guía Operativa MDI - Mensual/Ad-Hoc](MDI/Guia%20Operativa%20MDI%20-%20Mensual%20Ad-Hoc.md) |
 
 ### Consultas KQL
 
 | Documento | Descripción |
 |---|---|
-| [Paquete MDI KQL Advanced Hunting](MDI/Paquete%20MDI%20KQL%20Advance%20Hunting.md) | Consultas de detección e investigación de amenazas de identidad para MDI |
+| [Paquete MDI KQL Advanced Hunting](MDI/Paquete%20KQL%20MDI%20-%20Advanced%20Hunting.md) | Consultas de detección e investigación de amenazas de identidad para MDI |
 
 ---
 
@@ -193,9 +193,9 @@ Reportes automatizados que consolidan telemetría de MDO, MDE, MDI y MDA en repo
 
 | Script | Descripción | Instrucciones |
 |---|---|---|
-| [New-DefenderXDRDailyReport.ps1](XDR/New-DefenderXDRDailyReport.ps1) | Genera reporte diario HTML vía Advanced Hunting API | [Instrucciones](XDR/Instrucciones%20New-DefenderXDRDailyReport.ps1.md) |
-| [New-DefenderXDRWeeklyReport.ps1](XDR/New-DefenderXDRWeeklyReport.ps1) | Genera reporte semanal ejecutivo HTML con KPIs y tendencias | [Instrucciones](XDR/Instrucciones%20New-DefenderXDRWeeklyReport.ps1.md) |
-| [New-DefenderVulnerabilityReport.ps1](MDE/New-DefenderVulnerabilityReport.ps1) | Genera reporte de vulnerabilidades (TVM) en HTML | [Instrucciones](XDR/Instrucciones%20New-DefenderVulnerabilityReport.ps1.md) |
+| [New-DefenderXDRDailyReport.ps1](XDR/New-DefenderXDRDailyReport.ps1) | Genera reporte diario HTML vía Advanced Hunting API |
+| [New-DefenderXDRWeeklyReport.ps1](XDR/New-DefenderXDRWeeklyReport.ps1) | Genera reporte semanal ejecutivo HTML con KPIs y tendencias |
+| [New-DefenderVulnerabilityReport.ps1](MDE/Scripts/New-DefenderVulnerabilityReport.ps1) | Genera reporte de vulnerabilidades (TVM) en HTML | [Instrucciones](MDE/Scripts/Instrucciones%20-%20New-DefenderVulnerabilityReport.md) |
 | [Setup-DefenderXDRReportServer.ps1](XDR/Setup-DefenderXDRReportServer.ps1) | Setup inicial del servidor: estructura de carpetas, credenciales DPAPI/cert, Task Scheduler para automatización | — |
 
 ### Características de los Reportes
@@ -207,6 +207,34 @@ Reportes automatizados que consolidan telemetría de MDO, MDE, MDI y MDA en repo
 
 ---
 
+## Respuesta a Incidentes (IR)
+
+Marco de respuesta a incidentes basado en NIST SP 800-61, con los roles del CSIRT, la matriz RACI y los playbooks por tipo de compromiso.
+
+| Recurso | Descripción |
+|---|---|
+| [Plan de Respuesta a Incidentes CSIRT](IR/Plan%20de%20Respuesta%20a%20Incidentes%20CSIRT.md) | Plan maestro: fases, roles, severidades, escalamiento y comunicación al CISO |
+| [Paquete KQL IR - Advanced Hunting](IR/Paquete%20KQL%20IR%20-%20Advanced%20Hunting.md) | Consultas de apoyo durante la contención, erradicación y recuperación |
+| [Playbook IR - Compromiso de Identidad](IR/Playbooks/Playbook%20IR%20-%20Compromiso%20de%20Identidad%20%28MDI%20%2B%20Entra%20ID%29.md) | Respuesta a cuentas comprometidas (MDI + Entra ID) |
+| [Playbook IR - Phishing y BEC](IR/Playbooks/Playbook%20IR%20-%20Phishing%20y%20BEC%20%28MDO%29.md) | Respuesta a campañas de phishing y fraude de correo (MDO) |
+| [Playbook IR - Ransomware y Endpoint](IR/Playbooks/Playbook%20IR%20-%20Ransomware%20y%20Endpoint%20%28MDE%29.md) | Respuesta a ransomware y compromiso de estaciones (MDE) |
+| [Playbook IR - OAuth y Shadow IT](IR/Playbooks/Playbook%20IR%20-%20OAuth%20y%20Shadow%20IT%20%28MDA%29.md) | Respuesta a aplicaciones OAuth maliciosas y TI en la sombra (MDA) |
+
+---
+
+## Microsoft Sentinel
+
+Pilar independiente con su propio punto de entrada. Reúne cuatro bloques que no comparten prerrequisitos entre sí.
+
+| Recurso | Descripción |
+|---|---|
+| [Sentinel/README.md](Sentinel/README.md) | **Punto de entrada.** Enrutamiento por objetivo y descripción de los cuatro bloques |
+| [Guía operativa de Sentinel](Sentinel/Guia%20Operativa/guia_operativa_microsoft_sentinel.md) | Operación del SIEM/SOAR: cadencias, salud de conectores, costos y ciclo de vida de contenido |
+| [AI SOC](Sentinel/AI%20SOC/README.md) | Guía de 16 secciones sobre SOC asistido por IA, agentes y niveles de autonomía |
+| [Documentación DHCP-DNS](Sentinel/Documentacion%20DHCP-DNS/README.md) | Paquete de detección para telemetría DHCP y DNS (funciones, hunting, reglas, notebooks) |
+
+---
+
 ## Estructura del Repositorio
 
 ```
@@ -215,39 +243,68 @@ gol2026/
 ├── Requisitos.md                      ← Requisitos, licenciamiento y configuración
 │
 ├── EntraID/                           ← Microsoft Entra ID (Identidad)
-│   ├── Guías operativas (diaria, semanal, mensual)
-│   ├── Línea base Conditional Access Policies
-│   ├── Paquete KQL Advanced Hunting
-│   ├── Políticas/
-│   └── Scripts/                       ← 4 scripts (CA policies, inactive users, roles, MFA)
+│   ├── Guia Operativa EntraID - {Diaria, Semanal, Mensual Ad-Hoc}.md
+│   ├── Paquete KQL EntraID - Advanced Hunting.md
+│   ├── Linea Base/                    ← Break glass, menor privilegio, revisión de roles
+│   ├── Politicas/                     ← Acceso Condicional
+│   └── Scripts/                       ← 3 scripts (CA policies, usuarios inactivos, roles)
 │
 ├── MDO/                               ← Microsoft Defender for Office 365
-│   ├── Guías operativas (diaria, semanal, mensual)
-│   ├── Líneas base (BEC, Exchange Online)
-│   ├── Paquete KQL Advanced Hunting
-│   ├── Políticas/                     ← Anti-Phishing, Safe Attachments, Safe Links
-│   ├── Línea Base/
-│   └── Scripts/                       ← 8 scripts (alertas, validaciones, transport rules)
+│   ├── Guia Operativa MDO - {Diaria, Semanal, Mensual Ad-Hoc}.md
+│   ├── Paquete KQL MDO - Advanced Hunting.md
+│   ├── Linea Base/                    ← BEC, Exchange Online, Priority Accounts, alertas
+│   ├── Politicas/                     ← Anti-Phishing, Safe Attachments, Safe Links
+│   └── Scripts/                       ← 6 scripts (validaciones, transport rules)
 │
 ├── MDE/                               ← Microsoft Defender for Endpoint
-│   ├── Guías operativas (diaria, semanal)
-│   └── New-DefenderVulnerabilityReport.ps1
+│   ├── Guia Operativa MDE - {Diaria, Semanal, Mensual Ad-Hoc}.md
+│   ├── Paquete KQL MDE - Advanced Hunting.md
+│   └── Scripts/                       ← Reporte de vulnerabilidades + instrucciones
 │
 ├── MDI/                               ← Microsoft Defender for Identity
-│   ├── Guías operativas (diaria, semanal, mensual)
-│   └── Paquete KQL Advanced Hunting
+│   ├── Guia Operativa MDI - {Diaria, Semanal, Mensual Ad-Hoc}.md
+│   └── Paquete KQL MDI - Advanced Hunting.md
 │
 ├── MDA/                               ← Microsoft Defender for Cloud Apps
-│   ├── Guías operativas (diaria, semanal, mensual)
-│   └── Paquete KQL Advanced Hunting
+│   ├── Guia Operativa MDA - {Diaria, Semanal, Mensual Ad-Hoc}.md
+│   └── Paquete KQL MDA - Advanced Hunting.md
 │
-├── XDR/                               ← Reportes Cross-Domain
-│   ├── Instrucciones de ejecución (.md)
-│   ├── Scripts de reportería (daily, weekly, setup)
-│   └── Reportes generados (.html)
+├── XDR/                               ← Reportes cross-domain
+│   ├── Scripts de reportería (diario, semanal, setup del servidor)
+│   └── Reportes generados (.html) e imágenes
 │
-└── wiki/                              ← Wiki (en desarrollo)
+├── IR/                                ← Respuesta a Incidentes (CSIRT)
+│   ├── Plan de Respuesta a Incidentes CSIRT.md
+│   ├── Paquete KQL IR - Advanced Hunting.md
+│   └── Playbooks/                     ← 4 playbooks (identidad, OAuth, phishing, ransomware)
+│
+└── Sentinel/                          ← Microsoft Sentinel (ver Sentinel/README.md)
+    ├── Guia Operativa/                ← Operación del SIEM/SOAR
+    ├── AI SOC/                        ← Guía de SOC asistido por IA (16 secciones)
+    ├── Documentacion DHCP-DNS/        ← Paquete de detección DHCP/DNS
+    ├── Funciones/  Hunting/  Reglas de Analitica/  Notebooks/  Workbook/
+    └── README.md
 ```
+
+---
+
+## Convenciones del Repositorio
+
+Estas reglas mantienen el repositorio navegable y evitan enlaces rotos entre plataformas.
+
+| Elemento | Convención | Ejemplo |
+|---|---|---|
+| Nombres de archivo y carpeta | **ASCII sin acentos ni eñes**, para que las URL de GitHub no necesiten codificarse (`Gu%C3%ADa`) | `Guia Operativa MDE - Semanal.md` |
+| Contenido de los documentos | **Ortografía española completa**, con acentos | `# Guía de Seguridad Operacional Semanal: …` |
+| Guías operativas | `Guia Operativa <PILAR> - <Cadencia>.md` con cadencia `Diaria`, `Semanal` o `Mensual Ad-Hoc` | `Guia Operativa MDO - Mensual Ad-Hoc.md` |
+| Paquetes de consultas | `Paquete KQL <PILAR> - Advanced Hunting.md` (siempre `Advanced`, no `Advance`) | `Paquete KQL MDI - Advanced Hunting.md` |
+| Título H1 | Debe describir la misma cadencia y producto que el nombre del archivo | `# Guía de Seguridad Operacional Diaria: Microsoft Defender for Identity 🛡️` |
+| Subcarpetas por pilar | `Linea Base/`, `Politicas/`, `Scripts/`, `Playbooks/` | `MDO/Politicas/Politica de Safe Links.md` |
+| Scripts de PowerShell | `Verbo-Sustantivo.ps1` usando un verbo aprobado (`Get-Verb`) | `Get-InactiveUsers.ps1` |
+| Enlaces relativos | Codificar los espacios como `%20`; nunca enlazar rutas que no existan en el repositorio | `[…](MDO/Politicas/Politica%20Anti-Phishing.md)` |
+| Mayúsculas en rutas | Respetar el uso exacto de mayúsculas: GitHub distingue mayúsculas y minúsculas | `Sentinel/Notebooks/`, no `Sentinel/notebooks/` |
+
+> **Pendiente conocido:** 7 scripts de `MDO/`, `EntraID/` y `XDR/` todavía no siguen `Verbo-Sustantivo` con verbo aprobado (`Validate-*` debería ser `Test-*`, `Setup-*` debería ser `Install-*`, `Domain-Health-Check.ps1` debería ser `Test-DomainHealth.ps1` y `Attachmentscannotbeinspected.ps1` necesita un nombre nuevo). Renombrarlos rompe los comandos documentados, por lo que se trata como un cambio aparte.
 
 ---
 
@@ -367,22 +424,6 @@ $SecureSecret = Get-Content "C:\Config\Secret.txt" | ConvertTo-SecureString
 - ✅ **Validación de datos** antes de generar reporte
 - ✅ **Timeout mejorado** en Device Code flow
 - ✅ **Variables configurables** (retry limits, thresholds)
-
-Ver [MEJORAS_IMPLEMENTADAS.md](MEJORAS_IMPLEMENTADAS.md) para documentación detallada.
-
-## 📁 Estructura del Proyecto
-
-```
-gol2026/
-├── New-DefenderXDRWeeklyReport.ps1      # Script principal (v2.0)
-├── New-DefenderXDRDailyReport.ps1       # Reporte diario
-├── Setup-DefenderReportServer.ps1       # Setup automatizado
-├── Run-DefenderXDRWeeklyReport.ps1      # Wrapper (generado por setup)
-├── MEJORAS_IMPLEMENTADAS.md             # Documentación de mejoras
-├── Paquete KQL Advance Hunting.md       # Queries KQL de referencia
-├── Guia de Seguridad Operacional MDO... # Guías operacionales
-└── README.md                            # Este archivo
-```
 
 ## 🔧 Ejemplos de Uso
 

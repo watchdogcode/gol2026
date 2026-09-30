@@ -1,4 +1,4 @@
-# Guía de Seguridad Operacional Semanal: Microsoft Defender for Cloud Apps 🛡️
+# Guía de Seguridad Operacional Mensual/Ad-Hoc: Microsoft Defender for Cloud Apps 🛡️
 
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 
