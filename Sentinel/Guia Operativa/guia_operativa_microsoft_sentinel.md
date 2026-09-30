@@ -322,7 +322,7 @@ Este proceso respalda artefactos de configuracion. No sustituye la retencion de 
 | --- | --- | --- | --- |
 | Reglas analiticas personalizadas | YAML, JSON, ARM o Bicep | `Sentinel/Reglas de Analitica/` | Conservar identificador, estado, consulta, frecuencia, entidades, tacticas, tecnicas, version y dependencias. |
 | Funciones de Log Analytics | KQL y definicion de parametros | `Sentinel/Funciones/` | Restaurarlas antes de las reglas que las consumen. |
-| Consultas de hunting y busqueda | KQL | `Sentinel/Hunting/` y `Sentinel/Consultas KQL/` | Registrar tablas, funciones y parametros requeridos. |
+| Consultas de hunting y busqueda | KQL | `Sentinel/Hunting/` | Registrar tablas, funciones y parametros requeridos. |
 | Workbooks | JSON, ARM o Bicep | `Sentinel/Workbook/` | Sustituir referencias de workspace o suscripcion al restaurar en otro entorno. |
 | Notebooks | `.ipynb`, configuracion de ejemplo y dependencias | `Sentinel/notebooks/` | No guardar salidas, tokens, identificadores reales ni datos sensibles. |
 | Reglas de automatizacion | JSON, ARM o Bicep | Crear directorio versionado cuando se incorporen | Conservar orden, condiciones, acciones y referencias a playbooks. |
