@@ -23,11 +23,11 @@ Prerequisitos: Security Copilot habilitado por el administrador del tenant; una 
 
 ## Advertencias de diseño (sección 5.4)
 
-- Un flujo o agente que envía prompts a Security Copilot puede incrementar el consumo de SCUs de forma significativa y debe monitorearse; cada agente declara un consumo cualitativo y tiene presupuesto en la [cadencia maestra](../../operaciones/cadencias.md).
+- Un flujo o agente que envía prompts a Security Copilot puede incrementar el consumo de SCUs de forma significativa y debe monitorearse; cada agente declara un consumo cualitativo y tiene presupuesto en la [cadencia maestra](../11-reportes-kpis-cadencias.md#113-guía-operativa-cadencia-de-ejecución-por-agente).
 - El conector sólo admite permisos delegados: si la cuenta de la conexión pierde acceso, todos los agentes que dependen de ella dejan de funcionar. Cree la conexión con una cuenta de servicio nominal (véase [Roles e identidades](02-roles-e-identidades.md)).
 
 ## Manejo de errores del par Submit/Fetch
 
-La tabla 19 de la guía (sección 5.7) fija la respuesta a cada condición: tiempo de espera agotado, capacidad SCU agotada, plugin sin datos, permisos insuficientes, herramienta MCP que falla y contenido no confiable. Está reproducida en las fichas [CS-01](../../agents/copilot-studio/CS-01-asistente-triage-incidentes-teams.md), [CS-04](../../agents/copilot-studio/CS-04-reporte-diario-exposicion.md) y [CS-06](../../agents/copilot-studio/CS-06-traspaso-de-turno.md).
+La tabla 19 de la guía (sección 5.7) fija la respuesta a cada condición: tiempo de espera agotado, capacidad SCU agotada, plugin sin datos, permisos insuficientes, herramienta MCP que falla y contenido no confiable. Está reproducida en las fichas [CS-01](../05-agentes.md#cs-1-asistente-de-triage-de-incidentes-en-teams), [CS-04](../05-agentes.md#cs-4-reporte-diario-de-exposición-y-vulnerabilidades-críticas) y [CS-06](../05-agentes.md#cs-6-agente-de-traspaso-de-turno).
 
 Fuente: Microsoft Learn, *Microsoft Security Copilot connector for Microsoft Copilot Studio* — https://learn.microsoft.com/en-us/copilot/security/connector-copilot-studio

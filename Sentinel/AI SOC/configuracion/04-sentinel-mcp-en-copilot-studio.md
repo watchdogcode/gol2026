@@ -58,7 +58,7 @@ Cuando el SOC expone sus propias herramientas mediante una colección personaliz
 
 ## Agentes que usan estas herramientas
 
-[CS-02](../../agents/copilot-studio/CS-02-verificador-compromiso-usuario.md), [CS-03](../../agents/copilot-studio/CS-03-analizador-url-dominio.md), [CS-07](../../agents/copilot-studio/CS-07-generador-validador-kql.md), [CS-09](../../agents/copilot-studio/CS-09-cazador-cuentas-dormidas-spray.md) y [CS-10](../../agents/copilot-studio/CS-10-revisor-higiene-ingesta-costo.md).
+[CS-02](../05-agentes.md#cs-2-verificador-de-compromiso-de-usuario), [CS-03](../05-agentes.md#cs-3-analizador-de-url-o-dominio-reportado), [CS-07](../05-agentes.md#cs-7-generador-y-validador-de-kql-y-migración-de-reglas), [CS-09](../05-agentes.md#cs-9-cazador-de-cuentas-dormidas-y-password-spray-de-baja-frecuencia) y [CS-10](../05-agentes.md#cs-10-revisor-de-higiene-de-ingesta-y-costo).
 
 ## Fuentes (Anexo B)
 

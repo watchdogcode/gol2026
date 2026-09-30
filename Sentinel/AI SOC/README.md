@@ -1,6 +1,6 @@
 # Guía AI-SOC Playbook — índice de la documentación
 
-Texto íntegro de la guía **AI-SOC Playbook** (versión 2.0, 28 de septiembre de 2026), de Arturo Mandujano (Cloud Solution Architect), dividido en un archivo por sección principal. Las consultas KQL aparecen en bloques de código y también existen como archivos individuales en [`/kql`](../kql/README.md).
+Texto íntegro de la guía **AI-SOC Playbook** (versión 2.0, 28 de septiembre de 2026), de Arturo Mandujano (Cloud Solution Architect), dividido en un archivo por sección principal. Las consultas KQL aparecen en bloques de código y también existen como archivos individuales en [6. Biblioteca de consultas KQL](06-kql.md).
 
 | # | Sección | Archivo |
 |----|----|----|
@@ -28,4 +28,4 @@ Texto íntegro de la guía **AI-SOC Playbook** (versión 2.0, 28 de septiembre d
 - [Arquitectura: tiering de datos (tablas 4 y 5)](arquitectura/tiering-de-datos.md)
 - [Configuración paso a paso](configuracion/01-prerequisitos-y-licenciamiento.md) (prerequisitos, roles, conector, MCP, Logic Apps, checklist)
 
-Los valores entre corchetes (por ejemplo `[organización]`, `[hora local del SOC]`, `[12]` meses) son parámetros que cada organización completa una sola vez; véase [Parámetros por organización](../adopcion/parametros-por-organizacion.md).
+Los valores entre corchetes (por ejemplo `[organización]`, `[hora local del SOC]`, `[12]` meses) son parámetros que cada organización completa una sola vez; véase [Anexo D. Parámetros a ajustar por organización](16-anexos.md#anexo-d-parámetros-a-ajustar-por-organización).

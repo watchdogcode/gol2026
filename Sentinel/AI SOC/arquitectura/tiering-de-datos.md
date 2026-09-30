@@ -40,7 +40,7 @@ El fundamento técnico del tiering es que el data lake almacena la telemetría e
 
 ## Relación con otras piezas del repositorio
 
-- Las consultas de higiene de ingesta que sustentan la decisión: [6.3.1](../../kql/6.3.1-costo-ingesta-por-tabla.kql), [6.3.2](../../kql/6.3.2-fuentes-en-silencio.kql) y [6.3.3](../../kql/6.3.3-cobertura-conectores-por-proveedor.kql).
-- El agente que detecta la deriva de costo semanal: [CS-10](../../agents/copilot-studio/CS-10-revisor-higiene-ingesta-costo.md).
-- La revisión trimestral de tiering y retención: [Cadencias](../../operaciones/cadencias.md) y [Reportes](../../operaciones/reportes.md).
+- Las consultas de higiene de ingesta que sustentan la decisión: [6.3.1](../06-kql.md#631-costo-e-higiene-de-ingesta-por-tabla), [6.3.2](../06-kql.md#632-fuentes-en-silencio-latido-de-los-agentes-de-datos) y [6.3.3](../06-kql.md#633-cobertura-de-conectores-por-proveedor-de-alertas).
+- El agente que detecta la deriva de costo semanal: [CS-10](../05-agentes.md#cs-10-revisor-de-higiene-de-ingesta-y-costo).
+- La revisión trimestral de tiering y retención: [Cadencias](../11-reportes-kpis-cadencias.md#113-guía-operativa-cadencia-de-ejecución-por-agente) y [Reportes](../11-reportes-kpis-cadencias.md#115-catálogo-de-reportes).
 - Onboarding al data lake: [Prerequisitos y licenciamiento](../configuracion/01-prerequisitos-y-licenciamiento.md).

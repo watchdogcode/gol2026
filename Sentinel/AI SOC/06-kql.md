@@ -39,7 +39,10 @@ SecurityIncident
     MTTR_p50 = percentile(MTTR_min, 50),
     MTTR_p90 = percentile(MTTR_min, 90)
     by Severity
-| order by Severity asc
+| extend OrdenSeveridad = case(Severity == "High", 1, Severity == "Medium", 2,
+    Severity == "Low", 3, 4)
+| order by OrdenSeveridad asc
+| project-away OrdenSeveridad
 ```
 
 *Nota de validación: arg_max por IncidentNumber conserva la última versión de cada incidente, ya que SecurityIncident es una tabla de instantáneas sucesivas. Confirme que FirstModifiedTime se poble en el entorno; si el SOC trabaja incidentes exclusivamente desde el portal de Defender, sustituya el cálculo de MTTA por la primera transición de estado registrada.*
@@ -135,6 +138,8 @@ AlertEvidence
 ) on AlertId
 | summarize Alertas = count(),
     EntidadesProm = round(avg(Entidades), 1),
+    DispositivosProm = round(avg(Dispositivos), 1),
+    CuentasProm = round(avg(Cuentas), 1),
     Titulos = make_set(Title, 25)
     by bin(Timestamp, 1d), Severity, Category
 | order by Timestamp desc, Alertas desc
@@ -572,7 +577,8 @@ EmailEvents
 | summarize Mensajes = count(),
     Entregados = countif(DeliveryAction == "Delivered"),
     Bloqueados = countif(DeliveryAction == "Blocked"),
-    Remediados = countif(array_length(AccionesPost) > 0)
+    Remediados = countif(DeliveryAction == "Delivered"
+        and array_length(AccionesPost) > 0)
     by bin(Timestamp, 1d), ThreatTypes
 | extend TasaRemediacion_pct =
     iff(Entregados > 0, round(100.0 * Remediados / Entregados, 1), 0.0)
@@ -785,7 +791,7 @@ Matriz
 | order by Prioridad asc, Estado desc
 ```
 
-*Nota de validación: la columna Techniques de SecurityAlert la llenan los proveedores que mapean sus detecciones a ATT&CK (Defender XDR, Sentinel, Defender for Cloud); las reglas analíticas propias deben llevar el mapeo configurado para aparecer. Una técnica sin detección observada no implica ausencia de regla, sino ausencia de disparo: confirme con el inventario de reglas de Sentinel y de Defender antes de abrir un backlog. Para técnicas con subtécnicas ajuste la expresión regular a T\d{4}(\\d{3})?.*
+*Nota de validación: la columna Techniques de SecurityAlert la llenan los proveedores que mapean sus detecciones a ATT&CK (Defender XDR, Sentinel, Defender for Cloud); las reglas analíticas propias deben llevar el mapeo configurado para aparecer. Una técnica sin detección observada no implica ausencia de regla, sino ausencia de disparo: confirme con el inventario de reglas de Sentinel y de Defender antes de abrir un backlog. Para técnicas con subtécnicas ajuste la expresión regular a `T\d{4}(\.\d{3})?`, como en la consulta 6.4.7.*
 
 
 ---
