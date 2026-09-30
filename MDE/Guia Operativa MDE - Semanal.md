@@ -10,12 +10,12 @@ Esta guía describe actividades **operativas semanales** para Microsoft Defender
 
 ---
 ## Índice
-- [Análisis de Tendencias de Amenazas](https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20semanales.md#an%C3%A1lisis-de-tendencias-de-amenazas)
-- [Advanced Hunting Semanal](https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20semanales.md#advanced-hunting-semanal)
-- [Exposición y Vulnerabilidades](https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20semanales.md#exposici%C3%B3n-y-vulnerabilidades)
-- [Revisión de Configuraciones de Seguridad](https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20semanales.md#revisi%C3%B3n-de-configuraciones-de-seguridad)
-- [Dispositivos Reincidentes](https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20semanales.md#dispositivos-reincidentes)
-- [Reporte Operativo / Ejecutivo](https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20de%20Seguridad%20Operacional%20MDE%20tareas%20semanales.md#reporte-operativo--ejecutivo)
+- [Análisis de Tendencias de Amenazas](https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20Operativa%20MDE%20-%20Semanal.md#an%C3%A1lisis-de-tendencias-de-amenazas)
+- [Advanced Hunting Semanal](https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20Operativa%20MDE%20-%20Semanal.md#advanced-hunting-semanal)
+- [Exposición y Vulnerabilidades](https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20Operativa%20MDE%20-%20Semanal.md#exposici%C3%B3n-y-vulnerabilidades)
+- [Revisión de Configuraciones de Seguridad](https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20Operativa%20MDE%20-%20Semanal.md#revisi%C3%B3n-de-configuraciones-de-seguridad)
+- [Dispositivos Reincidentes](https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20Operativa%20MDE%20-%20Semanal.md#dispositivos-reincidentes)
+- [Reporte Operativo / Ejecutivo](https://github.com/watchdogcode/gol2026/blob/main/MDE/Guia%20Operativa%20MDE%20-%20Semanal.md#reporte-operativo--ejecutivo)
 
 ---
 # Análisis de Tendencias de Amenazas

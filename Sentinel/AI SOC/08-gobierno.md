@@ -61,17 +61,18 @@ let Patron = Agenticas
 Agenticas
 | where TimeGenerated >= ago(Reciente)
 | join kind=leftouter Patron on UserPrincipalName
-| extend IPNueva = not(set_has_element(IPsConocidas, IPAddress)),
-    AppNueva = not(set_has_element(AppsConocidas, AppDisplayName)),
-    HoraNueva = not(set_has_element(HorasConocidas, hourofday(TimeGenerated))),
+| extend SinLineaBase = isnull(IPsConocidas) or array_length(IPsConocidas) == 0
+| extend IPNueva = not(SinLineaBase) and not(set_has_element(IPsConocidas, IPAddress)),
+    AppNueva = not(SinLineaBase) and not(set_has_element(AppsConocidas, AppDisplayName)),
+    HoraNueva = not(SinLineaBase) and not(set_has_element(HorasConocidas, hourofday(TimeGenerated))),
     Fallido = ResultType != "0"
-| where IPNueva or AppNueva or HoraNueva or Fallido
+| where IPNueva or AppNueva or HoraNueva or Fallido or SinLineaBase
 | project TimeGenerated, UserPrincipalName, IPAddress, AppDisplayName, ResultType,
-    IPNueva, AppNueva, HoraNueva, Fallido
+    IPNueva, AppNueva, HoraNueva, Fallido, SinLineaBase
 | order by TimeGenerated desc
 ```
 
-*Nota de validación: SigninLogs registra inicios interactivos. Para cubrir las identidades no interactivas y los principales de servicio de las herramientas MCP personalizadas, ejecute la misma lógica sobre AADNonInteractiveUserSignInLogs y AADServicePrincipalSignInLogs (en esta última el campo de identidad es ServicePrincipalName). Convierta la consulta en regla analítica programada cada hora con severidad media y agrúpela por UserPrincipalName.*
+*Nota de validación: la bandera SinLineaBase aísla las cuentas agénticas que no tienen historia previa (agentes recién desplegados), que de otro modo se marcarían como anómalas en los tres ejes por el leftouter join; revíselas como alta de identidad, no como desviación de comportamiento. SigninLogs registra inicios interactivos. Para cubrir las identidades no interactivas y los principales de servicio de las herramientas MCP personalizadas, ejecute la misma lógica sobre AADNonInteractiveUserSignInLogs y AADServicePrincipalSignInLogs (en esta última el campo de identidad es ServicePrincipalName). Convierta la consulta en regla analítica programada cada hora con severidad media y agrúpela por UserPrincipalName.*
 
 ## 8.5 Prompt injection y contenido no confiable
 

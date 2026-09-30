@@ -1,4 +1,4 @@
-# 🛡️ Guía de Seguridad Operacional Diaria: Microsoft Defender for Identity
+# Guía de Seguridad Operacional Mensual/Ad-Hoc: Microsoft Defender for Identity 🛡️
 
 ## *La tecnología habilita la seguridad, pero es la disciplina la que garantiza su efectividad.*
 
@@ -8,9 +8,9 @@ La guía mensual y ad‑hoc de MDI permite evaluar la postura de seguridad de id
 
 ---
 ## Índice
-- [Revisar Microsoft Service Health antes de troubleshooting (Mensual)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20opertiva%20mensualad-hoc%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-microsoft-service-health-antes-de-troubleshooting-mensual)
-- [Revisar proceso de alta de servidores para incluir sensores MDI (Ad-Hoc)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20opertiva%20mensualad-hoc%20de%20Microsoft%20Defender%20for%20Identity.md#revisar-proceso-de-alta-de-servidores-para-incluir-sensores-mdi-ad-hoc)
-- [Validar configuración del dominio con Test‑MDIConfiguration (PowerShell) (Ad-Hoc)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Gu%C3%ADa%20opertiva%20mensualad-hoc%20de%20Microsoft%20Defender%20for%20Identity.md#validar-configuraci%C3%B3n-del-dominio-con-testmdiconfiguration-powershell-ad-hoc)
+- [Revisar Microsoft Service Health antes de troubleshooting (Mensual)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Guia%20Operativa%20MDI%20-%20Mensual%20Ad-Hoc.md#revisar-microsoft-service-health-antes-de-troubleshooting-mensual)
+- [Revisar proceso de alta de servidores para incluir sensores MDI (Ad-Hoc)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Guia%20Operativa%20MDI%20-%20Mensual%20Ad-Hoc.md#revisar-proceso-de-alta-de-servidores-para-incluir-sensores-mdi-ad-hoc)
+- [Validar configuración del dominio con Test‑MDIConfiguration (PowerShell) (Ad-Hoc)](https://github.com/watchdogcode/gol2026/blob/main/MDI/Guia%20Operativa%20MDI%20-%20Mensual%20Ad-Hoc.md#validar-configuraci%C3%B3n-del-dominio-con-testmdiconfiguration-powershell-ad-hoc)
 
 ---
 ## Revisar Microsoft Service Health antes de troubleshooting (Mensual)

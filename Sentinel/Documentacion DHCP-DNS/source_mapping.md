@@ -4,7 +4,7 @@
 
 Este documento explica como adaptar el paquete a cualquier area de trabajo de Microsoft Sentinel o Log Analytics.
 
-Las consultas de busqueda consumen funciones normalizadas. Por eso, el ajuste principal se hace en las funciones de `kql/functions/`.
+Las consultas de busqueda consumen funciones normalizadas. Por eso, el ajuste principal se hace en las funciones de [`Funciones/`](../Funciones/).
 
 ## DHCP Windows Server
 

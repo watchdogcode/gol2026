@@ -153,7 +153,7 @@ Esta guía se escribió para ser reutilizable por cualquier organización. Los v
 | Inventario de activos críticos | Etiquetado de activos críticos en Exposure Management que alimenta las rutas de ataque | Etiqueta Critical en controladores de dominio y servidores de pago | Consulta 6.4.6; reporte diario de exposición (CS-4); dependencia de la sección 14.3 |
 | Umbrales de las consultas de detección | Valores parametrizados al inicio de cada consulta (usuarios distintos, destinos, ventanas) | Password spray: 20 usuarios en 24 h | Encabezado de cada consulta de la sección 6 |
 
-Tabla 40. Parámetros a ajustar por organización, con valor de ejemplo y referencia de uso.
+*Tabla 40. Parámetros a ajustar por organización, con valor de ejemplo y referencia de uso.*
 
 ## Anexo E. Estructura sugerida del repositorio
 
@@ -214,10 +214,11 @@ La tabla siguiente mapea cada sección del documento al artefacto del repositori
 | Anexo B. Referencias | docs/references.md | Markdown con URLs |
 | Anexo C. Prompts | agents/prompts/ | Un archivo por familia de prompts |
 | Anexo D. Parámetros por organización | config/parameters.example.yaml | YAML de ejemplo que cada equipo copia y completa |
+| Anexo E. Estructura sugerida del repositorio | CONTRIBUTING.md (convención de carpetas) y esta misma tabla | Markdown |
 | Anexo F. Plantilla de ficha de agente | .github/ISSUE_TEMPLATE/new-agent.md y agents/TEMPLATE.md | Plantilla de issue y de archivo |
 | Anexo G. Marcas e historial de versiones | CHANGELOG.md y sección de marcas del README.md | Markdown |
 
-Tabla 41. Mapa de secciones de la guía a artefactos del repositorio.
+*Tabla 41. Mapa de secciones de la guía a artefactos del repositorio.*
 
 ## Anexo F. Plantilla de ficha de agente
 
@@ -264,7 +265,7 @@ Microsoft, Microsoft Sentinel, Microsoft Defender, Microsoft Security Copilot, M
 | 1.1 | 26 de septiembre de 2026 | Diez agentes personalizados en Microsoft Copilot Studio (secciones 5.4 a 5.8), guía operativa de cadencias (secciones 11.3 a 11.7), profundidad adicional en tiering, identidades, permisos y auditoría, y cinco consultas KQL nuevas (6.4.9 a 6.4.13) |
 | 2.0 | 28 de septiembre de 2026 | Conversión a guía abierta de la comunidad: nuevo título y portada con nota de licencia y de uso, secciones Cómo usar esta guía y Cómo contribuir, eliminación del enfoque comercial y de los marcadores específicos de cliente, introducción y alcance, ruta de adopción con rangos típicos, laboratorio autoguiado de cinco días, encabezado de comentario estándar en las 23 consultas KQL y anexos D a G para el repositorio de GitHub |
 
-Tabla 42. Historial de versiones del documento.
+*Tabla 42. Historial de versiones del documento.*
 
 
 ---

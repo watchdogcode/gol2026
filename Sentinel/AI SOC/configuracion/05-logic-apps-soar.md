@@ -2,7 +2,7 @@
 
 Configuración: [1. Prerequisitos y licenciamiento](01-prerequisitos-y-licenciamiento.md) · [2. Roles e identidades](02-roles-e-identidades.md) · [3. Conector Security Copilot](03-conector-security-copilot-copilot-studio.md) · [4. Sentinel MCP](04-sentinel-mcp-en-copilot-studio.md) · [5. Logic Apps SOAR](05-logic-apps-soar.md) · [6. Checklist](06-checklist-readiness.md)
 
-Sección 5.5.4 de la guía. Cuando el disparador es un incidente de Sentinel, el patrón recomendado sigue siendo un playbook de Logic Apps invocado por una regla de automatización.
+Sección 5.5.4 de la guía.
 
 Cuando el disparador es un incidente de Sentinel, el patrón recomendado sigue siendo un playbook de Logic Apps invocado por una regla de automatización: las reglas de automatización continúan siendo el mecanismo que vincula reglas analíticas con playbooks. El conector de Security Copilot para Logic Apps (planes Standard y Consumption) ofrece la acción Submit a Security Copilot prompt con los parámetros Prompt Content (obligatorio), Session ID (opcional, para dar continuidad a una conversación entre acciones), Plugins (opcional, para acotar qué plugins puede usar el planificador y evitar colisiones), Direct Skill Name (opcional, para invocar una habilidad concreta sin pasar por el planificador) y Direct Skill Inputs en JSON; y la acción Submit a Security Copilot promptbook, con Promptbook Name, entradas dinámicas como `<SENTINEL_INCIDENT_ID>`, `<DEFENDER_INCIDENT_ID>` o `<THREATACTORNAME>`, y Session ID opcional. El playbook itera las entidades del incidente, envía los prompts y escribe el resultado como comentario del incidente, que se sincroniza con Defender XDR. Los aceleradores públicos del repositorio Azure/Security-Copilot (SecCopilot-UserReportedPhishing, SecurityCopilot-Sentinel-Incident-Investigation, Copilot-Sentinel_investigation-DynamicSev, Copilot-isUserTravel, InvestigateFailedSignins, entre otros) son el punto de partida de los diseños de la sección 5.7.
 
@@ -48,6 +48,6 @@ Identidad administrada de Logic Apps con **Microsoft Sentinel Responder** en el 
 
 ## Cuándo usar Logic Apps y cuándo Copilot Studio
 
-Regla práctica de la sección 5.8: todo lo que se dispara desde un incidente de Sentinel y termina en un comentario va a Logic Apps; todo lo que involucra a una persona conversando, aprobando o recibiendo un reporte en Teams va a Copilot Studio. Comparativa completa en [agents/README.md](../../agents/README.md).
+Regla práctica de la sección 5.8: todo lo que se dispara desde un incidente de Sentinel y termina en un comentario va a Logic Apps; todo lo que involucra a una persona conversando, aprobando o recibiendo un reporte en Teams va a Copilot Studio. Comparativa completa en [5.8 Cuándo usar cada uno](../05-agentes.md#58-copilot-studio-agent-builder-de-security-copilot-y-logic-apps-cuándo-usar-cada-uno).
 
 Fuente: Microsoft Learn, *Microsoft Security Copilot connector for Azure Logic Apps* — https://learn.microsoft.com/en-us/copilot/security/connector-logicapp

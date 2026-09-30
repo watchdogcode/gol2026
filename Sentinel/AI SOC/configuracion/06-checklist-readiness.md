@@ -2,7 +2,7 @@
 
 Configuración: [1. Prerequisitos y licenciamiento](01-prerequisitos-y-licenciamiento.md) · [2. Roles e identidades](02-roles-e-identidades.md) · [3. Conector Security Copilot](03-conector-security-copilot-copilot-studio.md) · [4. Sentinel MCP](04-sentinel-mcp-en-copilot-studio.md) · [5. Logic Apps SOAR](05-logic-apps-soar.md) · [6. Checklist](06-checklist-readiness.md)
 
-Sección 7.7 de la guía (tabla 24). Marque cada casilla cuando el elemento esté confirmado; registre el responsable y el estado (Sí / No / Parcial). Ninguna fase de la [ruta de adopción](../../adopcion/ruta-de-adopcion.md) inicia si la anterior no cumplió sus criterios.
+Sección 7.7 de la guía (tabla 24). Marque cada casilla cuando el elemento esté confirmado; registre el responsable y el estado (Sí / No / Parcial). Ninguna fase de la [ruta de adopción](../12-ruta-de-adopcion.md) inicia si la anterior no cumplió sus criterios.
 
 - [ ] **1.** Licenciamiento Microsoft 365 E5 o E7 confirmado — Responsable: `[Responsable]` — Estado: `Sí / No / Parcial`
 - [ ] **2.** Defender for Office 365 Plan 2 desplegado — Responsable: `[Responsable]` — Estado: `Sí / No / Parcial`
@@ -27,9 +27,9 @@ Sección 7.7 de la guía (tabla 24). Marque cada casilla cuando el elemento est�
 
 ## Línea base que acompaña al checklist (punto 19)
 
-- MTTA y MTTR por severidad: [6.1.1](../../kql/6.1.1-mtta-mttr-por-severidad.kql)
-- Tasa de falsos positivos por origen: [6.1.3](../../kql/6.1.3-falsos-positivos-por-origen.kql)
-- Costo e higiene de ingesta: [6.3.1](../../kql/6.3.1-costo-ingesta-por-tabla.kql)
+- MTTA y MTTR por severidad: [6.1.1](../06-kql.md#611-mtta-y-mttr-por-severidad)
+- Tasa de falsos positivos por origen: [6.1.3](../06-kql.md#613-volumen-y-tasa-de-falsos-positivos-por-origen-de-detección)
+- Costo e higiene de ingesta: [6.3.1](../06-kql.md#631-costo-e-higiene-de-ingesta-por-tabla)
 
 ## Advertencias de secuencia (sección 12)
 
